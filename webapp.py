@@ -11,7 +11,7 @@ from flask import request, send_file
 import os,sys
 from os.path import join
 
-from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, log
+from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager, log
 
 app = Flask(__name__)
 
@@ -49,7 +49,7 @@ def get_music_folders_view():
     ret = dict()
     for d in iposonic.music_folders:
       if os.path.isdir(d):
-        ret[ 'musicFolder'] = {'id': iposonic.get_entry_id(d), 'name': d }
+        ret[ 'musicFolder'] = {'id': MediaManager.get_entry_id(d), 'name': d }
     return ResponseHelper.responsize(jsonmsg={'musicFolders' : {'__content' : ret}})
 
 
@@ -137,7 +137,7 @@ def get_music_directory_view():
           eid = iposonic.add_entry(path)
           is_dir = os.path.isdir(path)
           child_j = {
-            'id' : iposonic.get_entry_id(path),
+            'id' : MediaManager.get_entry_id(path),
             'parent' : dir_id,
             'title' : child,
             'artist' : artist,
@@ -145,7 +145,7 @@ def get_music_directory_view():
             'coverArt' : 0
             }
           if not is_dir:
-            (path, info) = tuple(iposonic.get_song_by_id(eid))
+            info = iposonic.get_song_by_id(eid)
             child_j.update({
               'track' : 0,
               'year' : 0,
@@ -167,6 +167,16 @@ def get_music_directory_view():
 #
 # Search
 #
+#@app.route("/rest/search2.view", methods = ['GET', 'POST'])
+def search2_mock():
+    album = {'album': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}], 'title': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}], 'artist': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}]}
+    album= [{'album': x} for x in album['album']]
+    
+    return ResponseHelper.responsize(jsonmsg=
+      {'searchResult2':
+        {'__content': album }}
+      )
+
 @app.route("/rest/search2.view", methods = ['GET', 'POST'])
 def search2_view():
     """
@@ -193,13 +203,10 @@ def search2_view():
 
     # ret is 
     ret = iposonic.search2(query, artistCount, albumCount, songCount)
-    songs = []
-    for (eid,path,info) in ret['title'].values():
-      song_j = info
-      song_j.update({'path' : path, 'id': eid, 'isDir' : 'false'})
-      songs.append({'song': song_j })
-      print "song: %s" % song
-    return ResponseHelper.responsize(
+    songs = [{'song': s } for s in ret['title']]
+    songs.extend([{'album': a} for a in ret['album']])
+    songs.extend([{'artist': a} for a in ret['artist']])
+    return ResponseHelper.responsize(jsonmsg=
       {'searchResult2':
         {'__content': songs }}
       )
@@ -246,10 +253,11 @@ def stream_view():
   """
   if not 'id' in request.args:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
-  (album, path) = iposonic.get_song_path_by_id(request.args['id'])
-  if os.path.isfile(path):
-      print "sending static file: %s" % path
-      return send_file(path)
+  info = iposonic.get_song_by_id(request.args['id'])
+  assert 'path' in info, "missing path in song: %s" % info
+  if os.path.isfile(info['path']):
+      print "sending static file: %s" % info['path']
+      return send_file(info['path'])
   raise IposonicException("why here?")
 
 @app.route("/rest/download.view", methods = ['GET', 'POST'])
@@ -259,9 +267,10 @@ def download_view():
   """
   if not 'id' in request.args:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
-  (album, path) = iposonic.get_song_path_by_id(request.args['id'])
-  if os.path.isfile(path):
-      return send_file(path)
+  info = iposonic.get_song_by_id(request.args['id'])
+  assert 'path' in info, "missing path in song: %s" % info
+  if os.path.isfile(info['path']):
+      return send_file(info['path'])
   raise IposonicException("why here?")
 
 

@@ -29,4 +29,13 @@ def test_json2xml_5():
       }
     print ResponseHelper.json2xml(ul)
 
+def test_json2xml_6():
+    album = {'album':{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)',
+      'isDir': 'false', 'date': u'2001', 'parent': '759327748',
+      'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical',
+      'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3',
+      'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'id': '-780183664', 'tracknumber': u'1'}}
+    print ResponseHelper.json2xml(album)
+
+
 
