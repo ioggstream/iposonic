@@ -12,3 +12,12 @@ To run, just
  2- run with
 	# python webapp.py
 
+
+You can test methods adding some audio files in test/data/ and messing with nose
+
+
+prerequisites
+============
+ pip install nose
+ pip install flask
+ pip install mutagen
