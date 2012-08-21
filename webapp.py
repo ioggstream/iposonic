@@ -133,7 +133,7 @@ def get_music_directory_view():
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
     dir_id = request.args['id']
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
-    artist = path[path.rfind("/")+1:]
+    artist = os.path.basename(path)
     children = []
     for child in os.listdir(dir_path):
         if child[0] in ['.','_']:
@@ -247,6 +247,9 @@ def get_album_list_view():
             <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23" averageRating="4.4"/>
         </albumList>
     """
+    mock_albums= [
+      {'album': {'id': 11, 'parent': 1, 'title' : 'Arrival', 'artist': 'ABBA', 'isDir': 'true'}}
+      ]
     if not 'type' in request.args:
         raise SubsonicProtocolException("Type is a require parameter")
 

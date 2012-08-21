@@ -182,34 +182,41 @@ class MediaManager:
 # Subsonic API uses those three items
 #  for storing songs, albums and artists
 #  Those entities require and id
-class Artist(dict):
+class Entry(dict):
+    required_fields = ['name','id']
+    def validate(self):
+        for x in required_fields:
+            assert self[x]
+
+class Artist(Entry):
+    required_fields = ['name','id', 'isDir', 'path']
     def __init__(self,path):
-        dict.__init__(self)
+        Entry.__init__(self)
         self['path'] = path
         self['name'] = os.path.basename(path)
         self['id'] = MediaManager.get_entry_id(path)
+        self['isDir'] = 'true'
 
 class Album(Artist):
+    required_fields = ['name','id', 'isDir', 'path', 'title', 'parent']
     def __init__(self,path):
         Artist.__init__(self,path)
         self['title'] = self['name']
         parent = MediaManager.get_parent(path)
         self['parent'] = MediaManager.get_entry_id(parent)
         self['artist'] = os.path.basename(parent)
-  
+        self['isDir'] = 'true'
+        
 class AlbumTest:
     def test_1(self):
         a = Album("./test/data/mock_artist/mock_album")
         assert a['name'] == "mock_album"
 
-class Child:
+class Child(Entry):
     """A dictionary containing:
       id, isDir, parent
     """
     required_fields = ['id','isDir','parent']
-    def validate(self):
-        for i in self.required_fields:
-            assert i in self
     pass
 
 class Directory:
@@ -262,8 +269,9 @@ class Iposonic:
         if dir_id in self.get_music_directories():
             path = self.get_music_directories()[dir_id]['path']
             return (path, os.path.join("/",self.music_folders[0],path))
-        elif dir_id in self.albums:
+        if dir_id in self.albums:
             return (self.albums[dir_id]['path'], self.albums[dir_id]['path'])
+
         raise IposonicException("Missing directory with id: %s in %s" % (dir_id, self.artists))
 
     def get_song_by_id(self, eid):
@@ -274,8 +282,8 @@ class Iposonic:
             eid = MediaManager.get_entry_id(path)
             if album:
                 self.albums[eid] = Album(path)
-            else:
-                self.artists[eid] = Artist(path)
+            
+            self.artists[eid] = Artist(path)
             self.log.info("adding directory: %s, %s " % (eid, path))
             return eid
         elif Iposonic.is_allowed_extension(path):
