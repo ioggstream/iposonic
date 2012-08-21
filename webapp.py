@@ -134,7 +134,7 @@ def get_music_directory_view():
     for child in os.listdir(dir_path):
         path = join("/", dir_path, child)
         try:
-          iposonic.add_entry(path)
+          eid = iposonic.add_entry(path)
           is_dir = os.path.isdir(path)
           child_j = {
             'id' : iposonic.get_entry_id(path),
@@ -145,6 +145,7 @@ def get_music_directory_view():
             'coverArt' : 0
             }
           if not is_dir:
+            (path, info) = tuple(iposonic.get_song_by_id(eid))
             child_j.update({
               'track' : 0,
               'year' : 0,
@@ -153,45 +154,14 @@ def get_music_directory_view():
               'suffix' : path[-3:],
               'path'  : path
               })
+            if info:
+                child_j.update(info)
           children.append({'child': child_j})
         except IposonicException as e:
           log (e)
           
     return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist, '__content': children}})
 
-@app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
-def get_music_directory_view2():
-    """response2:
-      <directory id="11" parent="1" name="Arrival">
-      <child id="111" parent="11" title="Dancing Queen" isDir="false"
-      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
-      size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128"
-      path="ABBA/Arrival/Dancing Queen.mp3"/>
-
-      <child id="112" parent="11" title="Money, Money, Money" isDir="false"
-      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
-      size="4910028" contentType="audio/flac" suffix="flac"
-      transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
-      path="ABBA/Arrival/Money, Money, Money.mp3"/>
-      </directory>
-
-      """
-
-    if not 'id' in request.args:
-        raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
-    dir_id = request.args['id']
-    (artist, dir_path) = iposonic.get_directory_path_by_id(dir_id)
-    children = []
-    for album in os.listdir(dir_path):
-      children.append( {'child': {
-      'id' : iposonic.get_entry_id(child),
-      'parent' : dir_id,
-      'title' : child,
-      'artist' : artist,
-      'isDir': os.path.isdir(join("/",dir_path, child)),
-      'coverArt' : 0
-      }})
-      return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist, '__content': children}})
 
 
 #
@@ -217,7 +187,22 @@ def search2_view():
 
     """
     if not 'query' in request.args:
-      pass
+        raise SubsonicProtocolException("Missing required parameter: 'query' in search2_view.view")
+        
+    (query, artistCount, albumCount, songCount) = [request.args[x] for x in ("query", "artistCount", "albumCount", "songCount")]
+
+    # ret is 
+    ret = iposonic.search2(query, artistCount, albumCount, songCount)
+    songs = []
+    for (eid,path,info) in ret['title'].values():
+      song_j = info
+      song_j.update({'path' : path, 'id': eid, 'isDir' : 'false'})
+      songs.append({'song': song_j })
+      print "song: %s" % song
+    return ResponseHelper.responsize(
+      {'searchResult2':
+        {'__content': songs }}
+      )
     raise NotImplemented("WriteMe")
 
 
