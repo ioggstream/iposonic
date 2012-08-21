@@ -8,7 +8,7 @@
 from flask import Flask
 from flask import request, send_file
 
-import os,sys
+import os,sys,random
 from os.path import join
 
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager, log
@@ -33,6 +33,10 @@ iposonic = Iposonic(music_folders)
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
     (u,p,v,c) = [request.args[x] for x in ['u','p','v','c']]
+    print "songs: %s" % iposonic.songs
+    print "albums: %s" % iposonic.albums
+    print "artists: %s" % iposonic.artists
+    
     return ResponseHelper.responsize("")
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
@@ -132,10 +136,14 @@ def get_music_directory_view():
     artist = path[path.rfind("/")+1:]
     children = []
     for child in os.listdir(dir_path):
+        if child[0] in ['.','_']:
+            continue
         path = join("/", dir_path, child)
         try:
-          eid = iposonic.add_entry(path)
           is_dir = os.path.isdir(path)
+          # This is a Lazy Indexing. It should not be there
+          #   unless a cache is set
+          eid = iposonic.add_entry(path, album = is_dir)
           child_j = {
             'id' : MediaManager.get_entry_id(path),
             'parent' : dir_id,
@@ -146,10 +154,15 @@ def get_music_directory_view():
             }
           if not is_dir:
             info = iposonic.get_song_by_id(eid)
+            track = info.get('tracknumber',0)
+            try:
+                track = int(track)
+            except:
+                track = 0
             child_j.update({
-              'track' : 0,
-              'year' : 0,
-              'genre' : 'none',
+              'track' : str(track),
+#              'year' : 0,
+#              'genre' : info.get('genre',0),
               'size'  : os.path.getsize(path),
               'suffix' : path[-3:],
               'path'  : path
@@ -219,24 +232,97 @@ def search2_view():
 #
 # Extras
 #
+@app.route("/rest/getAlbumList.view", methods = ['GET', 'POST'])
+def get_album_list_view():
+
+    """
+    http://your-server/rest/getAlbumList.view
+    type    Yes     The list type. Must be one of the following: random, newest, highest, frequent, recent. Since 1.8.0 you can also use alphabeticalByName or alphabeticalByArtist to page through all albums alphabetically, and starred to retrieve starred albums.
+    size    No  10  The number of albums to return. Max 500.
+    offset  No  0   The list offset. Useful if you for example want to page through the list of newest albums.
+
+
+    <albumList>
+            <album id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22" userRating="4" averageRating="4.5"/>
+            <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23" averageRating="4.4"/>
+        </albumList>
+    """
+    if not 'type' in request.args:
+        raise SubsonicProtocolException("Type is a require parameter")
+
+    #albums = randomize(iposonic.albums, 20)
+    albums = [{'album' : a } for a in iposonic.albums.values()]
+    albumList = {'albumList' : {'__content' : albums}}
+    return ResponseHelper.responsize(jsonmsg = albumList)
+
+def randomize(dictionary, limit = 20):
+    a_all = dictionary.keys()
+    a_max = len(a_all)
+    ret = []
+    r = 0
+
+    if not a_max:
+        return ret
+
+    try:
+      for x in range(0,limit):
+          r = random.randint(0,a_max-1)
+          k_rnd = a_all[r]
+          ret.append(dictionary[k_rnd])
+      return ret
+    except:
+      print "a_all:%s" % a_all
+      raise
+
+def randomize2(dictionary, limit = 20):
+    a_max = len(dictionary)
+    ret = []
+
+    for (k,v) in dictionary.iteritems():
+        k_rnd = random.randint(0,a_max)
+        if k_rnd > limit: continue
+        ret.append(v)
+    return ret
+
+    
 @app.route("/rest/getRandomSongs.view", methods = ['GET', 'POST'])
 def get_random_songs_view():
-    """    <randomSongs>
-    <song id="111" parent="11" title="Dancing Queen" isDir="false"
-    album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
-    size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128"
-    path="ABBA/Arrival/Dancing Queen.mp3"/>
-
-    <song id="112" parent="11" title="Money, Money, Money" isDir="false"
-    album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
-    size="4910028" contentType="audio/flac" suffix="flac"
-    transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
-    path="ABBA/Arrival/Money, Money, Money.mp3"/>
-    </randomSongs>
     """
-    raise NotImplemented("WriteMe")
-    song = {'song':{"__content" : ""}}
-    randomSongs = {'randomSongs' : {'__content' : song}}
+
+    request:
+      size    No  10  The maximum number of songs to return. Max 500.
+      genre   No      Only returns songs belonging to this genre.
+      fromYear    No      Only return songs published after or in this year.
+      toYear  No      Only return songs published before or in this year.
+      musicFolderId   No      Only return songs in the music folder with the given ID. See getMusicFolders.
+
+    response:
+      <randomSongs>
+      <song id="111" parent="11" title="Dancing Queen" isDir="false"
+      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
+      size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128"
+      path="ABBA/Arrival/Dancing Queen.mp3"/>
+
+      <song id="112" parent="11" title="Money, Money, Money" isDir="false"
+      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
+      size="4910028" contentType="audio/flac" suffix="flac"
+      transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
+      path="ABBA/Arrival/Money, Money, Money.mp3"/>
+      </randomSongs>
+    """
+    #(size, genre, fromYear, toYear, musicFolderId) = [request.args(x) for x in ('size','genre','fromYear', 'toYear', 'musicFolderId')]
+    genre = None
+    songs = []
+    if genre:
+        print "genre: %s" % genre
+        songs = iposonic.get_genre_songs(genre)
+    else:
+        assert len(iposonic.songs.values())
+        songs = iposonic.songs.values()
+    assert songs
+    #raise NotImplemented("WriteMe")
+    songs = [{'song': s} for s in songs]
+    randomSongs = {'randomSongs' : {'__content' : songs}}
     return ResponseHelper.responsize(jsonmsg = randomSongs)
 
 

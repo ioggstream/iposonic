@@ -18,11 +18,14 @@ from mutagen.id3 import ID3, ID3NoHeaderError
 from mutagen.mp3 import HeaderNotFoundError
 import mutagen.oggvorbis
 
+import logging
+log = logging.getLogger('iposonic')
 
 #tests
 from nose import SkipTest
 
 def log(s):
+  
   print >>sys.stderr, s
 
 class ResponseHelper:
@@ -106,7 +109,8 @@ class MediaInfo:
 
   
 class MediaManager:
-
+    log = logging.getLogger('MediaManager')
+    
     @staticmethod
     def get_entry_id(path):
         return str(crc32(path))
@@ -124,13 +128,18 @@ class MediaManager:
         raise UnsupportedMediaError("Can't find tag manager for path: %s" % path)
 
     @staticmethod
+    def get_parent(path):
+        ret = path[0:path.rfind("/")]
+        MediaManager.log.info("parent(%s) = %s" % (path, ret))
+        return ret
+    @staticmethod
     def get_info(path):
         """Get id3 or ogg info from a file"""
         if os.path.isfile(path):
             try:
                 manager = MediaManager.get_tag_manager(path)
                 audio = manager(path)
-                print "Original id3: %s" % audio
+                MediaManager.log.info( "Original id3: %s" % audio)
                 ret = dict()
                 for (k,v) in audio.iteritems():
                     if isinstance(v,list) and v:
@@ -138,8 +147,8 @@ class MediaManager:
                 ret['path'] = path
                 ret['id'] = MediaManager.get_entry_id(path)
                 ret['isDir'] = 'false'
-                ret['parent'] = MediaManager.get_entry_id(path[0:path.rfind("/")])
-                print "Parsed id3: %s" % ret
+                ret['parent'] = MediaManager.get_entry_id(MediaManager.get_parent(path))
+                MediaManager.log.info( "Parsed id3: %s" % ret)
                 return ret
             except UnsupportedMediaError as e:
                 print "Media not supported by Iposonic: %s\n\n" % e
@@ -148,6 +157,9 @@ class MediaManager:
             except ID3NoHeaderError as e:
                 print "Media has no id3 header: %s" % path
             return None
+        if not os.path.exists(path):
+            raise UnsupportedMediaError("File does not exist: %s" % path)
+            
         raise UnsupportedMediaError("Unsupported file type or directory: %s" % path)
             
     @staticmethod
@@ -166,39 +178,6 @@ class MediaManager:
                     print "Media has no id3 header: %s" % path
                     
 
-class MediaManagerTest:
-    def get_info_harn(self, file, expected):
-        info = MediaManager.get_info(file)
-        for f in expected.keys():
-            assert info[f] == expected[f], "Mismatching field. Expected %s get %s" % (expected[f], info[f])
-    def get_info_test_ogg(self):
-        file = "./test/data/sample.ogg"
-        expected = {
-          'title':'mock_title',
-          'artist': 'mock_artist' ,
-          'year':'mock_year',
-          'parent' : MediaManager.get_entry_id("./test/data")
-          }
-        self.get_info_harn(file,expected)
-    def get_info_test_mp3(self):
-        file = "./test/data/lara.mp3"
-        expected = {
-          'title' : 'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)',
-          'artist' : 'Lara St John (PREVIEW: buy it at www.magnatune.com)',
-          'parent' : MediaManager.get_entry_id("./test/data"),
-          'id' : MediaManager.get_entry_id(file)
-        }
-        self.get_info_harn(file, expected)
-    def get_info_test_wma(self):
-        file = "./test/data/sample.wma"
-        expected = {}
-        self.get_info_harn(file, expected)
-    @SkipTest
-    def browse_path_test(self):
-        MediaManager.browse_path("/opt/music")
-
-
-
 #
 # Subsonic API uses those three items
 #  for storing songs, albums and artists
@@ -207,11 +186,16 @@ class Artist(dict):
     def __init__(self,path):
         dict.__init__(self)
         self['path'] = path
-        self['name'] = path[path.rfind("/")+1:]
+        self['name'] = os.path.basename(path)
         self['id'] = MediaManager.get_entry_id(path)
 
 class Album(Artist):
-    pass
+    def __init__(self,path):
+        Artist.__init__(self,path)
+        self['title'] = self['name']
+        parent = MediaManager.get_parent(path)
+        self['parent'] = MediaManager.get_entry_id(parent)
+        self['artist'] = os.path.basename(parent)
   
 class AlbumTest:
     def test_1(self):
@@ -237,6 +221,7 @@ class Directory:
 class Iposonic:
 
     ALLOWED_FILE_EXTENSIONS = ["mp3","ogg","wma"]
+    log = logging.getLogger('Iposonic')
     
     def __init__(self, music_folders):
         self.music_folders = music_folders
@@ -277,22 +262,27 @@ class Iposonic:
         if dir_id in self.get_music_directories():
             path = self.get_music_directories()[dir_id]['path']
             return (path, os.path.join("/",self.music_folders[0],path))
+        elif dir_id in self.albums:
+            return (self.albums[dir_id]['path'], self.albums[dir_id]['path'])
         raise IposonicException("Missing directory with id: %s in %s" % (dir_id, self.artists))
 
     def get_song_by_id(self, eid):
         return self.songs[eid]
 
-    def add_entry(self, path):
+    def add_entry(self, path, album = False):
         if os.path.isdir(path):
             eid = MediaManager.get_entry_id(path)
-            self.artists[eid] = Artist(path)
-            print "adding directory: %s, %s " % (eid, path)
+            if album:
+                self.albums[eid] = Album(path)
+            else:
+                self.artists[eid] = Artist(path)
+            self.log.info("adding directory: %s, %s " % (eid, path))
             return eid
         elif Iposonic.is_allowed_extension(path):
             try:
               info = MediaManager.get_info(path)
               self.songs[info['id']] = info
-              print "adding file: %s, %s " % (info['id'], path)
+              self.log.info("adding file: %s, %s " % (info['id'], path))
               return info['id']
             except UnsupportedMediaError, e:
               raise IposonicException(e)
@@ -301,10 +291,20 @@ class Iposonic:
     @staticmethod
     def _filter(info, tag, re):
         if tag in info:
-            print "checking %s" % info[tag]
+            Iposonic.log.info("checking %s" % info[tag])
             if re.match(info[tag]):
                 return True
         return False
+
+    def get_genre_songs(self, query):
+        songs = []
+        re_query = re.compile(".*%s.*" % query)
+        for (eid,info) in self.songs.iteritems():
+            print "get_genre_songs: info %s " % info
+            if self._filter(info, 'genre', re_query):
+              songs.append(info)
+        return songs
+        
 
     def _search_songs(self, re_query, songCount = 10):
         # create an empty result set
@@ -390,117 +390,18 @@ class Iposonic:
                 self.indexes[first].append(artist_j)
               except IposonicException as e:
                 log(e)
-        print "artists: %s" % self.artists
+            print "artists: %s" % self.artists
+            
+#             for (root, dirfile, files) in os.walk(music_folder):
+#                 for d in dirfile:
+#                     path = join("/", root, d)
+#                     try: self.add_entry(path)
+#                     except: pass
+#                 for f in files:
+#                     path = join("/", root, f)
+#                     try: self.add_entry(path)
+#                     except: pass
         return self.indexes
-            
-class IposonicTest:
-    def setup(self):
-        self.test_dir = os.getcwd()+"/test/data/"
-        self.iposonic =  Iposonic([self.test_dir])
-
-    def teardown(self):
-        self.iposonic = None
-        
-    def harn_load_fs2(self):
-        for (root, dirfile, files) in os.walk(self.test_dir):
-            for d in dirfile:
-                path = join("/", root, d)
-                self.iposonic.add_entry(path)
-            for f in files:
-                path = join("/", root, f)
-                self.iposonic.add_entry(path)
-     
-    def harn_load_fs(self):
-        """Adds the entries in root to the iposonic index"""
-        root = self.test_dir
-        self.id_l = []
-
-        for f in os.listdir(root):
-            path = join("/",root,f)
-            print "p: ",path
-            self.id_l.append(MediaManager.get_entry_id(path))
-            self.iposonic.add_entry(path)
-
-    def test_get_music_directories(self):
-        ret = self.iposonic.get_music_directories()
-        assert ret
-        for (eid,info) in ret.iteritems():
-            assert 'name' in info, "Bad music_directories: %s" % ret
-        
-    def test_get_song_by_id(self):
-        """Retrieve added songs info and path by id """
-        self.harn_load_fs()
-        
-        for eid in self.id_l:
-            try:
-              info = self.iposonic.get_song_by_id(eid)
-              assert 'path'  in info
-            except:
-              print "error processing eid: %s" % eid
-        self.harn_load_fs()       
-    def test_search_songs_1(self):
-        """Search added songs, return song"""
-        self.iposonic.walk_music_directory()
-        self.harn_load_fs2()
-        ret = self.iposonic._search_songs(re_query=re.compile(".*mock_title.*"))
-        assert ret['title'], ret
-    def test_search_songs_2(self):
-        """Search added songs, return song"""
-        self.iposonic.walk_music_directory()
-        self.harn_load_fs2()
-        ret = self.iposonic._search_songs(re_query=re.compile(".*mock_artist.*"))
-        assert ret['title'], ret
-    def test_search_artists_1(self):
-        """Search added songs, return song"""
-        self.iposonic.walk_music_directory()
-        self.harn_load_fs2()
-        ret = self.iposonic._search_artists(re_query=re.compile(".*mock_artist.*"))
-        assert ret['artist'], ret
-
-    def test_search2_0(self):
-        """Search added songs, return artist"""
-        self.harn_load_fs2()
-        ret = self.iposonic.search2(query="mock_artist")
-        print "ret: %s" % ret
-        assert ret['artist']
-        assert ret['title']
-
-    def test_search2_1(self):
-        """Search added songs, return artist"""
-        self.harn_load_fs2()
-        ret = self.iposonic.search2(query="Lara")
-        print "ret: %s" % ret
-        assert ret['artist']
-    def test_search2_2(self):
-        """Search added songs, return album"""
-        self.harn_load_fs()
-        ret = self.iposonic.search2(query="Bach")
-        print "ret: %s" %  ret
-        assert ret['album']
-    def test_search2_3(self):
-        """Search added songs, return artist in folders"""
-        self.iposonic.walk_music_directory()
-        ret = self.iposonic.search2(query="mock_artist")
-        print "ret: %s" % ret
-        assert ret['artist']
-    def test_search2_4(self):
-        """Search added songs"""
-        self.harn_load_fs()
-        ret = self.iposonic.search2(query="magnatune")
-        print "ret: %s" % ret
-        for x in ['album','title','artist']:
-            assert ret[x] 
-            
-    def test_directory_get(self):
-        self.iposonic.walk_music_directory()
-        dirs = self.iposonic.artists
-        assert dirs.keys() , "empty artists %s" % dirs 
-        k=dirs.keys()[0]
-        (id_1,dir_1) = (k, dirs[k])
-        print self.iposonic.get_directory_path_by_id(id_1)
-    def test_walk_music_directory(self):
-        print self.iposonic.walk_music_directory()
-        
         
 #   
 class SubsonicProtocolException(Exception):
