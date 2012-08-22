@@ -7,14 +7,18 @@
 # License AGPLv3
 from flask import Flask
 from flask import request, send_file
+from flask import Response
 
 import os,sys,random
+import simplejson
 from os.path import join
+import logging
 
-from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager, log
-
+from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager
+from iposonic import Album, Artist
 app = Flask(__name__)
 
+log = logging.getLogger('iposonic-webapp')
 
 #
 # Configuration
@@ -36,7 +40,10 @@ def ping_view():
     print "songs: %s" % iposonic.songs
     print "albums: %s" % iposonic.albums
     print "artists: %s" % iposonic.artists
-    
+
+    f = request.args.get('f',None)
+    if f == "jsonp":
+        return simplejson.dumps({'subsonic-response' : {'status' : 'ok', 'version': '19.9.9'}})
     return ResponseHelper.responsize("")
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
@@ -44,7 +51,13 @@ def get_license_view():
     (u,p,v,c) = [request.args[x] for x in ['u','p','v','c']]
     return ResponseHelper.responsize("""<license valid="true" email="foo@bar.com" key="ABC123DEF" date="2009-09-03T14:46:43"/>""")
 
-
+def get_formatter(request):
+    try:
+        f = request.args['f']
+        if f  == "jsonp" and 'callback' in request.args:
+            return jsonp_formatter
+    except:
+        return xml_formatter
 #
 # List music collections
 #
@@ -94,12 +107,41 @@ def get_indexes_view():
     # refresh indexes
     iposonic.walk_music_directory()
 
-    # serialize data
+    #
+    # XXX sample code to support jsonp clients
+    #     this should be managed with some
+    #     @jsonp_formatter
+    #
+    # XXX we should think to reimplement the
+    #     DB in some consistent way before
+    #     wasting time with unsearchable, dict-based
+    #     data to format
+    #
+    f = request.args.get('f',None)
+    callback = request.args.get('callback',None)
+    if f == "jsonp":
+        i=0
+        indexes_j = dict()
+        for (k,v) in iposonic.indexes.iteritems():
+            i+=1
+            if i > 1: break 
+            indexes_j['index'].append ({'name': k, 'artist': [item['artist'] for item in v] })
+        return "%s(%s)" % (
+          callback,
+          simplejson.dumps({'subsonic-response' : {'status' : 'ok', 'version': '19.9.9', 'indexes': indexes_j}})
+        )
+
+    # serialize xml data
     indexes_j = [{'index': {'name': k, '__content': v}} for (k,v) in iposonic.indexes.iteritems()]
     indexes = {'indexes': {  '__content' : indexes_j }}
 
+
     return ResponseHelper.responsize(jsonmsg = indexes)
 
+@app.after_request
+def after_request(response):
+    response.headers['content-type'] = 'application/json'
+    return response
 
 @app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
 def get_music_directory_view():
@@ -133,22 +175,25 @@ def get_music_directory_view():
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
     dir_id = request.args['id']
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
-    artist = os.path.basename(path)
+    artist = Artist(path)
     children = []
     for child in os.listdir(dir_path):
         if child[0] in ['.','_']:
             continue
         path = join("/", dir_path, child)
         try:
+          child_j = {}
           is_dir = os.path.isdir(path)
           # This is a Lazy Indexing. It should not be there
           #   unless a cache is set
+          # XXX
           eid = iposonic.add_entry(path, album = is_dir)
-          child_j = {
+          child_j = iposonic.get_entry_by_id(eid)
+          _child_j = {
             'id' : MediaManager.get_entry_id(path),
             'parent' : dir_id,
             'title' : child,
-            'artist' : artist,
+            'artist' : artist['name'],
             'isDir': str(is_dir).lower(),
             'coverArt' : 0
             }
@@ -173,7 +218,7 @@ def get_music_directory_view():
         except IposonicException as e:
           log (e)
           
-    return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist, '__content': children}})
+    return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist['name'], '__content': children}})
 
 
 

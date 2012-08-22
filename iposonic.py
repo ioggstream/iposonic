@@ -1,15 +1,24 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+#
 # iposonic - a micro implementation of the subsonic server API
 #  for didactical purposes: I just wanted to play with flask
 #
-# Roberto Polli (c) 2012
-# AGPL v3
+# author:   Roberto Polli (c) 2012
+# license:  AGPL v3
+#
+# Subsonic is an opensource streaming server www.subsonic.org
+#  as I love python and I don't want to install an application
+#  server for listening music, I wrote IpoSonic
+#
+# IpoSonic does not have a web interface, like of the original subsonic server
+#   and does not support transcoding (but it could in the future)
+#
 
 
 # standard libs
 import os, sys, re
-from os.path import join
+from os.path import join, basename, dirname
 from binascii import crc32
 
 # manage media files
@@ -24,11 +33,13 @@ log = logging.getLogger('iposonic')
 #tests
 from nose import SkipTest
 
-def log(s):
-  
-  print >>sys.stderr, s
 
 class ResponseHelper:
+  """Serialize a python dict to an xml object, and embeds it in a subsonic-response
+
+    see test/test_responsehelper.py for the test and documentation
+    TODO: we could @annotate this ;)
+  """
   @staticmethod
   def responsize(msg="", jsonmsg= None, status="ok", version="9.0.0"):
     if jsonmsg:
@@ -57,16 +68,17 @@ class ResponseHelper:
       ret = ""
       content = None
       try:
+        # don't touch strings
         if isinstance(json, str) or isinstance(json, unicode):
             return json
-
+        # preserve list structures
         if isinstance(json, list):
             if not json:
                 return ""
             for item in json:
                 ret += ResponseHelper.json2xml(item)
             return ret
-
+        # play the game with dicts
         for name in json.keys():
             attrs = ""
             assert isinstance(json[name],dict) , "entry is not a dictionary: %s" % json
@@ -147,7 +159,7 @@ class MediaManager:
                 ret['path'] = path
                 ret['id'] = MediaManager.get_entry_id(path)
                 ret['isDir'] = 'false'
-                ret['parent'] = MediaManager.get_entry_id(MediaManager.get_parent(path))
+                ret['parent'] = MediaManager.get_entry_id(dirname(path))
                 MediaManager.log.info( "Parsed id3: %s" % ret)
                 return ret
             except UnsupportedMediaError as e:
@@ -193,7 +205,7 @@ class Artist(Entry):
     def __init__(self,path):
         Entry.__init__(self)
         self['path'] = path
-        self['name'] = os.path.basename(path)
+        self['name'] = basename(path)
         self['id'] = MediaManager.get_entry_id(path)
         self['isDir'] = 'true'
 
@@ -202,9 +214,9 @@ class Album(Artist):
     def __init__(self,path):
         Artist.__init__(self,path)
         self['title'] = self['name']
-        parent = MediaManager.get_parent(path)
+        parent = dirname(path)
         self['parent'] = MediaManager.get_entry_id(parent)
-        self['artist'] = os.path.basename(parent)
+        self['artist'] = basename(parent)
         self['isDir'] = 'true'
         
 class AlbumTest:
@@ -264,13 +276,19 @@ class Iposonic:
         if not self.artists:
             self.walk_music_directory()
         return self.artists
+
+    def get_entry_by_id(self, eid):
+        if eid in self.get_music_directories():
+            return self.get_music_directories()[eid]
+        elif eid in self.albums:
+            return self.albums[eid]
+        elif eid in self.songs:
+            return self.songs[eid]
+        raise IposonicException("Missing entry with id: %s ") % (eid)
         
-    def get_directory_path_by_id(self, dir_id):
-        if dir_id in self.get_music_directories():
-            path = self.get_music_directories()[dir_id]['path']
-            return (path, os.path.join("/",self.music_folders[0],path))
-        if dir_id in self.albums:
-            return (self.albums[dir_id]['path'], self.albums[dir_id]['path'])
+    def get_directory_path_by_id(self, eid):
+        info = self.get_entry_by_id(eid)
+        return (info['path'], info['path'])
 
         raise IposonicException("Missing directory with id: %s in %s" % (dir_id, self.artists))
 
@@ -282,8 +300,8 @@ class Iposonic:
             eid = MediaManager.get_entry_id(path)
             if album:
                 self.albums[eid] = Album(path)
-            
-            self.artists[eid] = Artist(path)
+            else:
+                self.artists[eid] = Artist(path)
             self.log.info("adding directory: %s, %s " % (eid, path))
             return eid
         elif Iposonic.is_allowed_extension(path):
@@ -354,7 +372,7 @@ class Iposonic:
         # create an empty result set
         tags = ['artist', 'album', 'title']
         ret=dict(zip(tags,[[],[],[]]))
-        print "ret: %s" % ret
+
         # add fields from directories
         ret['artist'].extend (self._search_artists(re_query)['artist'])
 
@@ -362,7 +380,7 @@ class Iposonic:
         for t in tags:
           ret[t].extend(songs[t])
 
-        print "search2: %s" % ret
+        self.log.info( "search2 result: %s" % ret)
                     
         # TODO merge them or use sets
         return ret
@@ -372,6 +390,7 @@ class Iposonic:
         """Find all artists (top-level directories) and create indexes.
 
           TODO: create a cache for this.
+          TODO: put in a separate thread?
         """
         print "walking: ", self.music_folders
 
@@ -393,6 +412,9 @@ class Iposonic:
                 artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
                 #artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
 
+                #
+                # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
+                #
                 first = a[0:1].upper()
                 self.indexes.setdefault(first,[])
                 self.indexes[first].append(artist_j)
@@ -413,6 +435,7 @@ class Iposonic:
         
 #   
 class SubsonicProtocolException(Exception):
+    """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
     pass
 class IposonicException(Exception):
     pass
