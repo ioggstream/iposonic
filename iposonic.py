@@ -25,7 +25,6 @@ log = logging.getLogger('iposonic')
 from nose import SkipTest
 
 def log(s):
-  
   print >>sys.stderr, s
 
 class ResponseHelper:
@@ -211,6 +210,12 @@ class AlbumTest:
     def test_1(self):
         a = Album("./test/data/mock_artist/mock_album")
         assert a['name'] == "mock_album"
+
+class Media(Entry):
+    required_fields = ['name','id','title','path','isDir']
+    def __init__(self,path):
+        Entry.__init__(self)
+        self.update(MediaManager.get_info(path))
 
 class Child(Entry):
     """A dictionary containing:

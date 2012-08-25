@@ -32,7 +32,7 @@ iposonic = Iposonic(music_folders)
 #
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
-    (u,p,v,c) = [request.args[x] for x in ['u','p','v','c']]
+    (u,p,v,c) = [request.args.get(x,None) for x in ['u','p','v','c']]
     print "songs: %s" % iposonic.songs
     print "albums: %s" % iposonic.albums
     print "artists: %s" % iposonic.artists
