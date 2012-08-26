@@ -37,5 +37,23 @@ def test_json2xml_6():
       'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'id': '-780183664', 'tracknumber': u'1'}}
     print ResponseHelper.json2xml(album)
 
+"""
+def test_jsonp2xml_0():
+    val = { 'li': {'style': 'color:red;'}}
+    print "ret: %s" % ResponseHelper.jsonp2xml(val)
 
 
+def test_jsonp2xml_1():
+    val = { 'musicFolder': {'id': 1234, 'name': "sss" }}
+    print "ret: %s" % ResponseHelper.jsonp2xml(val)
+
+
+def test_jsonp2xml_2():
+    val = { 'musicFolder': [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }]}
+    print "ret: %s" % ResponseHelper.jsonp2xml([val, val])
+
+def test_jsonp2xml_3():
+    val1 = { 'musicFolder': {'id': 1234, 'name': "sss" }}
+    val2 = { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
+    print ResponseHelper.jsonp2xml(val2)
+"""

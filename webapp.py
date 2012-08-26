@@ -16,6 +16,7 @@ import logging
 
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager
 from iposonic import Album, Artist
+from iposonic import StringUtils
 app = Flask(__name__)
 
 log = logging.getLogger('iposonic-webapp')
@@ -36,7 +37,7 @@ iposonic = Iposonic(music_folders)
 #
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
-    (u,p,v,c) = [request.args[x] for x in ['u','p','v','c']]
+    (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
     print "songs: %s" % iposonic.songs
     print "albums: %s" % iposonic.albums
     print "artists: %s" % iposonic.artists
@@ -48,25 +49,31 @@ def ping_view():
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
 def get_license_view():
-    (u,p,v,c) = [request.args[x] for x in ['u','p','v','c']]
+    (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
     return ResponseHelper.responsize("""<license valid="true" email="foo@bar.com" key="ABC123DEF" date="2009-09-03T14:46:43"/>""")
 
-def get_formatter(request):
-    try:
-        f = request.args['f']
-        if f  == "jsonp" and 'callback' in request.args:
-            return jsonp_formatter
-    except:
-        return xml_formatter
 #
 # List music collections
 #
 @app.route("/rest/getMusicFolders.view", methods = ['GET', 'POST'])
 def get_music_folders_view():
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+
+    if f == "jsonp":
+        if not callback:
+            raise SubsonicProtocolException()
+        return ResponseHelper.responsize_jsonp( 
+            { 'musicFolders': { 
+                'musicFolder' : [{'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.music_folders if os.path.isdir(d)] 
+                }
+                }, callback)
+                
+    # xml response    
     ret = dict()
     for d in iposonic.music_folders:
       if os.path.isdir(d):
         ret[ 'musicFolder'] = {'id': MediaManager.get_entry_id(d), 'name': d }
+
     return ResponseHelper.responsize(jsonmsg={'musicFolders' : {'__content' : ret}})
 
 
@@ -117,19 +124,18 @@ def get_indexes_view():
     #     wasting time with unsearchable, dict-based
     #     data to format
     #
-    f = request.args.get('f',None)
-    callback = request.args.get('callback',None)
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    log.info("response is %s" % f)
     if f == "jsonp":
         i=0
-        indexes_j = dict()
+        indexes_j = {'index' : []}
+        ret = ""
         for (k,v) in iposonic.indexes.iteritems():
-            i+=1
-            if i > 1: break 
-            indexes_j['index'].append ({'name': k, 'artist': [item['artist'] for item in v] })
-        return "%s(%s)" % (
-          callback,
-          simplejson.dumps({'subsonic-response' : {'status' : 'ok', 'version': '19.9.9', 'indexes': indexes_j}})
-        )
+            item =  {'name': k, 'artist': [ item['artist'] for item in v ] }
+            indexes_j['index'].append (item)
+            
+            
+        return ResponseHelper.responsize_jsonp( { 'indexes': indexes_j}, callback)
 
     # serialize xml data
     indexes_j = [{'index': {'name': k, '__content': v}} for (k,v) in iposonic.indexes.iteritems()]
@@ -171,9 +177,10 @@ def get_music_directory_view():
         TODO getAlbumArt
         TODO getBitRate
     """
-    if not 'id' in request.args:
+    (u, p, v, c, f, callback, dir_id) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback', 'id']]
+
+    if not dir_id:
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
-    dir_id = request.args['id']
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
     artist = Artist(path)
     children = []
@@ -214,10 +221,16 @@ def get_music_directory_view():
               })
             if info:
                 child_j.update(info)
-          children.append({'child': child_j})
+          if f == "jsonp":
+            children.append(child_j)  
+          else:
+            children.append({'child': child_j})
         except IposonicException as e:
           log (e)
           
+    if f == "jsonp":
+        return ResponseHelper.responsize_jsonp({'directory': {'id' : dir_id, 'name': artist['name'], 'child': children}}, callback)
+    
     return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist['name'], '__content': children}})
 
 
@@ -419,6 +432,19 @@ def get_cover_art_view():
 @app.route("/rest/getLyrics.view", methods = ['GET', 'POST'])
 def get_lyrics_view():
     raise NotImplemented("WriteMe")
+
+
+
+#
+# Helpers
+#
+def get_formatter(request):
+    try:
+        f = request.args['f']
+        if f  == "jsonp" and 'callback' in request.args:
+            return jsonp_formatter
+    except:
+        return xml_formatter
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

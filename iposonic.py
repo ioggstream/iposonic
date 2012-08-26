@@ -27,6 +27,8 @@ from mutagen.id3 import ID3, ID3NoHeaderError
 from mutagen.mp3 import HeaderNotFoundError
 import mutagen.oggvorbis
 
+# logging and json
+import simplejson
 import logging
 log = logging.getLogger('iposonic')
 
@@ -40,6 +42,19 @@ class ResponseHelper:
     see test/test_responsehelper.py for the test and documentation
     TODO: we could @annotate this ;)
   """
+  @staticmethod
+  def responsize_jsonp(ret, callback, status = "ok", version = "9.0.0"):
+      if not callback: raise SubsonicProtocolException()
+      # add headers to response
+      ret.update({'status' : 'ok', 'version': '19.9.9' })
+      return "%s(%s)" % (
+          callback,
+          simplejson.dumps({'subsonic-response' : ret},
+            indent = True,
+            encoding = 'latin_1')
+        )
+
+  
   @staticmethod
   def responsize(msg="", jsonmsg= None, status="ok", version="9.0.0"):
     if jsonmsg:
@@ -99,6 +114,39 @@ class ResponseHelper:
       except:
         print "error xml-izing object: %s" % json
         raise
+
+
+
+  @staticmethod
+  def jsonp2xml(json):
+      """Convert a json structure to xml. The game is trivial. Nesting uses the [] parenthesis.
+          ex. {
+                'ul': {'style':'color:black;', 
+                        'li':
+                      [
+                       'Write first','Write second',
+                      ]
+                }
+              }"""
+      ret = ""
+      content = None
+      if isinstance(json, str): return str
+      if not isinstance(json, dict): raise NotImplemented("class type: %s" % json.__class__.__name__)
+      for tag in json.keys():
+          attributes = ""
+          for (attr, value) in json[tag].iteritems():
+              if not isinstance(value, list):
+                  attributes += """ %s="%s" """ % (attr, value)
+              else:
+                  for item in value:
+                      content += ResponseHelper.jsonp2xml(item)
+          if content:    
+            ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
+          else:
+            ret += "<%s%s/>" % (tag, attributes)
+      return ret  
+
+
 
     
 ##
@@ -210,10 +258,11 @@ class Artist(Entry):
         self['isDir'] = 'true'
 
 class Album(Artist):
-    required_fields = ['name','id', 'isDir', 'path', 'title', 'parent']
+    required_fields = ['name','id', 'isDir', 'path', 'title', 'parent', 'album']
     def __init__(self,path):
         Artist.__init__(self,path)
         self['title'] = self['name']
+        self['album'] = self['name']
         parent = dirname(path)
         self['parent'] = MediaManager.get_entry_id(parent)
         self['artist'] = basename(parent)
@@ -294,6 +343,36 @@ class Iposonic:
 
     def get_song_by_id(self, eid):
         return self.songs[eid]
+
+    def get_indexes(self):
+        """
+        {'A': 
+        [{'artist': 
+            {'id': '517674445', 'name': 'Antonello Venditti'}
+            }, 
+            {'artist': {'id': '-87058509', 'name': 'Anthony and the Johnsons'}}, 
+            
+            
+             "indexes": {
+  "index": [
+   {    "name": "A",
+
+    "artist": [
+     {
+      "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3939384441444243384645304546393232364335373739364632343743434642",
+      "name": "Abba"
+     },
+     {
+      "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3441444135414135324537384544464545423530363844433535334342303738",
+      "name": "Adele"
+     },
+
+        """
+        assert self.indexes
+        items = []
+        for (name, artists) in self.indexes.iteritems():
+            items.append ({'name' : name, 'artist' : [ v['artist'] for v in artists  ]})
+        return {'index': items}
 
     def add_entry(self, path, album = False):
         if os.path.isdir(path):
@@ -419,7 +498,7 @@ class Iposonic:
                 self.indexes.setdefault(first,[])
                 self.indexes[first].append(artist_j)
               except IposonicException as e:
-                log(e)
+                log.error(e)
             print "artists: %s" % self.artists
             
 #             for (root, dirfile, files) in os.walk(music_folder):
@@ -440,3 +519,12 @@ class SubsonicProtocolException(Exception):
 class IposonicException(Exception):
     pass
   
+class StringUtils:
+    encodings = ['ascii', 'latin_1',  'utf8', 'iso8859_15', 'cp850', 'cp037', 'cp1252']
+    @staticmethod
+    def to_unicode(s):
+        for e in StringUtils.encodings:
+            try: return unicode(s, encoding=e)
+            except: pass
+        raise UnicodeDecodeError("Cannot decode string: %s" % s)
+        
