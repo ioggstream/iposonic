@@ -42,6 +42,7 @@ class ResponseHelper:
     see test/test_responsehelper.py for the test and documentation
     TODO: we could @annotate this ;)
   """
+  log = logging.getLogger('ResponseHelper')
   @staticmethod
   def responsize_jsonp(ret, callback, status = "ok", version = "9.0.0"):
       if not callback: raise SubsonicProtocolException()
@@ -187,7 +188,7 @@ class ResponseHelper:
                 ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
               else:
                 ret += "<%s%s/>" % (tag, attributes)
-      print "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret)
+      ResponseHelper.log.info( "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret))
 
       return ret.replace("isDir=\"True\"", "isDir=\"true\"") 
 

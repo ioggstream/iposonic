@@ -369,11 +369,12 @@ def stream_view():
   if not eid:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
   info = iposonic.get_song_by_id(eid)
-  assert 'path' in info, "missing path in song: %s" % info
-  if os.path.isfile(info['path']):
-      fp = open(info['path'], "r")
-      print "sending static file: %s" % info['path']
-      return send_file(info['path'])
+  path = info.get('path', None)
+  assert path, "missing path in song: %s" % info
+  if os.path.isfile(path):
+      fp = open(path, "r")
+      print "sending static file: %s" % path
+      return send_file(path)
   raise IposonicException("why here?")
 
 @app.route("/rest/download.view", methods = ['GET', 'POST'])
@@ -415,18 +416,9 @@ def get_lyrics_view():
 #
 # Helpers
 #
-def get_formatter(request):
-    try:
-        f = request.args['f']
-        if f  == "jsonp" and 'callback' in request.args:
-            return jsonp_formatter
-    except:
-        return xml_formatter
-
-
     
 @app.before_request
-def responsizer():
+def set_formatter():
     """Return a function to create the response."""
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
     if f == 'jsonp':
@@ -437,7 +429,7 @@ def responsizer():
     
 
 @app.after_request
-def after_request(response):
+def set_content_type(response):
     print("response: %s" %response.data)
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
     if f == 'jsonp':
