@@ -55,10 +55,15 @@ def get_license_view():
 @app.route("/rest/getMusicFolders.view", methods = ['GET', 'POST'])
 def get_music_folders_view():
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
-    return request.formatter({ 'musicFolders': { 
-                'musicFolder' : [{'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.music_folders if os.path.isdir(d)] 
-                }
-                })
+    return request.formatter(
+        { 
+            'musicFolders': { 
+                'musicFolder' : [
+                    {'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.music_folders if os.path.isdir(d)
+                    ] 
+             }
+        }
+    )
                 
                 
 
@@ -168,14 +173,7 @@ def get_music_directory_view():
           # XXX
           eid = iposonic.add_entry(path, album = is_dir)
           child_j = iposonic.get_entry_by_id(eid)
-          _child_j = {
-            'id' : MediaManager.get_entry_id(path),
-            'parent' : dir_id,
-            'title' : child,
-            'artist' : artist['name'],
-            'isDir': str(is_dir).lower(),
-            'coverArt' : 0
-            }
+        
           if not is_dir:
             info = iposonic.get_song_by_id(eid)
             track = info.get('tracknumber',0)
@@ -206,16 +204,6 @@ def get_music_directory_view():
 #
 # Search
 #
-#@app.route("/rest/search2.view", methods = ['GET', 'POST'])
-def search2_mock():
-    album = {'album': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}], 'title': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}], 'artist': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}]}
-    album= [{'album': x} for x in album['album']]
-    
-    return ResponseHelper.responsize(jsonmsg=
-      {'searchResult2':
-        {'__content': album }}
-      )
-
 @app.route("/rest/search2.view", methods = ['GET', 'POST'])
 def search2_view():
     """
@@ -235,19 +223,28 @@ def search2_view():
     </searchResult2>
 
     """
-    if not 'query' in request.args:
-        raise SubsonicProtocolException("Missing required parameter: 'query' in search2_view.view")
+    (u, p, v, c, f, callback, query) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback','query']]
+    print "query:%s\n\n" % query
+    if not query:
+        raise SubsonicProtocolException("Missing required parameter: 'query' in search2.view")
         
-    (query, artistCount, albumCount, songCount) = [request.args[x] for x in ("query", "artistCount", "albumCount", "songCount")]
+    (artistCount, albumCount, songCount) = [request.args[x] for x in ("artistCount", "albumCount", "songCount")]
 
     # ret is 
+    print "searching"
     ret = iposonic.search2(query, artistCount, albumCount, songCount)
     songs = [{'song': s } for s in ret['title']]
     songs.extend([{'album': a} for a in ret['album']])
     songs.extend([{'artist': a} for a in ret['artist']])
-    return ResponseHelper.responsize(jsonmsg=
-      {'searchResult2':
-        {'__content': songs }}
+    print "ret: %s" % ret
+    return request.formatter(
+        {
+            'searchResult2': {
+                'song' : ret[title],
+                'album' : ret[album],
+                'artist' : ret[artist]
+            }
+        }
       )
     raise NotImplemented("WriteMe")
 
@@ -447,7 +444,7 @@ def after_request(response):
         response.headers['content-type'] = 'application/json'
     return response
 
-@app.after_request
+#@app.after_request
 def fix_content_length_for_static(res):
   (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
 

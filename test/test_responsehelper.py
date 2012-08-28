@@ -73,3 +73,22 @@ def test_jsonp2xml_4():
   "xmlns": "http://subsonic.org/restapi"
 }}
     print ResponseHelper.jsonp2xml(val2)
+
+
+def test_jsonp2xml_5():
+    val = {
+        'index': [{'name': 'A', 
+        'artist': [
+                {'id': '517674445', 'name': 'sss'}, 
+                {'id': '-87058509', 'name': 'Johnsons'}, 
+                {'id': '998700272', 'name': 'Franklin'}, 
+                {'id': '250502050', 'name': 'Antonella'}, 
+                {'id': '449525971', 'name': 'Artista'}, 
+                {'id': '-187601579', 'name': 'John'}
+                ]
+            }          ]
+        }
+        
+    print ResponseHelper.jsonp2xml(val)
+
+

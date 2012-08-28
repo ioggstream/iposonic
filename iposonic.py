@@ -134,6 +134,8 @@ class ResponseHelper:
           
           ex. { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
           
+          ex. { 'index': [{'name': 'A',  'artist': [{'id': '517674445', 'name': 'Antonello Venditti'}] }] } 
+          
           ex. {"subsonic-response": { "musicFolders": {"musicFolder": [{ "id": 0,"name": "Music"}]},
     "status": "ok","version": "1.7.0","xmlns": "http://subsonic.org/restapi"}}
 
@@ -144,25 +146,37 @@ class ResponseHelper:
           if isinstance(json, c): return str(json)
       if not isinstance(json, dict): raise Exception("class type: %s" % json)
       
+      # every tag is a dict.
+      #    its value can be a string, a list or a dict
       for tag in json.keys():
           tag_list = json[tag]
-          content = ""
+          
+          # if tag_list is a list, then it represent a list of elements
+          #   ex. {index: [{ 'a':'1'} , {'a':'2'} ] }
+          #       --> <index a="1" /> <index b="2" />
           if isinstance(tag_list, list):                  
               for t in tag_list:  
-                  #print "t: %s, tl: %s" % (t, tag_list)
+                  # for every element, get the attributes
+                  #   and embed them in the tag named
                   attributes = ""
+                  content = ""
                   for (attr, value) in t.iteritems():
-                      # only string values are attributes
-                      if not isinstance(value, dict):
+                      # only serializable values are attributes
+                      if value.__class__.__name__ in ['str', 'int', 'unicode', 'bool']:
                           attributes = """%s %s="%s" """ % (attributes, attr, value)
-                      else:
+                      # other values are content
+                      elif isinstance(value, dict):
                           content += ResponseHelper.jsonp2xml(value)
+                      elif isinstance(value, list):
+                          content += ResponseHelper.jsonp2xml({attr:value})
                   if content:    
                     ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
                   else:
                     ret += "<%s%s/>" % (tag, attributes)
           if isinstance(tag_list, dict):
               attributes = ""
+              content = ""
+
               for (attr, value) in tag_list.iteritems():
                   # only string values are attributes
                   if not isinstance(value, dict) and not isinstance(value, list):
@@ -175,7 +189,7 @@ class ResponseHelper:
                 ret += "<%s%s/>" % (tag, attributes)
       print "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret)
 
-      return ret  
+      return ret.replace("isDir=\"True\"", "isDir=\"true\"") 
 
 
 
