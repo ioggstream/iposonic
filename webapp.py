@@ -11,7 +11,7 @@ from flask import Response
 
 import os,sys,random
 import simplejson
-from os.path import join
+from os.path import join,dirname,abspath
 import logging
 
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager
@@ -42,10 +42,7 @@ def ping_view():
     print "albums: %s" % iposonic.albums
     print "artists: %s" % iposonic.artists
 
-    f = request.args.get('f',None)
-    if f == "jsonp":
-        return simplejson.dumps({'subsonic-response' : {'status' : 'ok', 'version': '19.9.9'}})
-    return ResponseHelper.responsize("")
+    return request.formatter({})
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
 def get_license_view():
@@ -58,24 +55,12 @@ def get_license_view():
 @app.route("/rest/getMusicFolders.view", methods = ['GET', 'POST'])
 def get_music_folders_view():
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
-
-    if f == "jsonp":
-        if not callback:
-            raise SubsonicProtocolException()
-        return ResponseHelper.responsize_jsonp( 
-            { 'musicFolders': { 
+    return request.formatter({ 'musicFolders': { 
                 'musicFolder' : [{'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.music_folders if os.path.isdir(d)] 
                 }
-                }, callback)
+                })
                 
-    # xml response    
-    ret = dict()
-    for d in iposonic.music_folders:
-      if os.path.isdir(d):
-        ret[ 'musicFolder'] = {'id': MediaManager.get_entry_id(d), 'name': d }
-
-    return ResponseHelper.responsize(jsonmsg={'musicFolders' : {'__content' : ret}})
-
+                
 
 @app.route("/rest/getIndexes.view", methods = ['GET', 'POST'])
 def get_indexes_view():
@@ -126,28 +111,15 @@ def get_indexes_view():
     #
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
     log.info("response is %s" % f)
-    if f == "jsonp":
-        i=0
-        indexes_j = {'index' : []}
-        ret = ""
-        for (k,v) in iposonic.indexes.iteritems():
-            item =  {'name': k, 'artist': [ item['artist'] for item in v ] }
-            indexes_j['index'].append (item)
+
+    indexes_j = {'index' : []}
+    ret = ""
+    for (k,v) in iposonic.indexes.iteritems():
+        item =  {'name': k, 'artist': [ item['artist'] for item in v ] }
+        indexes_j['index'].append (item)
             
             
-        return ResponseHelper.responsize_jsonp( { 'indexes': indexes_j}, callback)
-
-    # serialize xml data
-    indexes_j = [{'index': {'name': k, '__content': v}} for (k,v) in iposonic.indexes.iteritems()]
-    indexes = {'indexes': {  '__content' : indexes_j }}
-
-
-    return ResponseHelper.responsize(jsonmsg = indexes)
-
-@app.after_request
-def after_request(response):
-    response.headers['content-type'] = 'application/json'
-    return response
+    return request.formatter( { 'indexes': indexes_j})
 
 @app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
 def get_music_directory_view():
@@ -221,17 +193,13 @@ def get_music_directory_view():
               })
             if info:
                 child_j.update(info)
-          if f == "jsonp":
-            children.append(child_j)  
-          else:
-            children.append({'child': child_j})
+          children.append(child_j)  
         except IposonicException as e:
-          log (e)
+          log.info (e)
           
-    if f == "jsonp":
-        return ResponseHelper.responsize_jsonp({'directory': {'id' : dir_id, 'name': artist['name'], 'child': children}}, callback)
+
+    return request.formatter({'directory': {'id' : dir_id, 'name': artist['name'], 'child': children}})
     
-    return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist['name'], '__content': children}})
 
 
 
@@ -398,11 +366,15 @@ def stream_view():
   """@params ?u=Aaa&p=enc:616263&v=1.2.0&c=android&id=1409097050&maxBitRate=0
 
   """
-  if not 'id' in request.args:
+  (u, p, v, c, f, callback, eid) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback','id']]
+
+  print("request.headers: %s" % request.headers)
+  if not eid:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
-  info = iposonic.get_song_by_id(request.args['id'])
+  info = iposonic.get_song_by_id(eid)
   assert 'path' in info, "missing path in song: %s" % info
   if os.path.isfile(info['path']):
+      fp = open(info['path'], "r")
       print "sending static file: %s" % info['path']
       return send_file(info['path'])
   raise IposonicException("why here?")
@@ -421,6 +393,14 @@ def download_view():
   raise IposonicException("why here?")
 
 
+
+
+@app.route("/rest/scrobble.view", methods = ['GET', 'POST']) 
+def scrobble_view():
+    """Add song to last.fm"""
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+
+    return request.formatter({})
 
 #
 # TO BE DONE
@@ -445,6 +425,42 @@ def get_formatter(request):
             return jsonp_formatter
     except:
         return xml_formatter
+
+
+    
+@app.before_request
+def responsizer():
+    """Return a function to create the response."""
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    if f == 'jsonp':
+        if not callback: raise SubsonicProtocolException("Missing callback with jsonp")
+        request.formatter = lambda x : ResponseHelper.responsize_jsonp(x, callback)
+    else:
+        request.formatter = lambda x : ResponseHelper.responsize_xml(x)
+    
+
+@app.after_request
+def after_request(response):
+    print("response: %s" %response.data)
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    if f == 'jsonp':
+        response.headers['content-type'] = 'application/json'
+    return response
+
+@app.after_request
+def fix_content_length_for_static(res):
+  (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+
+  # problems behind Nginx with HTTPS
+  print("request: %s" %request.path)
+  if request.endpoint == 'stream_view':
+     directory = dirname(abspath(__file__))
+     requested_file = join(directory,request.path[1:]) # what about when 404?
+     res.headers.add("Content-Length", str(os.path.getsize(requested_file))) # do I need to sanitize this to stop ../../ attacks
+  return res
+
+
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

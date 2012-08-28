@@ -46,13 +46,20 @@ class ResponseHelper:
   def responsize_jsonp(ret, callback, status = "ok", version = "9.0.0"):
       if not callback: raise SubsonicProtocolException()
       # add headers to response
-      ret.update({'status' : 'ok', 'version': '19.9.9' })
+      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
       return "%s(%s)" % (
           callback,
           simplejson.dumps({'subsonic-response' : ret},
             indent = True,
             encoding = 'latin_1')
         )
+  @staticmethod     
+  def responsize_xml(ret):
+      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
+      return ResponseHelper.jsonp2xml({'subsonic-response' : ret})
+            
+       
+
 
   
   @staticmethod
@@ -110,7 +117,7 @@ class ResponseHelper:
                 ret += """<%s %s />""" % (name,attrs)
             else:
                 ret += """<%s %s>%s</%s>""" % (name, attrs, ResponseHelper.json2xml(content), name)
-        return ret
+        return ret.replace("True","true")
       except:
         print "error xml-izing object: %s" % json
         raise
@@ -120,30 +127,54 @@ class ResponseHelper:
   @staticmethod
   def jsonp2xml(json):
       """Convert a json structure to xml. The game is trivial. Nesting uses the [] parenthesis.
-          ex. {
-                'ul': {'style':'color:black;', 
-                        'li':
-                      [
-                       'Write first','Write second',
-                      ]
-                }
-              }"""
+      
+        ex.  { 'musicFolder': {'id': 1234, 'name': "sss" } }
+      
+          ex. { 'musicFolder': [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }]}
+          
+          ex. { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
+          
+          ex. {"subsonic-response": { "musicFolders": {"musicFolder": [{ "id": 0,"name": "Music"}]},
+    "status": "ok","version": "1.7.0","xmlns": "http://subsonic.org/restapi"}}
+
+              """
       ret = ""
       content = None
-      if isinstance(json, str): return str
-      if not isinstance(json, dict): raise NotImplemented("class type: %s" % json.__class__.__name__)
+      for c in [str, int, unicode]:
+          if isinstance(json, c): return str(json)
+      if not isinstance(json, dict): raise Exception("class type: %s" % json)
+      
       for tag in json.keys():
-          attributes = ""
-          for (attr, value) in json[tag].iteritems():
-              if not isinstance(value, list):
-                  attributes += """ %s="%s" """ % (attr, value)
+          tag_list = json[tag]
+          content = ""
+          if isinstance(tag_list, list):                  
+              for t in tag_list:  
+                  #print "t: %s, tl: %s" % (t, tag_list)
+                  attributes = ""
+                  for (attr, value) in t.iteritems():
+                      # only string values are attributes
+                      if not isinstance(value, dict):
+                          attributes = """%s %s="%s" """ % (attributes, attr, value)
+                      else:
+                          content += ResponseHelper.jsonp2xml(value)
+                  if content:    
+                    ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
+                  else:
+                    ret += "<%s%s/>" % (tag, attributes)
+          if isinstance(tag_list, dict):
+              attributes = ""
+              for (attr, value) in tag_list.iteritems():
+                  # only string values are attributes
+                  if not isinstance(value, dict) and not isinstance(value, list):
+                      attributes = """%s %s="%s" """ % (attributes, attr, value)
+                  else:
+                      content += ResponseHelper.jsonp2xml({attr: value})
+              if content:    
+                ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
               else:
-                  for item in value:
-                      content += ResponseHelper.jsonp2xml(item)
-          if content:    
-            ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
-          else:
-            ret += "<%s%s/>" % (tag, attributes)
+                ret += "<%s%s/>" % (tag, attributes)
+      print "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret)
+
       return ret  
 
 
@@ -266,7 +297,7 @@ class Album(Artist):
         parent = dirname(path)
         self['parent'] = MediaManager.get_entry_id(parent)
         self['artist'] = basename(parent)
-        self['isDir'] = 'true'
+        self['isDir'] = True
         
 class AlbumTest:
     def test_1(self):
@@ -333,7 +364,7 @@ class Iposonic:
             return self.albums[eid]
         elif eid in self.songs:
             return self.songs[eid]
-        raise IposonicException("Missing entry with id: %s ") % (eid)
+        raise IposonicException("Missing entry with id: %s " % eid)
         
     def get_directory_path_by_id(self, eid):
         info = self.get_entry_by_id(eid)

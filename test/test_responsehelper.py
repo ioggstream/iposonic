@@ -37,23 +37,39 @@ def test_json2xml_6():
       'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'id': '-780183664', 'tracknumber': u'1'}}
     print ResponseHelper.json2xml(album)
 
-"""
-def test_jsonp2xml_0():
-    val = { 'li': {'style': 'color:red;'}}
-    print "ret: %s" % ResponseHelper.jsonp2xml(val)
 
 
 def test_jsonp2xml_1():
-    val = { 'musicFolder': {'id': 1234, 'name': "sss" }}
+    val = { 'musicFolder': [{'id': 1234, 'name': "sss" }]}
     print "ret: %s" % ResponseHelper.jsonp2xml(val)
 
 
 def test_jsonp2xml_2():
     val = { 'musicFolder': [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }]}
-    print "ret: %s" % ResponseHelper.jsonp2xml([val, val])
+    print "ret: %s" % ResponseHelper.jsonp2xml(val)
 
 def test_jsonp2xml_3():
     val1 = { 'musicFolder': {'id': 1234, 'name': "sss" }}
     val2 = { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
     print ResponseHelper.jsonp2xml(val2)
-"""
+
+
+def test_jsonp2xml_4():
+    val = {"subsonic-response": { "musicFolders": {"musicFolder": [{ "id": 0,"name": "Music"}]},
+    "status": "ok","version": "1.7.0","xmlns": "http://subsonic.org/restapi"}}
+    
+    val2 = {
+ "subsonic-response": {
+  "musicFolders": {
+   "musicFolder": [
+    {
+     "id": "-510260975", 
+     "name": "/opt/music/"
+    }
+   ]
+  }, 
+  "status": "ok", 
+  "version": "19.9.9", 
+  "xmlns": "http://subsonic.org/restapi"
+}}
+    print ResponseHelper.jsonp2xml(val2)
