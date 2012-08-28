@@ -47,7 +47,7 @@ def ping_view():
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
 def get_license_view():
     (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
-    return ResponseHelper.responsize("""<license valid="true" email="foo@bar.com" key="ABC123DEF" date="2009-09-03T14:46:43"/>""")
+    return request.formatter( {'license': {'valid' : 'true', 'email' : 'robipolli@gmail.com', 'key' : 'ABC123DEF', 'date' : '2009-09-03T14:46:43'} }  )
 
 #
 # List music collections
@@ -277,39 +277,8 @@ def get_album_list_view():
         raise SubsonicProtocolException("Type is a require parameter")
 
     #albums = randomize(iposonic.albums, 20)
-    albums = [{'album' : a } for a in iposonic.albums.values()]
-    albumList = {'albumList' : {'__content' : albums}}
-    return ResponseHelper.responsize(jsonmsg = albumList)
-
-def randomize(dictionary, limit = 20):
-    a_all = dictionary.keys()
-    a_max = len(a_all)
-    ret = []
-    r = 0
-
-    if not a_max:
-        return ret
-
-    try:
-      for x in range(0,limit):
-          r = random.randint(0,a_max-1)
-          k_rnd = a_all[r]
-          ret.append(dictionary[k_rnd])
-      return ret
-    except:
-      print "a_all:%s" % a_all
-      raise
-
-def randomize2(dictionary, limit = 20):
-    a_max = len(dictionary)
-    ret = []
-
-    for (k,v) in dictionary.iteritems():
-        k_rnd = random.randint(0,a_max)
-        if k_rnd > limit: continue
-        ret.append(v)
-    return ret
-
+    albums = [a for a in iposonic.albums.values()]
+    return request.formatter({'albumList' : {'album': albums }})
     
 @app.route("/rest/getRandomSongs.view", methods = ['GET', 'POST'])
 def get_random_songs_view():
@@ -348,8 +317,8 @@ def get_random_songs_view():
     assert songs
     #raise NotImplemented("WriteMe")
     songs = [{'song': s} for s in songs]
-    randomSongs = {'randomSongs' : {'__content' : songs}}
-    return ResponseHelper.responsize(jsonmsg = randomSongs)
+    randomSongs = {'randomSongs' : {'song' : songs} }
+    return request.formatter(randomSongs)
 
 
 
@@ -430,8 +399,11 @@ def set_formatter():
 
 @app.after_request
 def set_content_type(response):
-    print("response: %s" %response.data)
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    print "response is streamed: %s" % response.is_streamed
+    
+    if not request.endpoint in ['stream_view','download_view']:
+        print("response: %s" %response.data)
     if f == 'jsonp':
         response.headers['content-type'] = 'application/json'
     return response
@@ -448,6 +420,37 @@ def fix_content_length_for_static(res):
      res.headers.add("Content-Length", str(os.path.getsize(requested_file))) # do I need to sanitize this to stop ../../ attacks
   return res
 
+
+
+
+def randomize(dictionary, limit = 20):
+    a_all = dictionary.keys()
+    a_max = len(a_all)
+    ret = []
+    r = 0
+
+    if not a_max:
+        return ret
+
+    try:
+      for x in range(0,limit):
+          r = random.randint(0,a_max-1)
+          k_rnd = a_all[r]
+          ret.append(dictionary[k_rnd])
+      return ret
+    except:
+      print "a_all:%s" % a_all
+      raise
+
+def randomize2(dictionary, limit = 20):
+    a_max = len(dictionary)
+    ret = []
+
+    for (k,v) in dictionary.iteritems():
+        k_rnd = random.randint(0,a_max)
+        if k_rnd > limit: continue
+        ret.append(v)
+    return ret
 
 
 

@@ -24,7 +24,7 @@ from binascii import crc32
 # manage media files
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, ID3NoHeaderError
-from mutagen.mp3 import HeaderNotFoundError
+from mutagen.mp3 import  MP3, HeaderNotFoundError
 import mutagen.oggvorbis
 
 # logging and json
@@ -56,75 +56,10 @@ class ResponseHelper:
         )
   @staticmethod     
   def responsize_xml(ret):
+      """Return an xml response from json and replace unsupported characters."""
       ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
-      return ResponseHelper.jsonp2xml({'subsonic-response' : ret})
+      return ResponseHelper.jsonp2xml({'subsonic-response' : ret}).replace("&","\\&amp;")
             
-       
-
-
-  
-  @staticmethod
-  def responsize(msg="", jsonmsg= None, status="ok", version="9.0.0"):
-    if jsonmsg:
-      assert not msg, "Can't define both msg and jsonmsg'"
-      msg = ResponseHelper.json2xml(jsonmsg)
-    ret = """<?xml version="1.0" encoding="UTF-8"?>
-    <subsonic-response xmlns="http://subsonic.org/restapi" version="%s" status="%s">%s</subsonic-response>""" %(version,status,msg)
-
-    #
-    # Subsonic android client doesn't recognize plain &
-    #
-    ret = ret.replace("&","\\&amp;")
-    return ret
-
-  @staticmethod
-  def json2xml(json):
-      """Convert a json structure to xml. The game is trivial. Nesting uses the '__content' keyword.
-          ex. {
-                'ul': {'style':'color:black;', '__content':
-                      [
-                      {'li': {'__content': 'Write first'}},
-                      {'li': {'__content': 'Write second'}},
-                      ]
-                }
-              }"""
-      ret = ""
-      content = None
-      try:
-        # don't touch strings
-        if isinstance(json, str) or isinstance(json, unicode):
-            return json
-        # preserve list structures
-        if isinstance(json, list):
-            if not json:
-                return ""
-            for item in json:
-                ret += ResponseHelper.json2xml(item)
-            return ret
-        # play the game with dicts
-        for name in json.keys():
-            attrs = ""
-            assert isinstance(json[name],dict) , "entry is not a dictionary: %s" % json
-            for (attr,value) in json[name].iteritems():
-                if attr == '__content':
-                    content = value
-                else:
-                    try:
-                        attrs += """ %s="%s"   """ % (attr, value)
-                    except UnicodeDecodeError as e:
-                        print "value: %s"
-                        raise e
-            if not content:
-                ret += """<%s %s />""" % (name,attrs)
-            else:
-                ret += """<%s %s>%s</%s>""" % (name, attrs, ResponseHelper.json2xml(content), name)
-        return ret.replace("True","true")
-      except:
-        print "error xml-izing object: %s" % json
-        raise
-
-
-
   @staticmethod
   def jsonp2xml(json):
       """Convert a json structure to xml. The game is trivial. Nesting uses the [] parenthesis.
@@ -188,9 +123,10 @@ class ResponseHelper:
                 ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
               else:
                 ret += "<%s%s/>" % (tag, attributes)
+                
       ResponseHelper.log.info( "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret))
 
-      return ret.replace("isDir=\"True\"", "isDir=\"true\"") 
+      return ret.replace("isDir=\"True\"", "isDir=\"true\"")
 
 
 
@@ -228,7 +164,7 @@ class MediaManager:
             raise UnsupportedMediaError("Unallowed extension for path: %s" % path)
             
         if path.endswith("mp3"):
-            return EasyID3
+            return lambda x: MP3(x, ID3=EasyID3)
         if path.endswith("ogg"):
             return mutagen.oggvorbis.Open
         raise UnsupportedMediaError("Can't find tag manager for path: %s" % path)
@@ -240,7 +176,14 @@ class MediaManager:
         return ret
     @staticmethod
     def get_info(path):
-        """Get id3 or ogg info from a file"""
+        """Get id3 or ogg info from a file.
+           "bitRate": 192,
+   "contentType": "audio/mpeg",
+   "duration": 264,
+   "isDir": false,
+   "isVideo": false,
+   "size": 6342112,
+        """
         if os.path.isfile(path):
             try:
                 manager = MediaManager.get_tag_manager(path)
@@ -253,7 +196,13 @@ class MediaManager:
                 ret['path'] = path
                 ret['id'] = MediaManager.get_entry_id(path)
                 ret['isDir'] = 'false'
+                ret['isVideo'] = 'false'
                 ret['parent'] = MediaManager.get_entry_id(dirname(path))
+                try:
+                    ret['bitRate'] = audio.info.bitrate / 1000
+                    ret['duration'] = int(audio.info.length)
+                except:
+                    pass
                 MediaManager.log.info( "Parsed id3: %s" % ret)
                 return ret
             except UnsupportedMediaError as e:
@@ -318,6 +267,12 @@ class AlbumTest:
     def test_1(self):
         a = Album("./test/data/mock_artist/mock_album")
         assert a['name'] == "mock_album"
+
+class Media(Entry):
+    required_fields = ['name','id','title','path','isDir']
+    def __init__(self,path):
+        Entry.__init__(self)
+        self.update(MediaManager.get_info(path))
 
 class Child(Entry):
     """A dictionary containing:
