@@ -229,9 +229,9 @@ def search2_view():
     return request.formatter(
         {
             'searchResult2': {
-                'song' : ret[title],
-                'album' : ret[album],
-                'artist' : ret[artist]
+                'song' : ret['title'],
+                'album' : ret['album'],
+                'artist' : ret['artist']
             }
         }
       )

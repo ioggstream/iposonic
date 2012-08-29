@@ -235,7 +235,7 @@ class MediaManager:
                 MediaManager.log.info( "Parsed id3: %s" % ret)
                 return ret
             except HeaderNotFoundError as e:
-                raise e
+                raise UnsupportedMediaError("Header not found in file: %s" % path, e)
             except ID3NoHeaderError as e:
                 print "Media has no id3 header: %s" % path
             return None
