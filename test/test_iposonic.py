@@ -138,3 +138,6 @@ class TestIposonic:
     def test_walk_music_directory(self):
         print self.iposonic.walk_music_directory()
 
+    def test_get_indexes(self):
+        self.iposonic.walk_music_directory()
+        print self.iposonic.get_indexes()

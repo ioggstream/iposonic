@@ -7,14 +7,19 @@
 # License AGPLv3
 from flask import Flask
 from flask import request, send_file
+from flask import Response
 
 import os,sys,random
-from os.path import join
+import simplejson
+from os.path import join,dirname,abspath
+import logging
 
-from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager, log
-
+from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager
+from iposonic import Album, Artist
+from iposonic import StringUtils
 app = Flask(__name__)
 
+log = logging.getLogger('iposonic-webapp')
 
 #
 # Configuration
@@ -32,30 +37,35 @@ iposonic = Iposonic(music_folders)
 #
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
-    (u,p,v,c) = [request.args.get(x,None) for x in ['u','p','v','c']]
+    (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
     print "songs: %s" % iposonic.songs
     print "albums: %s" % iposonic.albums
     print "artists: %s" % iposonic.artists
-    
-    return ResponseHelper.responsize("")
+
+    return request.formatter({})
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
 def get_license_view():
-    (u,p,v,c) = [request.args[x] for x in ['u','p','v','c']]
-    return ResponseHelper.responsize("""<license valid="true" email="foo@bar.com" key="ABC123DEF" date="2009-09-03T14:46:43"/>""")
-
+    (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
+    return request.formatter( {'license': {'valid' : 'true', 'email' : 'robipolli@gmail.com', 'key' : 'ABC123DEF', 'date' : '2009-09-03T14:46:43'} }  )
 
 #
 # List music collections
 #
 @app.route("/rest/getMusicFolders.view", methods = ['GET', 'POST'])
 def get_music_folders_view():
-    ret = dict()
-    for d in iposonic.music_folders:
-      if os.path.isdir(d):
-        ret[ 'musicFolder'] = {'id': MediaManager.get_entry_id(d), 'name': d }
-    return ResponseHelper.responsize(jsonmsg={'musicFolders' : {'__content' : ret}})
-
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    return request.formatter(
+        { 
+            'musicFolders': { 
+                'musicFolder' : [
+                    {'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.music_folders if os.path.isdir(d)
+                    ] 
+             }
+        }
+    )
+                
+                
 
 @app.route("/rest/getIndexes.view", methods = ['GET', 'POST'])
 def get_indexes_view():
@@ -94,12 +104,27 @@ def get_indexes_view():
     # refresh indexes
     iposonic.walk_music_directory()
 
-    # serialize data
-    indexes_j = [{'index': {'name': k, '__content': v}} for (k,v) in iposonic.indexes.iteritems()]
-    indexes = {'indexes': {  '__content' : indexes_j }}
+    #
+    # XXX sample code to support jsonp clients
+    #     this should be managed with some
+    #     @jsonp_formatter
+    #
+    # XXX we should think to reimplement the
+    #     DB in some consistent way before
+    #     wasting time with unsearchable, dict-based
+    #     data to format
+    #
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    log.info("response is %s" % f)
 
-    return ResponseHelper.responsize(jsonmsg = indexes)
-
+    indexes_j = {'index' : []}
+    ret = ""
+    for (k,v) in iposonic.indexes.iteritems():
+        item =  {'name': k, 'artist': [ item['artist'] for item in v ] }
+        indexes_j['index'].append (item)
+            
+            
+    return request.formatter( { 'indexes': indexes_j})
 
 @app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
 def get_music_directory_view():
@@ -129,67 +154,45 @@ def get_music_directory_view():
         TODO getAlbumArt
         TODO getBitRate
     """
-    if not 'id' in request.args:
+    (u, p, v, c, f, callback, dir_id) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback', 'id']]
+
+    if not dir_id:
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
-    dir_id = request.args['id']
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
-    artist = os.path.basename(path)
+    artist = Artist(path)
     children = []
     for child in os.listdir(dir_path):
         if child[0] in ['.','_']:
             continue
         path = join("/", dir_path, child)
         try:
+          child_j = {}
           is_dir = os.path.isdir(path)
           # This is a Lazy Indexing. It should not be there
           #   unless a cache is set
+          # XXX
           eid = iposonic.add_entry(path, album = is_dir)
-          child_j = {
-            'id' : MediaManager.get_entry_id(path),
-            'parent' : dir_id,
-            'title' : child,
-            'artist' : artist,
-            'isDir': str(is_dir).lower(),
-            'coverArt' : 0
-            }
+          child_j = iposonic.get_entry_by_id(eid)
+        
           if not is_dir:
             info = iposonic.get_song_by_id(eid)
-            track = info.get('tracknumber',0)
-            try:
-                track = int(track)
-            except:
-                track = 0
-            child_j.update({
-              'track' : str(track),
-#              'year' : 0,
-#              'genre' : info.get('genre',0),
-              'size'  : os.path.getsize(path),
-              'suffix' : path[-3:],
-              'path'  : path
-              })
             if info:
                 child_j.update(info)
-          children.append({'child': child_j})
+          children.append(child_j)  
         except IposonicException as e:
-          log (e)
+          log.info (e)
           
-    return ResponseHelper.responsize(jsonmsg={'directory': {'id' : dir_id, 'name': artist, '__content': children}})
+    # Sort songs by track id, if possible
+    children = sorted(children, key=lambda x : x.get('track',0))
+
+    return request.formatter({'directory': {'id' : dir_id, 'name': artist['name'], 'child': children}})
+    
 
 
 
 #
 # Search
 #
-#@app.route("/rest/search2.view", methods = ['GET', 'POST'])
-def search2_mock():
-    album = {'album': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}], 'title': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}], 'artist': [{'album': u'Bach Violin Concertos (PREVIEW: buy it at www.magnatune.com)', 'isDir': 'false', 'parent': '759327748', 'artist': u'Lara St John (PREVIEW: buy it at www.magnatune.com)', 'title': u'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)', 'genre': u'Classical', 'path': '/home/rpolli/workspace-py/iposonic/test/data/lara.mp3', 'date': u'2001', 'tracknumber': u'1', 'id': '-780183664'}]}
-    album= [{'album': x} for x in album['album']]
-    
-    return ResponseHelper.responsize(jsonmsg=
-      {'searchResult2':
-        {'__content': album }}
-      )
-
 @app.route("/rest/search2.view", methods = ['GET', 'POST'])
 def search2_view():
     """
@@ -209,19 +212,28 @@ def search2_view():
     </searchResult2>
 
     """
-    if not 'query' in request.args:
-        raise SubsonicProtocolException("Missing required parameter: 'query' in search2_view.view")
+    (u, p, v, c, f, callback, query) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback','query']]
+    print "query:%s\n\n" % query
+    if not query:
+        raise SubsonicProtocolException("Missing required parameter: 'query' in search2.view")
         
-    (query, artistCount, albumCount, songCount) = [request.args[x] for x in ("query", "artistCount", "albumCount", "songCount")]
+    (artistCount, albumCount, songCount) = [request.args[x] for x in ("artistCount", "albumCount", "songCount")]
 
     # ret is 
+    print "searching"
     ret = iposonic.search2(query, artistCount, albumCount, songCount)
     songs = [{'song': s } for s in ret['title']]
     songs.extend([{'album': a} for a in ret['album']])
     songs.extend([{'artist': a} for a in ret['artist']])
-    return ResponseHelper.responsize(jsonmsg=
-      {'searchResult2':
-        {'__content': songs }}
+    print "ret: %s" % ret
+    return request.formatter(
+        {
+            'searchResult2': {
+                'song' : ret[title],
+                'album' : ret[album],
+                'artist' : ret[artist]
+            }
+        }
       )
     raise NotImplemented("WriteMe")
 
@@ -254,39 +266,8 @@ def get_album_list_view():
         raise SubsonicProtocolException("Type is a require parameter")
 
     #albums = randomize(iposonic.albums, 20)
-    albums = [{'album' : a } for a in iposonic.albums.values()]
-    albumList = {'albumList' : {'__content' : albums}}
-    return ResponseHelper.responsize(jsonmsg = albumList)
-
-def randomize(dictionary, limit = 20):
-    a_all = dictionary.keys()
-    a_max = len(a_all)
-    ret = []
-    r = 0
-
-    if not a_max:
-        return ret
-
-    try:
-      for x in range(0,limit):
-          r = random.randint(0,a_max-1)
-          k_rnd = a_all[r]
-          ret.append(dictionary[k_rnd])
-      return ret
-    except:
-      print "a_all:%s" % a_all
-      raise
-
-def randomize2(dictionary, limit = 20):
-    a_max = len(dictionary)
-    ret = []
-
-    for (k,v) in dictionary.iteritems():
-        k_rnd = random.randint(0,a_max)
-        if k_rnd > limit: continue
-        ret.append(v)
-    return ret
-
+    albums = [a for a in iposonic.albums.values()]
+    return request.formatter({'albumList' : {'album': albums }})
     
 @app.route("/rest/getRandomSongs.view", methods = ['GET', 'POST'])
 def get_random_songs_view():
@@ -325,8 +306,8 @@ def get_random_songs_view():
     assert songs
     #raise NotImplemented("WriteMe")
     songs = [{'song': s} for s in songs]
-    randomSongs = {'randomSongs' : {'__content' : songs}}
-    return ResponseHelper.responsize(jsonmsg = randomSongs)
+    randomSongs = {'randomSongs' : {'song' : songs} }
+    return request.formatter(randomSongs)
 
 
 
@@ -340,13 +321,18 @@ def stream_view():
   """@params ?u=Aaa&p=enc:616263&v=1.2.0&c=android&id=1409097050&maxBitRate=0
 
   """
-  if not 'id' in request.args:
+  (u, p, v, c, f, callback, eid) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback','id']]
+
+  print("request.headers: %s" % request.headers)
+  if not eid:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
-  info = iposonic.get_song_by_id(request.args['id'])
-  assert 'path' in info, "missing path in song: %s" % info
-  if os.path.isfile(info['path']):
-      print "sending static file: %s" % info['path']
-      return send_file(info['path'])
+  info = iposonic.get_song_by_id(eid)
+  path = info.get('path', None)
+  assert path, "missing path in song: %s" % info
+  if os.path.isfile(path):
+      fp = open(path, "r")
+      print "sending static file: %s" % path
+      return send_file(path)
   raise IposonicException("why here?")
 
 @app.route("/rest/download.view", methods = ['GET', 'POST'])
@@ -364,6 +350,14 @@ def download_view():
 
 
 
+
+@app.route("/rest/scrobble.view", methods = ['GET', 'POST']) 
+def scrobble_view():
+    """Add song to last.fm"""
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+
+    return request.formatter({})
+
 #
 # TO BE DONE
 #
@@ -374,6 +368,80 @@ def get_cover_art_view():
 @app.route("/rest/getLyrics.view", methods = ['GET', 'POST'])
 def get_lyrics_view():
     raise NotImplemented("WriteMe")
+
+
+
+#
+# Helpers
+#
+    
+@app.before_request
+def set_formatter():
+    """Return a function to create the response."""
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    if f == 'jsonp':
+        if not callback: raise SubsonicProtocolException("Missing callback with jsonp")
+        request.formatter = lambda x : ResponseHelper.responsize_jsonp(x, callback)
+    else:
+        request.formatter = lambda x : ResponseHelper.responsize_xml(x)
+    
+
+@app.after_request
+def set_content_type(response):
+    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    print "response is streamed: %s" % response.is_streamed
+    
+    if not request.endpoint in ['stream_view','download_view']:
+        print("response: %s" %response.data)
+    if f == 'jsonp':
+        response.headers['content-type'] = 'application/json'
+    return response
+
+#@app.after_request
+def fix_content_length_for_static(res):
+  (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+
+  # problems behind Nginx with HTTPS
+  print("request: %s" %request.path)
+  if request.endpoint == 'stream_view':
+     directory = dirname(abspath(__file__))
+     requested_file = join(directory,request.path[1:]) # what about when 404?
+     res.headers.add("Content-Length", str(os.path.getsize(requested_file))) # do I need to sanitize this to stop ../../ attacks
+  return res
+
+
+
+
+def randomize(dictionary, limit = 20):
+    a_all = dictionary.keys()
+    a_max = len(a_all)
+    ret = []
+    r = 0
+
+    if not a_max:
+        return ret
+
+    try:
+      for x in range(0,limit):
+          r = random.randint(0,a_max-1)
+          k_rnd = a_all[r]
+          ret.append(dictionary[k_rnd])
+      return ret
+    except:
+      print "a_all:%s" % a_all
+      raise
+
+def randomize2(dictionary, limit = 20):
+    a_max = len(dictionary)
+    ret = []
+
+    for (k,v) in dictionary.iteritems():
+        k_rnd = random.randint(0,a_max)
+        if k_rnd > limit: continue
+        ret.append(v)
+    return ret
+
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

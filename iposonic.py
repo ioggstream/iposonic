@@ -1,91 +1,136 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+#
 # iposonic - a micro implementation of the subsonic server API
 #  for didactical purposes: I just wanted to play with flask
 #
-# Roberto Polli (c) 2012
-# AGPL v3
+# author:   Roberto Polli (c) 2012
+# license:  AGPL v3
+#
+# Subsonic is an opensource streaming server www.subsonic.org
+#  as I love python and I don't want to install an application
+#  server for listening music, I wrote IpoSonic
+#
+# IpoSonic does not have a web interface, like of the original subsonic server
+#   and does not support transcoding (but it could in the future)
+#
 
 
 # standard libs
 import os, sys, re
-from os.path import join
+from os.path import join, basename, dirname
 from binascii import crc32
 
 # manage media files
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, ID3NoHeaderError
-from mutagen.mp3 import HeaderNotFoundError
+from mutagen.mp3 import  MP3, HeaderNotFoundError
 import mutagen.oggvorbis
 
+# logging and json
+import simplejson
 import logging
 log = logging.getLogger('iposonic')
 
 #tests
 from nose import SkipTest
 
-def log(s):
-  print >>sys.stderr, s
 
 class ResponseHelper:
-  @staticmethod
-  def responsize(msg="", jsonmsg= None, status="ok", version="9.0.0"):
-    if jsonmsg:
-      assert not msg, "Can't define both msg and jsonmsg'"
-      msg = ResponseHelper.json2xml(jsonmsg)
-    ret = """<?xml version="1.0" encoding="UTF-8"?>
-    <subsonic-response xmlns="http://subsonic.org/restapi" version="%s" status="%s">%s</subsonic-response>""" %(version,status,msg)
+  """Serialize a python dict to an xml object, and embeds it in a subsonic-response
 
-    #
-    # Subsonic android client doesn't recognize plain &
-    #
-    ret = ret.replace("&","\\&amp;")
-    return ret
-
+    see test/test_responsehelper.py for the test and documentation
+    TODO: we could @annotate this ;)
+  """
+  log = logging.getLogger('ResponseHelper')
   @staticmethod
-  def json2xml(json):
-      """Convert a json structure to xml. The game is trivial. Nesting uses the '__content' keyword.
-          ex. {
-                'ul': {'style':'color:black;', '__content':
-                      [
-                      {'li': {'__content': 'Write first'}},
-                      {'li': {'__content': 'Write second'}},
-                      ]
-                }
-              }"""
+  def responsize_jsonp(ret, callback, status = "ok", version = "9.0.0"):
+      if not callback: raise SubsonicProtocolException()
+      # add headers to response
+      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
+      return "%s(%s)" % (
+          callback,
+          simplejson.dumps({'subsonic-response' : ret},
+            indent = True,
+            encoding = 'latin_1')
+        )
+  @staticmethod     
+  def responsize_xml(ret):
+      """Return an xml response from json and replace unsupported characters."""
+      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
+      return ResponseHelper.jsonp2xml({'subsonic-response' : ret}).replace("&","\\&amp;")
+            
+  @staticmethod
+  def jsonp2xml(json):
+      """Convert a json structure to xml. The game is trivial. Nesting uses the [] parenthesis.
+      
+        ex.  { 'musicFolder': {'id': 1234, 'name': "sss" } }
+      
+          ex. { 'musicFolder': [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }]}
+          
+          ex. { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
+          
+          ex. { 'index': [{'name': 'A',  'artist': [{'id': '517674445', 'name': 'Antonello Venditti'}] }] } 
+          
+          ex. {"subsonic-response": { "musicFolders": {"musicFolder": [{ "id": 0,"name": "Music"}]},
+    "status": "ok","version": "1.7.0","xmlns": "http://subsonic.org/restapi"}}
+
+              """
       ret = ""
       content = None
-      try:
-        if isinstance(json, str) or isinstance(json, unicode):
-            return json
+      for c in [str, int, unicode]:
+          if isinstance(json, c): return str(json)
+      if not isinstance(json, dict): raise Exception("class type: %s" % json)
+      
+      # every tag is a dict.
+      #    its value can be a string, a list or a dict
+      for tag in json.keys():
+          tag_list = json[tag]
+          
+          # if tag_list is a list, then it represent a list of elements
+          #   ex. {index: [{ 'a':'1'} , {'a':'2'} ] }
+          #       --> <index a="1" /> <index b="2" />
+          if isinstance(tag_list, list):                  
+              for t in tag_list:  
+                  # for every element, get the attributes
+                  #   and embed them in the tag named
+                  attributes = ""
+                  content = ""
+                  for (attr, value) in t.iteritems():
+                      # only serializable values are attributes
+                      if value.__class__.__name__ in 'str':
+                          attributes = """%s %s="%s" """ % (attributes, attr , StringUtils.to_unicode(value))
+                      elif value.__class__.__name__ in ['int', 'unicode', 'bool']:
+                          attributes = """%s %s="%s" """ % (attributes, attr , value)
+                      # other values are content
+                      elif isinstance(value, dict):
+                          content += ResponseHelper.jsonp2xml(value)
+                      elif isinstance(value, list):
+                          content += ResponseHelper.jsonp2xml({attr:value})
+                  if content:    
+                    ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
+                  else:
+                    ret += "<%s%s/>" % (tag, attributes)
+          if isinstance(tag_list, dict):
+              attributes = ""
+              content = ""
 
-        if isinstance(json, list):
-            if not json:
-                return ""
-            for item in json:
-                ret += ResponseHelper.json2xml(item)
-            return ret
+              for (attr, value) in tag_list.iteritems():
+                  # only string values are attributes
+                  if not isinstance(value, dict) and not isinstance(value, list):
+                      attributes = """%s %s="%s" """ % (attributes, attr, value)
+                  else:
+                      content += ResponseHelper.jsonp2xml({attr: value})
+              if content:    
+                ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
+              else:
+                ret += "<%s%s/>" % (tag, attributes)
+                
+      ResponseHelper.log.info( "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret))
 
-        for name in json.keys():
-            attrs = ""
-            assert isinstance(json[name],dict) , "entry is not a dictionary: %s" % json
-            for (attr,value) in json[name].iteritems():
-                if attr == '__content':
-                    content = value
-                else:
-                    try:
-                        attrs += """ %s="%s"   """ % (attr, value)
-                    except UnicodeDecodeError as e:
-                        print "value: %s"
-                        raise e
-            if not content:
-                ret += """<%s %s />""" % (name,attrs)
-            else:
-                ret += """<%s %s>%s</%s>""" % (name, attrs, ResponseHelper.json2xml(content), name)
-        return ret
-      except:
-        print "error xml-izing object: %s" % json
-        raise
+      return ret.replace("isDir=\"True\"", "isDir=\"true\"")
+
+
 
     
 ##
@@ -109,7 +154,8 @@ class MediaInfo:
   
 class MediaManager:
     log = logging.getLogger('MediaManager')
-    
+    re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
+    re_track_2 = re.compile("^(.*)([0-9]+)?$")    
     @staticmethod
     def get_entry_id(path):
         return str(crc32(path))
@@ -121,7 +167,7 @@ class MediaManager:
             raise UnsupportedMediaError("Unallowed extension for path: %s" % path)
             
         if path.endswith("mp3"):
-            return EasyID3
+            return lambda x: MP3(x, ID3=EasyID3)
         if path.endswith("ogg"):
             return mutagen.oggvorbis.Open
         raise UnsupportedMediaError("Can't find tag manager for path: %s" % path)
@@ -131,26 +177,63 @@ class MediaManager:
         ret = path[0:path.rfind("/")]
         MediaManager.log.info("parent(%s) = %s" % (path, ret))
         return ret
+        
+    @staticmethod
+    def get_info_from_filename(path):
+        """Get track number, path, file size from file name."""
+        #assert os.path.isfile(path)
+        filename = basename(path[:path.rfind(".")])
+        try:
+            (track, title) = re.split("[ _\-]+", filename, 1) 
+            track = int(track)
+        except:
+            (track, title) = (0, filename)
+        return { 
+            'title' : title
+            , 'track' : track
+            , 'path' : path
+            , 'size'  : os.path.getsize(path)
+            , 'suffix' : path[-3:]
+        }
+            
     @staticmethod
     def get_info(path):
-        """Get id3 or ogg info from a file"""
+        """Get id3 or ogg info from a file.
+           "bitRate": 192,
+           "contentType": "audio/mpeg",
+           "duration": 264,
+           "isDir": false,
+           "isVideo": false,
+           "size": 6342112,
+        """
         if os.path.isfile(path):
             try:
+                # get basic info
+                ret  = MediaManager.get_info_from_filename(path)
+                
                 manager = MediaManager.get_tag_manager(path)
                 audio = manager(path)
+                
                 MediaManager.log.info( "Original id3: %s" % audio)
-                ret = dict()
                 for (k,v) in audio.iteritems():
                     if isinstance(v,list) and v:
                         ret[k] = v[0]
-                ret['path'] = path
+
                 ret['id'] = MediaManager.get_entry_id(path)
                 ret['isDir'] = 'false'
-                ret['parent'] = MediaManager.get_entry_id(MediaManager.get_parent(path))
+                ret['isVideo'] = 'false'
+                ret['parent'] = MediaManager.get_entry_id(dirname(path))
+                try:
+                    ret['bitRate'] = audio.info.bitrate / 1000
+                    ret['duration'] = int(audio.info.length)
+                    if ret.get('tracknumber',0):
+                        MediaManager.log.info("Overriding track with tracknumber")
+                        ret['track'] = int(ret['tracknumber'])
+                        
+                except:
+                    pass
                 MediaManager.log.info( "Parsed id3: %s" % ret)
                 return ret
-            except UnsupportedMediaError as e:
-                print "Media not supported by Iposonic: %s\n\n" % e
             except HeaderNotFoundError as e:
                 raise e
             except ID3NoHeaderError as e:
@@ -192,19 +275,20 @@ class Artist(Entry):
     def __init__(self,path):
         Entry.__init__(self)
         self['path'] = path
-        self['name'] = os.path.basename(path)
+        self['name'] = basename(path)
         self['id'] = MediaManager.get_entry_id(path)
         self['isDir'] = 'true'
 
 class Album(Artist):
-    required_fields = ['name','id', 'isDir', 'path', 'title', 'parent']
+    required_fields = ['name','id', 'isDir', 'path', 'title', 'parent', 'album']
     def __init__(self,path):
         Artist.__init__(self,path)
         self['title'] = self['name']
-        parent = MediaManager.get_parent(path)
+        self['album'] = self['name']
+        parent = dirname(path)
         self['parent'] = MediaManager.get_entry_id(parent)
-        self['artist'] = os.path.basename(parent)
-        self['isDir'] = 'true'
+        self['artist'] = basename(parent)
+        self['isDir'] = True
         
 class AlbumTest:
     def test_1(self):
@@ -269,26 +353,62 @@ class Iposonic:
         if not self.artists:
             self.walk_music_directory()
         return self.artists
+
+    def get_entry_by_id(self, eid):
+        if eid in self.get_music_directories():
+            return self.get_music_directories()[eid]
+        elif eid in self.albums:
+            return self.albums[eid]
+        elif eid in self.songs:
+            return self.songs[eid]
+        raise IposonicException("Missing entry with id: %s " % eid)
         
-    def get_directory_path_by_id(self, dir_id):
-        if dir_id in self.get_music_directories():
-            path = self.get_music_directories()[dir_id]['path']
-            return (path, os.path.join("/",self.music_folders[0],path))
-        if dir_id in self.albums:
-            return (self.albums[dir_id]['path'], self.albums[dir_id]['path'])
+    def get_directory_path_by_id(self, eid):
+        info = self.get_entry_by_id(eid)
+        return (info['path'], info['path'])
 
         raise IposonicException("Missing directory with id: %s in %s" % (dir_id, self.artists))
 
     def get_song_by_id(self, eid):
         return self.songs[eid]
 
+    def get_indexes(self):
+        """
+        {'A': 
+        [{'artist': 
+            {'id': '517674445', 'name': 'Antonello Venditti'}
+            }, 
+            {'artist': {'id': '-87058509', 'name': 'Anthony and the Johnsons'}}, 
+            
+            
+             "indexes": {
+  "index": [
+   {    "name": "A",
+
+    "artist": [
+     {
+      "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3939384441444243384645304546393232364335373739364632343743434642",
+      "name": "Abba"
+     },
+     {
+      "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3441444135414135324537384544464545423530363844433535334342303738",
+      "name": "Adele"
+     },
+
+        """
+        assert self.indexes
+        items = []
+        for (name, artists) in self.indexes.iteritems():
+            items.append ({'name' : name, 'artist' : [ v['artist'] for v in artists  ]})
+        return {'index': items}
+
     def add_entry(self, path, album = False):
         if os.path.isdir(path):
             eid = MediaManager.get_entry_id(path)
             if album:
                 self.albums[eid] = Album(path)
-            
-            self.artists[eid] = Artist(path)
+            else:
+                self.artists[eid] = Artist(path)
             self.log.info("adding directory: %s, %s " % (eid, path))
             return eid
         elif Iposonic.is_allowed_extension(path):
@@ -359,7 +479,7 @@ class Iposonic:
         # create an empty result set
         tags = ['artist', 'album', 'title']
         ret=dict(zip(tags,[[],[],[]]))
-        print "ret: %s" % ret
+
         # add fields from directories
         ret['artist'].extend (self._search_artists(re_query)['artist'])
 
@@ -367,7 +487,7 @@ class Iposonic:
         for t in tags:
           ret[t].extend(songs[t])
 
-        print "search2: %s" % ret
+        self.log.info( "search2 result: %s" % ret)
                     
         # TODO merge them or use sets
         return ret
@@ -377,6 +497,7 @@ class Iposonic:
         """Find all artists (top-level directories) and create indexes.
 
           TODO: create a cache for this.
+          TODO: put in a separate thread?
         """
         print "walking: ", self.music_folders
 
@@ -398,11 +519,14 @@ class Iposonic:
                 artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
                 #artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
 
+                #
+                # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
+                #
                 first = a[0:1].upper()
                 self.indexes.setdefault(first,[])
                 self.indexes[first].append(artist_j)
               except IposonicException as e:
-                log(e)
+                log.error(e)
             print "artists: %s" % self.artists
             
 #             for (root, dirfile, files) in os.walk(music_folder):
@@ -418,7 +542,17 @@ class Iposonic:
         
 #   
 class SubsonicProtocolException(Exception):
+    """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
     pass
 class IposonicException(Exception):
     pass
   
+class StringUtils:
+    encodings = ['ascii', 'latin_1',  'utf8', 'iso8859_15', 'cp850', 'cp037', 'cp1252']
+    @staticmethod
+    def to_unicode(s):
+        for e in StringUtils.encodings:
+            try: return unicode(s, encoding=e)
+            except: pass
+        raise UnicodeDecodeError("Cannot decode string: %s" % s)
+        
