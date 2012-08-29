@@ -98,8 +98,10 @@ class ResponseHelper:
                   content = ""
                   for (attr, value) in t.iteritems():
                       # only serializable values are attributes
-                      if value.__class__.__name__ in ['str', 'int', 'unicode', 'bool']:
-                          attributes = """%s %s="%s" """ % (attributes, attr, value)
+                      if value.__class__.__name__ in 'str':
+                          attributes = """%s %s="%s" """ % (attributes, attr , StringUtils.to_unicode(value))
+                      elif value.__class__.__name__ in ['int', 'unicode', 'bool']:
+                          attributes = """%s %s="%s" """ % (attributes, attr , value)
                       # other values are content
                       elif isinstance(value, dict):
                           content += ResponseHelper.jsonp2xml(value)
