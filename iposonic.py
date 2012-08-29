@@ -152,7 +152,8 @@ class MediaInfo:
   
 class MediaManager:
     log = logging.getLogger('MediaManager')
-    
+    re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
+    re_track_2 = re.compile("^(.*)([0-9]+)?$")    
     @staticmethod
     def get_entry_id(path):
         return str(crc32(path))
@@ -174,26 +175,48 @@ class MediaManager:
         ret = path[0:path.rfind("/")]
         MediaManager.log.info("parent(%s) = %s" % (path, ret))
         return ret
+        
+    @staticmethod
+    def get_info_from_filename(path):
+        """Get track number, path, file size from file name."""
+        #assert os.path.isfile(path)
+        filename = basename(path[:path.rfind(".")])
+        try:
+            (track, title) = re.split("[ _\-]+", filename, 1) 
+            track = int(track)
+        except:
+            (track, title) = (0, filename)
+        return { 
+            'title' : title
+            , 'track' : track
+            , 'path' : path
+            , 'size'  : os.path.getsize(path)
+            , 'suffix' : path[-3:]
+        }
+            
     @staticmethod
     def get_info(path):
         """Get id3 or ogg info from a file.
            "bitRate": 192,
-   "contentType": "audio/mpeg",
-   "duration": 264,
-   "isDir": false,
-   "isVideo": false,
-   "size": 6342112,
+           "contentType": "audio/mpeg",
+           "duration": 264,
+           "isDir": false,
+           "isVideo": false,
+           "size": 6342112,
         """
         if os.path.isfile(path):
             try:
+                # get basic info
+                ret  = MediaManager.get_info_from_filename(path)
+                
                 manager = MediaManager.get_tag_manager(path)
                 audio = manager(path)
+                
                 MediaManager.log.info( "Original id3: %s" % audio)
-                ret = dict()
                 for (k,v) in audio.iteritems():
                     if isinstance(v,list) and v:
                         ret[k] = v[0]
-                ret['path'] = path
+
                 ret['id'] = MediaManager.get_entry_id(path)
                 ret['isDir'] = 'false'
                 ret['isVideo'] = 'false'
@@ -201,12 +224,14 @@ class MediaManager:
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000
                     ret['duration'] = int(audio.info.length)
+                    if ret.get('tracknumber',0):
+                        MediaManager.log.info("Overriding track with tracknumber")
+                        ret['track'] = int(ret['tracknumber'])
+                        
                 except:
                     pass
                 MediaManager.log.info( "Parsed id3: %s" % ret)
                 return ret
-            except UnsupportedMediaError as e:
-                print "Media not supported by Iposonic: %s\n\n" % e
             except HeaderNotFoundError as e:
                 raise e
             except ID3NoHeaderError as e:

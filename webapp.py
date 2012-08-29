@@ -176,25 +176,14 @@ def get_music_directory_view():
         
           if not is_dir:
             info = iposonic.get_song_by_id(eid)
-            track = info.get('tracknumber',0)
-            try:
-                track = int(track)
-            except:
-                track = 0
-            child_j.update({
-              'track' : str(track),
-#              'year' : 0,
-#              'genre' : info.get('genre',0),
-              'size'  : os.path.getsize(path),
-              'suffix' : path[-3:],
-              'path'  : path
-              })
             if info:
                 child_j.update(info)
           children.append(child_j)  
         except IposonicException as e:
           log.info (e)
           
+    # Sort songs by track id, if possible
+    children = sorted(children, key=lambda x : x.get('track',0))
 
     return request.formatter({'directory': {'id' : dir_id, 'name': artist['name'], 'child': children}})
     

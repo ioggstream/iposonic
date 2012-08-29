@@ -45,5 +45,6 @@ class TestMediaManager:
     @SkipTest
     def browse_path_test(self):
         MediaManager.browse_path("/opt/music")
+        
 
 
