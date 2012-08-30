@@ -439,9 +439,12 @@ class Iposonic:
         return songs
         
 
-    def _search_songs(self, re_query, songCount = 10):
+    def _search_songs(self, re_query, songCount = 10, allFields = False):
+        """"Return all songs where any tag matches the re_query."""
         # create an empty result set
-        tags = ['artist', 'album', 'title']
+        tags = ['title']
+        if allFields:
+            tags.extend(['artist', 'album'])
         ret=dict(zip(tags,[[],[],[]]))
         
         # add fields from id3 tags
@@ -452,6 +455,7 @@ class Iposonic:
         return ret
         raise NotImplemented()
     def _search_artists(self, re_query, artistCount = 10):
+        """"Return all artists where name matches the re_query."""
         ret={'artist':[]}
         for (eid, info) in self.artists.iteritems():
             assert isinstance(info,dict), "Info should be a dict, not  %s" % info
@@ -484,7 +488,7 @@ class Iposonic:
         ret['artist'].extend (self._search_artists(re_query)['artist'])
 
         songs = self._search_songs(re_query)
-        for t in tags:
+        for t in songs.keys():
           ret[t].extend(songs[t])
 
         self.log.info( "search2 result: %s" % ret)
@@ -517,7 +521,6 @@ class Iposonic:
                 self.add_entry(path)
                 self.artists[MediaManager.get_entry_id(path)] = Artist(path)
                 artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
-                #artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
 
                 #
                 # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
@@ -529,15 +532,6 @@ class Iposonic:
                 log.error(e)
             print "artists: %s" % self.artists
             
-#             for (root, dirfile, files) in os.walk(music_folder):
-#                 for d in dirfile:
-#                     path = join("/", root, d)
-#                     try: self.add_entry(path)
-#                     except: pass
-#                 for f in files:
-#                     path = join("/", root, f)
-#                     try: self.add_entry(path)
-#                     except: pass
         return self.indexes
         
 #   
