@@ -38,10 +38,10 @@ iposonic = Iposonic(music_folders)
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
     (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
-    print "songs: %s" % iposonic.songs
-    print "albums: %s" % iposonic.albums
-    print "artists: %s" % iposonic.artists
-
+    print "songs: %s" % iposonic.get_songs()
+    print "albums: %s" % iposonic.get_albums()
+    print "artists: %s" % iposonic.get_artists()
+    print "indexes: %s" % iposonic.get_indexes()    
     return request.formatter({})
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
@@ -59,7 +59,7 @@ def get_music_folders_view():
         { 
             'musicFolders': { 
                 'musicFolder' : [
-                    {'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.music_folders if os.path.isdir(d)
+                    {'id': MediaManager.get_entry_id(d), 'name': d } for d in iposonic.get_music_folders() if os.path.isdir(d)
                     ] 
              }
         }
@@ -102,7 +102,7 @@ def get_indexes_view():
     TODO implement @param ifModifiedSince
     """
     # refresh indexes
-    iposonic.walk_music_directory()
+    iposonic.refresh()
 
     #
     # XXX sample code to support jsonp clients
@@ -115,16 +115,7 @@ def get_indexes_view():
     #     data to format
     #
     (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
-    log.info("response is %s" % f)
-
-    indexes_j = {'index' : []}
-    ret = ""
-    for (k,v) in iposonic.indexes.iteritems():
-        item =  {'name': k, 'artist': [ item['artist'] for item in v ] }
-        indexes_j['index'].append (item)
-            
-            
-    return request.formatter( { 'indexes': indexes_j})
+    return request.formatter( { 'indexes': iposonic.get_indexes()})
 
 @app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
 def get_music_directory_view():
@@ -174,10 +165,6 @@ def get_music_directory_view():
           eid = iposonic.add_entry(path, album = is_dir)
           child_j = iposonic.get_entry_by_id(eid)
         
-          if not is_dir:
-            info = iposonic.get_song_by_id(eid)
-            if info:
-                child_j.update(info)
           children.append(child_j)  
         except IposonicException as e:
           log.info (e)
@@ -326,7 +313,7 @@ def stream_view():
   print("request.headers: %s" % request.headers)
   if not eid:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
-  info = iposonic.get_song_by_id(eid)
+  info = iposonic.get_entry_by_id(eid)
   path = info.get('path', None)
   assert path, "missing path in song: %s" % info
   if os.path.isfile(path):
@@ -342,7 +329,7 @@ def download_view():
   """
   if not 'id' in request.args:
       raise SubsonicProtocolException("Missing required parameter: 'id' in stream.view")
-  info = iposonic.get_song_by_id(request.args['id'])
+  info = iposonic.get_entry_by_id(request.args['id'])
   assert 'path' in info, "missing path in song: %s" % info
   if os.path.isfile(info['path']):
       return send_file(info['path'])

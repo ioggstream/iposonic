@@ -32,8 +32,8 @@ class TestIposonic:
             self.id_l.append(eid)
 
 
-    def test_get_music_directories(self):
-        ret = self.iposonic.get_music_directories()
+    def test_get_artists(self):
+        ret = self.iposonic.get_artists()
         assert ret
         for (eid,info) in ret.iteritems():
             assert 'name' in info, "Bad music_directories: %s" % ret
@@ -52,21 +52,21 @@ class TestIposonic:
         
     def test_search_songs_1(self):
         """Search added songs for title, return songs"""
-        self.iposonic.walk_music_directory()
+        self.iposonic.db.walk_music_directory()
         self.harn_load_fs2()
         ret = self.iposonic._search_songs(re_query=re.compile(".*mock_title.*"))
         assert ret['title'], ret
         
     def test_search_songs_2(self):
         """Search added songs for artist, return song"""
-        self.iposonic.walk_music_directory()
+        self.iposonic.db.walk_music_directory()
         self.harn_load_fs2()
         ret = self.iposonic._search_songs(re_query=re.compile(".*mock_artist.*"))
         assert ret['title'], ret
         
     def test_search_artists_1(self):
         """Search artist folders, return artists"""
-        self.iposonic.walk_music_directory()
+        self.iposonic.db.walk_music_directory()
         self.harn_load_fs2()
         ret = self.iposonic._search_artists(re_query=re.compile(".*mock_artist.*"))
         assert ret['artist'], ret
@@ -104,7 +104,7 @@ class TestIposonic:
         
     def test_search2_3(self):
         """Search everything, return artist in folders"""
-        self.iposonic.walk_music_directory()
+        self.iposonic.db.walk_music_directory()
         ret = self.iposonic.search2(query="mock_artist")
         assert ret['artist'], "Missing artist in %s" % ret
 
@@ -129,15 +129,19 @@ class TestIposonic:
             assert x['genre'] == "mock_genre"
 
     def test_directory_get(self):
-        self.iposonic.walk_music_directory()
-        dirs = self.iposonic.artists
-        assert dirs.keys() , "empty artists %s" % dirs
-        k=dirs.keys()[0]
-        (id_1,dir_1) = (k, dirs[k])
-        print self.iposonic.get_directory_path_by_id(id_1)
+        self.iposonic.db.walk_music_directory()
+        try:
+            dirs = self.iposonic.db.get_artists()
+            assert dirs.keys() , "empty artists %s" % dirs
+            k=dirs.keys()[0]
+            (id_1,dir_1) = (k, dirs[k])
+            print self.iposonic.get_directory_path_by_id(id_1)
+        except:
+            raise Exception("Can't find entry %s in %s" % (id_1, self.iposonic.db.get_artists()))
+
     def test_walk_music_directory(self):
-        print self.iposonic.walk_music_directory()
+        print self.iposonic.db.walk_music_directory()
 
     def test_get_indexes(self):
-        self.iposonic.walk_music_directory()
-        print self.iposonic.get_indexes()
+        self.iposonic.db.walk_music_directory()
+        print self.iposonic.db.get_indexes()

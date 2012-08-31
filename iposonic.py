@@ -308,17 +308,14 @@ class Child(Entry):
     required_fields = ['id','isDir','parent']
     pass
 
-class Directory:
-    pass
-#
-# IpoSonic
-#
-        
-class Iposonic:
 
-    ALLOWED_FILE_EXTENSIONS = ["mp3","ogg","wma"]
-    log = logging.getLogger('Iposonic')
+
+class IposonicDB(object):
+    """An abstract data store for Iposonic songs. 
     
+        Implement your own backend.
+    """
+    log = logging.getLogger('IposonicDB')
     def __init__(self, music_folders):
         self.music_folders = music_folders
         #
@@ -337,6 +334,117 @@ class Iposonic:
         # songs = { id: {path: ..., {info}} ,   id: {path: , {info}}}
         #
         self.songs = dict()
+
+    def reset(self):
+        for d in [self.indexes, self.artists, self.albums, self.songs]:
+            d=dict()
+    def get_songs(self, eid = None):
+        if eid: return self.songs.get(eid)
+        return self.songs
+    def get_albums(self, eid = None):
+        if eid: return self.albums.get(eid)
+        return self.albums
+    def get_indexes(self):
+        return self.indexes
+    def get_artists(self, eid = None): 
+        """This method should trigger a filesystem initialization"""
+        if not self.artists:
+            self.walk_music_directory()
+        if eid: return self.artists.get(eid)
+        return self.artists
+    def get_music_folders(self):
+        return self.music_folders
+    def add_entry(self, path, album = False):
+        if os.path.isdir(path):
+            eid = MediaManager.get_entry_id(path)
+            if album:
+                self.albums[eid] = Album(path)
+            else:
+                self.artists[eid] = Artist(path)
+            self.log.info("adding directory: %s, %s " % (eid, path))
+            return eid
+        elif Iposonic.is_allowed_extension(path):
+            try:
+              info = MediaManager.get_info(path)
+              self.songs[info['id']] = info
+              self.log.info("adding file: %s, %s " % (info['id'], path))
+              return info['id']
+            except UnsupportedMediaError, e:
+              raise IposonicException(e)
+        raise IposonicException("Path not found or bad extension: %s " % path)
+        
+    def walk_music_directory(self):
+        """Find all artists (top-level directories) and create indexes.
+
+          TODO: create a cache for this.
+        """
+        #raise NotImplemented("This method should not be used")
+        print "walking: ", self.get_music_folders()
+
+        # reset database
+        self.reset()
+        
+        # find all artists
+        for music_folder in self.get_music_folders():        
+          artists_local = [x for x in os.listdir(music_folder)  if os.path.isdir(join("/",music_folder,x)) ]
+
+          #index all artists
+          for a in artists_local:
+            if a:
+              path = join("/",music_folder,a)
+              try:
+                self.add_entry(path)
+                self.artists[MediaManager.get_entry_id(path)] = Artist(path)
+                artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
+
+                #
+                # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
+                #
+                first = a[0:1].upper()
+                self.indexes.setdefault(first,[])
+                self.indexes[first].append(artist_j)
+              except IposonicException as e:
+                log.error(e)
+            print "artists: %s" % self.artists
+            
+        return self.get_indexes()
+        
+        
+class TestIposonicDB:
+    def test_get_music_folders(self):
+        raise NotImplemented
+    def test_get_indexes(self):
+        raise NotImplemented
+    def test_get_artists(self):
+        raise NotImplemented
+    def test_get_albums(self):
+        raise NotImplemented
+    def test_get_songs(self):
+        raise NotImplemented
+
+    
+#
+# IpoSonic
+#
+        
+
+        
+class Iposonic:
+
+    ALLOWED_FILE_EXTENSIONS = ["mp3","ogg","wma"]
+    log = logging.getLogger('Iposonic')
+    
+    def __init__(self, music_folders):
+        self.db = IposonicDB(music_folders)
+
+    def __getattr__(self, method):
+        """Proxies DB methods."""
+        if method in [ "get_%s" % m  for m in ['artists', 'music_folders', 'albums', 'songs']]:
+            dbmethod = IposonicDB.__getattribute__(self.db, method)
+            return dbmethod
+        raise NotImplemented("Method not found: %s" % method)
+
+        
     @staticmethod
     def is_allowed_extension(file):
         for e in Iposonic.ALLOWED_FILE_EXTENSIONS:
@@ -344,33 +452,21 @@ class Iposonic:
         return False
         
     def get_folder_by_id(self, folder_id):
-      """It's ok just because self.music_folders are few"""
-      for folder in self.music_folders:
+      """It's ok just because self.db.get_music_folders() are few"""
+      for folder in self.db.get_music_folders():
         if MediaManager.get_entry_id(folder) == folder_id: return folder
       raise IposonicException("Missing music folder with id: %s" % dir_id)
 
-    def get_music_directories(self):
-        if not self.artists:
-            self.walk_music_directory()
-        return self.artists
 
     def get_entry_by_id(self, eid):
-        if eid in self.get_music_directories():
-            return self.get_music_directories()[eid]
-        elif eid in self.albums:
-            return self.albums[eid]
-        elif eid in self.songs:
-            return self.songs[eid]
+        for f in [self.get_artists, self.get_albums, self.get_songs]:
+            ret = f(eid)
+            if ret: return ret
         raise IposonicException("Missing entry with id: %s " % eid)
         
     def get_directory_path_by_id(self, eid):
         info = self.get_entry_by_id(eid)
         return (info['path'], info['path'])
-
-        raise IposonicException("Missing directory with id: %s in %s" % (dir_id, self.artists))
-
-    def get_song_by_id(self, eid):
-        return self.songs[eid]
 
     def get_indexes(self):
         """
@@ -396,30 +492,16 @@ class Iposonic:
      },
 
         """
-        assert self.indexes
+        assert self.db.get_indexes()
         items = []
-        for (name, artists) in self.indexes.iteritems():
+        for (name, artists) in self.db.get_indexes().iteritems():
             items.append ({'name' : name, 'artist' : [ v['artist'] for v in artists  ]})
         return {'index': items}
 
     def add_entry(self, path, album = False):
-        if os.path.isdir(path):
-            eid = MediaManager.get_entry_id(path)
-            if album:
-                self.albums[eid] = Album(path)
-            else:
-                self.artists[eid] = Artist(path)
-            self.log.info("adding directory: %s, %s " % (eid, path))
-            return eid
-        elif Iposonic.is_allowed_extension(path):
-            try:
-              info = MediaManager.get_info(path)
-              self.songs[info['id']] = info
-              self.log.info("adding file: %s, %s " % (info['id'], path))
-              return info['id']
-            except UnsupportedMediaError, e:
-              raise IposonicException(e)
-        raise IposonicException("Path not found or bad extension: %s " % path)
+        """TODO move do db"""
+        return self.db.add_entry(path, album)
+        
 
     @staticmethod
     def _filter(info, tag, re):
@@ -432,7 +514,7 @@ class Iposonic:
     def get_genre_songs(self, query):
         songs = []
         re_query = re.compile(".*%s.*" % query)
-        for (eid,info) in self.songs.iteritems():
+        for (eid,info) in self.db.get_songs().iteritems():
             print "get_genre_songs: info %s " % info
             if self._filter(info, 'genre', re_query):
               songs.append(info)
@@ -448,7 +530,7 @@ class Iposonic:
         ret=dict(zip(tags,[[],[],[]]))
         
         # add fields from id3 tags
-        for (eid, info) in self.songs.iteritems():
+        for (eid, info) in self.db.get_songs().iteritems():
             for tag in tags:
                 if self._filter(info,tag,re_query):
                     ret['title'].append(info)
@@ -457,7 +539,7 @@ class Iposonic:
     def _search_artists(self, re_query, artistCount = 10):
         """"Return all artists where name matches the re_query."""
         ret={'artist':[]}
-        for (eid, info) in self.artists.iteritems():
+        for (eid, info) in self.db.get_artists().iteritems():
             assert isinstance(info,dict), "Info should be a dict, not  %s" % info
             if re_query.match(info['name']):
               ret['artist'].append(info)
@@ -497,42 +579,12 @@ class Iposonic:
         return ret
             
         
-    def walk_music_directory(self):
+    def refresh(self):
         """Find all artists (top-level directories) and create indexes.
 
           TODO: create a cache for this.
-          TODO: put in a separate thread?
         """
-        print "walking: ", self.music_folders
-
-        # reset database
-        self.artists = dict()
-        self.indexes = dict()
-        
-        # find all artists
-        for music_folder in self.music_folders:        
-          artists_local = [x for x in os.listdir(music_folder)  if os.path.isdir(join("/",music_folder,x)) ]
-
-          #index all artists
-          for a in artists_local:
-            if a:
-              path = join("/",music_folder,a)
-              try:
-                self.add_entry(path)
-                self.artists[MediaManager.get_entry_id(path)] = Artist(path)
-                artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
-
-                #
-                # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
-                #
-                first = a[0:1].upper()
-                self.indexes.setdefault(first,[])
-                self.indexes[first].append(artist_j)
-              except IposonicException as e:
-                log.error(e)
-            print "artists: %s" % self.artists
-            
-        return self.indexes
+        self.db.walk_music_directory()
         
 #   
 class SubsonicProtocolException(Exception):
@@ -545,6 +597,7 @@ class StringUtils:
     encodings = ['ascii', 'latin_1',  'utf8', 'iso8859_15', 'cp850', 'cp037', 'cp1252']
     @staticmethod
     def to_unicode(s):
+        if not isinstance(s, str): return s
         for e in StringUtils.encodings:
             try: return unicode(s, encoding=e)
             except: pass
