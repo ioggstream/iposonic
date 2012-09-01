@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- co ding: utf-8 -*-
 #
 # The Flask part of iposonic
 #
@@ -14,9 +14,13 @@ import simplejson
 from os.path import join,dirname,abspath
 import logging
 
-from iposonic import Iposonic, IposonicException, SubsonicProtocolException, ResponseHelper, MediaManager
-from iposonic import Album, Artist
+from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
+try:
+    from iposonicdb import SqliteIposonicDB as dbh
+except:
+    from iposonic import IposonicDB as dbh
+    
 app = Flask(__name__)
 
 log = logging.getLogger('iposonic-webapp')
@@ -26,7 +30,7 @@ log = logging.getLogger('iposonic-webapp')
 #
 music_folders = ["/opt/music/"]
 
-iposonic = Iposonic(music_folders)
+iposonic = Iposonic(music_folders, dbhandler = dbh)
 
 ###
 # The web
@@ -114,7 +118,7 @@ def get_indexes_view():
     #     wasting time with unsearchable, dict-based
     #     data to format
     #
-    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    (u, p, v, c, f, callback) = [request.args.get(x) for x in ['u','p','v','c','f','callback']]
     return request.formatter( { 'indexes': iposonic.get_indexes()})
 
 @app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
@@ -150,7 +154,7 @@ def get_music_directory_view():
     if not dir_id:
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
-    artist = Artist(path)
+    artist = iposonic.db.Artist(path)
     children = []
     for child in os.listdir(dir_path):
         if child[0] in ['.','_']:
@@ -204,7 +208,7 @@ def search2_view():
     if not query:
         raise SubsonicProtocolException("Missing required parameter: 'query' in search2.view")
         
-    (artistCount, albumCount, songCount) = [request.args[x] for x in ("artistCount", "albumCount", "songCount")]
+    (artistCount, albumCount, songCount) = [request.args.get(x) for x in ("artistCount", "albumCount", "songCount")]
 
     # ret is 
     print "searching"
@@ -288,8 +292,8 @@ def get_random_songs_view():
         print "genre: %s" % genre
         songs = iposonic.get_genre_songs(genre)
     else:
-        assert len(iposonic.songs.values())
-        songs = iposonic.songs.values()
+        assert len(iposonic.get_songs().values())
+        songs = iposonic.get_songs().values()
     assert songs
     #raise NotImplemented("WriteMe")
     songs = [{'song': s} for s in songs]
@@ -429,6 +433,103 @@ def randomize2(dictionary, limit = 20):
     return ret
 
 
+class ResponseHelper:
+  """Serialize a python dict to an xml object, and embeds it in a subsonic-response
+
+    see test/test_responsehelper.py for the test and documentation
+    TODO: we could @annotate this ;)
+  """
+  log = logging.getLogger('ResponseHelper')
+  @staticmethod
+  def responsize_jsonp(ret, callback, status = "ok", version = "9.0.0"):
+      if not callback: raise SubsonicProtocolException()
+      # add headers to response
+      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
+      return "%s(%s)" % (
+          callback,
+          simplejson.dumps({'subsonic-response' : ret},
+            indent = True,
+            encoding = 'latin_1')
+        )
+  @staticmethod     
+  def responsize_xml(ret):
+      """Return an xml response from json and replace unsupported characters."""
+      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
+      return ResponseHelper.jsonp2xml({'subsonic-response' : ret}).replace("&","\\&amp;")
+            
+  @staticmethod
+  def jsonp2xml(json):
+      """Convert a json structure to xml. The game is trivial. Nesting uses the [] parenthesis.
+      
+        ex.  { 'musicFolder': {'id': 1234, 'name': "sss" } }
+      
+          ex. { 'musicFolder': [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }]}
+          
+          ex. { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
+          
+          ex. { 'index': [{'name': 'A',  'artist': [{'id': '517674445', 'name': 'Antonello Venditti'}] }] } 
+          
+          ex. {"subsonic-response": { "musicFolders": {"musicFolder": [{ "id": 0,"name": "Music"}]},
+    "status": "ok","version": "1.7.0","xmlns": "http://subsonic.org/restapi"}}
+
+              """
+      ret = ""
+      content = None
+      for c in [str, int, unicode]:
+          if isinstance(json, c): return str(json)
+      if not isinstance(json, dict): raise Exception("class type: %s" % json)
+      
+      # every tag is a dict.
+      #    its value can be a string, a list or a dict
+      for tag in json.keys():
+          tag_list = json[tag]
+          
+          # if tag_list is a list, then it represent a list of elements
+          #   ex. {index: [{ 'a':'1'} , {'a':'2'} ] }
+          #       --> <index a="1" /> <index b="2" />
+          if isinstance(tag_list, list):                  
+              for t in tag_list:  
+                  # for every element, get the attributes
+                  #   and embed them in the tag named
+                  attributes = ""
+                  content = ""
+                  for (attr, value) in t.iteritems():
+                      # only serializable values are attributes
+                      if value.__class__.__name__ in 'str':
+                          attributes = """%s %s="%s" """ % (attributes, attr , StringUtils.to_unicode(value))
+                      elif value.__class__.__name__ in ['int', 'unicode', 'bool']:
+                          attributes = """%s %s="%s" """ % (attributes, attr , value)
+                      # other values are content
+                      elif isinstance(value, dict):
+                          content += ResponseHelper.jsonp2xml(value)
+                      elif isinstance(value, list):
+                          content += ResponseHelper.jsonp2xml({attr:value})
+                  if content:    
+                    ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
+                  else:
+                    ret += "<%s%s/>" % (tag, attributes)
+          if isinstance(tag_list, dict):
+              attributes = ""
+              content = ""
+
+              for (attr, value) in tag_list.iteritems():
+                  # only string values are attributes
+                  if not isinstance(value, dict) and not isinstance(value, list):
+                      attributes = """%s %s="%s" """ % (attributes, attr, value)
+                  else:
+                      content += ResponseHelper.jsonp2xml({attr: value})
+              if content:    
+                ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
+              else:
+                ret += "<%s%s/>" % (tag, attributes)
+                
+      ResponseHelper.log.info( "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret))
+
+      return ret.replace("isDir=\"True\"", "isDir=\"true\"")
+
+
+
+    
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

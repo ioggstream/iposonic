@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+# -*- co ding: utf-8 -*-
 #
 # iposonic - a micro implementation of the subsonic server API
 #  for didactical purposes: I just wanted to play with flask
@@ -32,125 +32,33 @@ import simplejson
 import logging
 log = logging.getLogger('iposonic')
 
+class SubsonicProtocolException(Exception):
+    """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
+    pass
+class IposonicException(Exception):
+    pass
+  
+class StringUtils:
+    encodings = ['ascii', 'latin_1',  'utf8', 'iso8859_15', 'cp850', 'cp037', 'cp1252']
+    @staticmethod
+    def to_unicode(s):
+        if not isinstance(s, str): return s
+        for e in StringUtils.encodings:
+            try: return unicode(s, encoding=e)
+            except: pass
+        raise UnicodeDecodeError("Cannot decode string: %s" % s)
+        
+
+
 #tests
 from nose import SkipTest
 
 
-class ResponseHelper:
-  """Serialize a python dict to an xml object, and embeds it in a subsonic-response
-
-    see test/test_responsehelper.py for the test and documentation
-    TODO: we could @annotate this ;)
-  """
-  log = logging.getLogger('ResponseHelper')
-  @staticmethod
-  def responsize_jsonp(ret, callback, status = "ok", version = "9.0.0"):
-      if not callback: raise SubsonicProtocolException()
-      # add headers to response
-      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
-      return "%s(%s)" % (
-          callback,
-          simplejson.dumps({'subsonic-response' : ret},
-            indent = True,
-            encoding = 'latin_1')
-        )
-  @staticmethod     
-  def responsize_xml(ret):
-      """Return an xml response from json and replace unsupported characters."""
-      ret.update({'status' : 'ok', 'version': '19.9.9' ,  "xmlns": "http://subsonic.org/restapi"})
-      return ResponseHelper.jsonp2xml({'subsonic-response' : ret}).replace("&","\\&amp;")
-            
-  @staticmethod
-  def jsonp2xml(json):
-      """Convert a json structure to xml. The game is trivial. Nesting uses the [] parenthesis.
-      
-        ex.  { 'musicFolder': {'id': 1234, 'name': "sss" } }
-      
-          ex. { 'musicFolder': [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }]}
-          
-          ex. { 'musicFolders': {'musicFolder' : [{'id': 1234, 'name': "sss" }, {'id': 456, 'name': "aaa" }] } }
-          
-          ex. { 'index': [{'name': 'A',  'artist': [{'id': '517674445', 'name': 'Antonello Venditti'}] }] } 
-          
-          ex. {"subsonic-response": { "musicFolders": {"musicFolder": [{ "id": 0,"name": "Music"}]},
-    "status": "ok","version": "1.7.0","xmlns": "http://subsonic.org/restapi"}}
-
-              """
-      ret = ""
-      content = None
-      for c in [str, int, unicode]:
-          if isinstance(json, c): return str(json)
-      if not isinstance(json, dict): raise Exception("class type: %s" % json)
-      
-      # every tag is a dict.
-      #    its value can be a string, a list or a dict
-      for tag in json.keys():
-          tag_list = json[tag]
-          
-          # if tag_list is a list, then it represent a list of elements
-          #   ex. {index: [{ 'a':'1'} , {'a':'2'} ] }
-          #       --> <index a="1" /> <index b="2" />
-          if isinstance(tag_list, list):                  
-              for t in tag_list:  
-                  # for every element, get the attributes
-                  #   and embed them in the tag named
-                  attributes = ""
-                  content = ""
-                  for (attr, value) in t.iteritems():
-                      # only serializable values are attributes
-                      if value.__class__.__name__ in 'str':
-                          attributes = """%s %s="%s" """ % (attributes, attr , StringUtils.to_unicode(value))
-                      elif value.__class__.__name__ in ['int', 'unicode', 'bool']:
-                          attributes = """%s %s="%s" """ % (attributes, attr , value)
-                      # other values are content
-                      elif isinstance(value, dict):
-                          content += ResponseHelper.jsonp2xml(value)
-                      elif isinstance(value, list):
-                          content += ResponseHelper.jsonp2xml({attr:value})
-                  if content:    
-                    ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
-                  else:
-                    ret += "<%s%s/>" % (tag, attributes)
-          if isinstance(tag_list, dict):
-              attributes = ""
-              content = ""
-
-              for (attr, value) in tag_list.iteritems():
-                  # only string values are attributes
-                  if not isinstance(value, dict) and not isinstance(value, list):
-                      attributes = """%s %s="%s" """ % (attributes, attr, value)
-                  else:
-                      content += ResponseHelper.jsonp2xml({attr: value})
-              if content:    
-                ret += "<%s%s>%s</%s>" % (tag, attributes, content, tag)
-              else:
-                ret += "<%s%s/>" % (tag, attributes)
-                
-      ResponseHelper.log.info( "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json,ret))
-
-      return ret.replace("isDir=\"True\"", "isDir=\"true\"")
-
-
-
-    
 ##
 ## The app ;)
 ##
 class UnsupportedMediaError(Exception):
     pass
-
-class MediaInfo:
-    @staticmethod
-    def _get_tag(object, tag):
-        try:
-          return object[tag].text[0]
-        except:
-          return None
-    def __init__(mutagen_data):
-        self.artist = MediaInfo._get_tag(audio, 'TPE1')
-        self.track = MediaInfo._get_tag(audio, 'TIT2')
-        self.year  = MediaInfo._get_tag(audio, 'TDRC')
-
   
 class MediaManager:
     log = logging.getLogger('MediaManager')
@@ -189,7 +97,7 @@ class MediaManager:
         except:
             (track, title) = (0, filename)
         return { 
-            'title' : title
+              'title' : title
             , 'track' : track
             , 'path' : path
             , 'size'  : os.path.getsize(path)
@@ -260,55 +168,13 @@ class MediaManager:
                     print "Media has no id3 header: %s" % path
                     
 
-#
-# Subsonic API uses those three items
-#  for storing songs, albums and artists
-#  Those entities require and id
-class Entry(dict):
-    required_fields = ['name','id']
-    def validate(self):
-        for x in required_fields:
-            assert self[x]
-
-class Artist(Entry):
-    required_fields = ['name','id', 'isDir', 'path']
-    def __init__(self,path):
-        Entry.__init__(self)
-        self['path'] = path
-        self['name'] = basename(path)
-        self['id'] = MediaManager.get_entry_id(path)
-        self['isDir'] = 'true'
-
-class Album(Artist):
-    required_fields = ['name','id', 'isDir', 'path', 'title', 'parent', 'album']
-    def __init__(self,path):
-        Artist.__init__(self,path)
-        self['title'] = self['name']
-        self['album'] = self['name']
-        parent = dirname(path)
-        self['parent'] = MediaManager.get_entry_id(parent)
-        self['artist'] = basename(parent)
-        self['isDir'] = True
+     
         
-class AlbumTest:
-    def test_1(self):
-        a = Album("./test/data/mock_artist/mock_album")
-        assert a['name'] == "mock_album"
-
-class Media(Entry):
-    required_fields = ['name','id','title','path','isDir']
-    def __init__(self,path):
-        Entry.__init__(self)
-        self.update(MediaManager.get_info(path))
-
-class Child(Entry):
-    """A dictionary containing:
-      id, isDir, parent
-    """
-    required_fields = ['id','isDir','parent']
-    pass
+  
+  
 
 
+   
 
 class IposonicDB(object):
     """An abstract data store for Iposonic songs. 
@@ -335,32 +201,107 @@ class IposonicDB(object):
         #
         self.songs = dict()
 
+    class Entry(dict):
+        required_fields = ['name','id']
+        def validate(self):
+            for x in required_fields:
+                assert self[x]
+
+    class Artist(Entry):
+        required_fields = ['name','id', 'isDir', 'path']
+        def __init__(self,path):
+            IposonicDB.Entry.__init__(self)
+            self['path'] = path
+            self['name'] = basename(path)
+            self['id'] = MediaManager.get_entry_id(path)
+            self['isDir'] = 'true'
+
+    class Album(Artist):
+        required_fields = ['name','id', 'isDir', 'path', 'title', 'parent', 'album']
+        def __init__(self,path):
+            IposonicDB.Artist.__init__(self,path)
+            self['title'] = self['name']
+            self['album'] = self['name']
+            parent = dirname(path)
+            self['parent'] = MediaManager.get_entry_id(parent)
+            self['artist'] = basename(parent)
+            self['isDir'] = True
+            
+    class AlbumTest:
+        def test_1(self):
+            a = IposonicDB.Album("./test/data/mock_artist/mock_album")
+            assert a['name'] == "mock_album"
+
+    class Media(Entry):
+        required_fields = ['name','id','title','path','isDir']
+        def __init__(self,path):
+            IposonicDB.Entry.__init__(self)
+            self.update(MediaManager.get_info(path))
+
     def reset(self):
-        for d in [self.indexes, self.artists, self.albums, self.songs]:
-            d=dict()
-    def get_songs(self, eid = None):
-        if eid: return self.songs.get(eid)
-        return self.songs
-    def get_albums(self, eid = None):
-        if eid: return self.albums.get(eid)
-        return self.albums
-    def get_indexes(self):
-        return self.indexes
-    def get_artists(self, eid = None): 
-        """This method should trigger a filesystem initialization"""
+        self.indexes = dict()
+        self.artists = dict()
+        self.albums = dict()
+        self.songs = dict()
+
+    @staticmethod
+    def _search(hash, query, limit = 10, key_only = False):
+        """return items in hash matching query.
+        
+            query is a dict, eg {'title': 'Viva l'Italia'}
+        """
+        assert query, "Query is required"
+        assert hash, "Hash is required"
+        ret = {}
+        for (field, value) in query.items():
+            re_query = re.compile(".*%s.*"%value, re.IGNORECASE)
+            ret = filter(lambda x : re_query.match(hash[x].get(field)) != None, hash)
+            if not key_only:
+                ret = [hash[x] for x in ret]
+            return ret
+        raise IposonicException("No entries returned")
+
+    @staticmethod
+    def _get_hash(hash, eid = None, query = None):
+        if eid: 
+            return hash.get(eid)
+        if query:
+            return IposonicDB._search(hash, query)
+        return hash
+
+    def get_songs(self, eid = None, query = None):
+        """Return a list of songs in the following form.
+        
+            [{'id': ..., 'title': ...}]
+        """
+        return IposonicDB._get_hash(self.songs, eid, query)
+        
+    def get_albums(self, eid = None, query = None):
+        return IposonicDB._get_hash(self.albums, eid, query)
+
+    def get_artists(self, eid = None, query = None): 
+        """This method should trigger a filesystem initialization.
+            
+            returns a dict-array {'artist':[]}
+
+        """
         if not self.artists:
             self.walk_music_directory()
-        if eid: return self.artists.get(eid)
-        return self.artists
+        return IposonicDB._get_hash(self.artists, eid, query)
+            
+    def get_indexes(self):
+        return self.indexes
+        
     def get_music_folders(self):
         return self.music_folders
+        
     def add_entry(self, path, album = False):
         if os.path.isdir(path):
             eid = MediaManager.get_entry_id(path)
             if album:
-                self.albums[eid] = Album(path)
+                self.albums[eid] = IposonicDB.Album(path)
             else:
-                self.artists[eid] = Artist(path)
+                self.artists[eid] = IposonicDB.Artist(path)
             self.log.info("adding directory: %s, %s " % (eid, path))
             return eid
         elif Iposonic.is_allowed_extension(path):
@@ -394,7 +335,7 @@ class IposonicDB(object):
               path = join("/",music_folder,a)
               try:
                 self.add_entry(path)
-                self.artists[MediaManager.get_entry_id(path)] = Artist(path)
+                self.artists[MediaManager.get_entry_id(path)] = IposonicDB.Artist(path)
                 artist_j = {'artist' : {'id':MediaManager.get_entry_id(path), 'name': a}}
 
                 #
@@ -408,34 +349,19 @@ class IposonicDB(object):
             print "artists: %s" % self.artists
             
         return self.get_indexes()
-        
-        
-class TestIposonicDB:
-    def test_get_music_folders(self):
-        raise NotImplemented
-    def test_get_indexes(self):
-        raise NotImplemented
-    def test_get_artists(self):
-        raise NotImplemented
-    def test_get_albums(self):
-        raise NotImplemented
-    def test_get_songs(self):
-        raise NotImplemented
-
+   
     
 #
 # IpoSonic
 #
-        
-
-        
+     
 class Iposonic:
 
     ALLOWED_FILE_EXTENSIONS = ["mp3","ogg","wma"]
     log = logging.getLogger('Iposonic')
     
-    def __init__(self, music_folders):
-        self.db = IposonicDB(music_folders)
+    def __init__(self, music_folders, dbhandler = IposonicDB):
+        self.db = dbhandler(music_folders)
 
     def __getattr__(self, method):
         """Proxies DB methods."""
@@ -478,18 +404,18 @@ class Iposonic:
             
             
              "indexes": {
-  "index": [
-   {    "name": "A",
+              "index": [
+               {    "name": "A",
 
-    "artist": [
-     {
-      "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3939384441444243384645304546393232364335373739364632343743434642",
-      "name": "Abba"
-     },
-     {
-      "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3441444135414135324537384544464545423530363844433535334342303738",
-      "name": "Adele"
-     },
+                "artist": [
+                 {
+                  "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3939384441444243384645304546393232364335373739364632343743434642",
+                  "name": "Abba"
+                 },
+                 {
+                  "id": "2f686f6d652f72706f6c6c692f6f70742f646174612f3441444135414135324537384544464545423530363844433535334342303738",
+                  "name": "Adele"
+                 },
 
         """
         assert self.db.get_indexes()
@@ -501,52 +427,11 @@ class Iposonic:
     def add_entry(self, path, album = False):
         """TODO move do db"""
         return self.db.add_entry(path, album)
-        
-
-    @staticmethod
-    def _filter(info, tag, re):
-        if tag in info:
-            Iposonic.log.info("checking %s" % info[tag])
-            if re.match(info[tag]):
-                return True
-        return False
 
     def get_genre_songs(self, query):
         songs = []
-        re_query = re.compile(".*%s.*" % query)
-        for (eid,info) in self.db.get_songs().iteritems():
-            print "get_genre_songs: info %s " % info
-            if self._filter(info, 'genre', re_query):
-              songs.append(info)
-        return songs
-        
+        return self.db.get_songs(query={'genre': query})        
 
-    def _search_songs(self, re_query, songCount = 10, allFields = False):
-        """"Return all songs where any tag matches the re_query."""
-        # create an empty result set
-        tags = ['title']
-        if allFields:
-            tags.extend(['artist', 'album'])
-        ret=dict(zip(tags,[[],[],[]]))
-        
-        # add fields from id3 tags
-        for (eid, info) in self.db.get_songs().iteritems():
-            for tag in tags:
-                if self._filter(info,tag,re_query):
-                    ret['title'].append(info)
-        return ret
-        raise NotImplemented()
-    def _search_artists(self, re_query, artistCount = 10):
-        """"Return all artists where name matches the re_query."""
-        ret={'artist':[]}
-        for (eid, info) in self.db.get_artists().iteritems():
-            assert isinstance(info,dict), "Info should be a dict, not  %s" % info
-            if re_query.match(info['name']):
-              ret['artist'].append(info)
-        return ret
-        raise NotImplemented()
-    def _search_albums(self, re_query, albumCount = 10):
-        raise NotImplemented()
     def search2(self, query, artistCount=10, albumCount = 10, songCount=10):
         """response: artist, album, song
         <artist id="1" name="ABBA"/>
@@ -560,18 +445,16 @@ class Iposonic:
 
         """
         #if albumCount != 10 or songCount != 10 or artistCount != 10: raise NotImplemented()
-        re_query = re.compile(".*%s.*"%query)
 
         # create an empty result set
         tags = ['artist', 'album', 'title']
         ret=dict(zip(tags,[[],[],[]]))
 
         # add fields from directories
-        ret['artist'].extend (self._search_artists(re_query)['artist'])
+        ret['artist'].extend (self.db.get_artists(query={'name':query}))
 
-        songs = self._search_songs(re_query)
-        for t in songs.keys():
-          ret[t].extend(songs[t])
+        songs = self.db.get_songs(query={'title':query})    
+        ret['title'].extend(songs)
 
         self.log.info( "search2 result: %s" % ret)
                     
@@ -587,19 +470,3 @@ class Iposonic:
         self.db.walk_music_directory()
         
 #   
-class SubsonicProtocolException(Exception):
-    """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
-    pass
-class IposonicException(Exception):
-    pass
-  
-class StringUtils:
-    encodings = ['ascii', 'latin_1',  'utf8', 'iso8859_15', 'cp850', 'cp037', 'cp1252']
-    @staticmethod
-    def to_unicode(s):
-        if not isinstance(s, str): return s
-        for e in StringUtils.encodings:
-            try: return unicode(s, encoding=e)
-            except: pass
-        raise UnicodeDecodeError("Cannot decode string: %s" % s)
-        
