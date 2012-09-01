@@ -140,7 +140,7 @@ class TestIposonicDB:
         for (root, dirfile, files) in os.walk(self.test_dir):
             for d in dirfile:
                 path = join("/", root, d)
-                seld.id_albums.append(self.db.add_entry(path))
+                self.id_albums.append(self.db.add_entry(path))
             for f in files:
                 path = join("/", root, f)
                 self.id_songs.append(self.db.add_entry(path))

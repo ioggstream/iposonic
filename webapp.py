@@ -28,7 +28,10 @@ log = logging.getLogger('iposonic-webapp')
 #
 # Configuration
 #
-music_folders = ["/opt/music/"]
+music_folders = [
+    "/home/rpolli/workspace-py/iposonic/test/data/"
+    #, "/opt/music/"
+    ]
 
 iposonic = Iposonic(music_folders, dbhandler = dbh)
 
@@ -41,11 +44,11 @@ iposonic = Iposonic(music_folders, dbhandler = dbh)
 #
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
-    (u,p,v,c) = [request.args.get(x, None) for x in ['u','p','v','c']]
-    print "songs: %s" % iposonic.get_songs()
-    print "albums: %s" % iposonic.get_albums()
-    print "artists: %s" % iposonic.get_artists()
-    print "indexes: %s" % iposonic.get_indexes()    
+    (u,p,v,c) = [request.args.get(x) for x in ['u','p','v','c']]
+    print "songs: %s" % iposonic.db.get_songs()
+    print "albums: %s" % iposonic.db.get_albums()
+    print "artists: %s" % iposonic.db.get_artists()
+    print "indexes: %s" % iposonic.db.get_indexes()    
     return request.formatter({})
 
 @app.route("/rest/getLicense.view", methods = ['GET', 'POST'])
@@ -149,7 +152,7 @@ def get_music_directory_view():
         TODO getAlbumArt
         TODO getBitRate
     """
-    (u, p, v, c, f, callback, dir_id) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback', 'id']]
+    (u, p, v, c, f, callback, dir_id) = [request.args.get(x) for x in ['u','p','v','c','f','callback', 'id']]
 
     if not dir_id:
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
@@ -176,7 +179,7 @@ def get_music_directory_view():
     # Sort songs by track id, if possible
     children = sorted(children, key=lambda x : x.get('track',0))
 
-    return request.formatter({'directory': {'id' : dir_id, 'name': artist['name'], 'child': children}})
+    return request.formatter({'directory': {'id' : dir_id, 'name': artist.get('name'), 'child': children}})
     
 
 

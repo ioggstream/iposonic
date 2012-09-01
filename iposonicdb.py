@@ -21,8 +21,16 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 
-class PolliMeta(DeclarativeMeta):
-    """Should subclass DeclarativeMeta because it should contain Base initialization methods."""
+class LazyDeveloperMeta(DeclarativeMeta):
+    """This class allows a lazy initialization of DAOs.
+       
+       Just add __tablename__ and __fields__ attribute to a subclass
+       to associate a table.
+       
+       Should subclass DeclarativeMeta because it should contain Base initialization methods.
+       
+       TODO: actually uses only string columns, but it's ok for small collections ;)
+       """
     def __init__(klass, classname, bases, dict_):
         """ Create a new class type.
         
@@ -37,17 +45,15 @@ class PolliMeta(DeclarativeMeta):
         # Return the new object using super().
         return DeclarativeMeta.__init__(klass, classname, bases, dict_)
 
-Base = declarative_base(metaclass=PolliMeta)     
+Base = declarative_base(metaclass=LazyDeveloperMeta)     
 
-class SerializerMixin(object):
-    __fields__ = []
-    def __repr__(self):
-        return dict( [(k,v) for (k,v) in self.__dict__.iteritems() if k in self.__fields__])
-
-class SqliteIposonicDB(object):
-    """Store data on Sqlite
-    """
-    log = logging.getLogger('SqliteIposonicDB')   
+class IposonicDBTables:    
+    class SerializerMixin(object):
+        __fields__ = []
+        def __repr__(self):
+            return dict( [(k,v) for (k,v) in self.__dict__.iteritems() if k in self.__fields__])
+        def get(self, attr):
+            return self.__dict__.get(attr)
  
     class Artist(Base, SerializerMixin):
         __fields__  = ['id','name', 'isDir', 'path']
@@ -84,11 +90,19 @@ class SqliteIposonicDB(object):
                 'id' : MediaManager.get_entry_id(path),
                 'title' : StringUtils.to_unicode(basename(path)),
                 'album' : StringUtils.to_unicode(basename(path)),
+                'name' : StringUtils.to_unicode(basename(path)),
                 'path': StringUtils.to_unicode(path),
                 'isDir' : 'true',
                 'parent' : parent,
                 'artist' : basename(parent)
                 })
+            
+            
+
+class SqliteIposonicDB(object, IposonicDBTables):
+    """Store data on Sqlite
+    """
+    log = logging.getLogger('SqliteIposonicDB')   
     def transactional(fn):
         """add transactional semantics to a method.
                 
@@ -106,10 +120,10 @@ class SqliteIposonicDB(object):
         transact.__name__ = fn.__name__
         return transact
 
-    def __init__(self, music_folders):
+    def __init__(self, music_folders, dbfile = ""):
         self.music_folders = music_folders
         # Create the database
-        self.engine = create_engine('sqlite:///meta.db', echo=True)
+        self.engine = create_engine('sqlite://'+dbfile, echo=True)
         self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.initialized = False
@@ -133,12 +147,13 @@ class SqliteIposonicDB(object):
         qmodel = session.query(self.Media)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
+            return rs.__repr__()
         elif query:
             for (k,v) in query.items():
                 rs = qmodel.filter_by(title = v).all()
         else:
             rs = qmodel.all()
-        assert rs, "Empty resultset %s" % rs
+        if not rs: return []
         return [r.__repr__() for r in rs]
 
     @transactional    
@@ -147,6 +162,7 @@ class SqliteIposonicDB(object):
         qmodel = session.query(self.Album)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
+            return rs.__repr__()
         elif query:
             for (k,v) in query.items():
                 rs = qmodel.filter_by(title = v).all()
@@ -169,6 +185,7 @@ class SqliteIposonicDB(object):
         qmodel = session.query(self.Artist)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
+            return rs.__repr__()
         elif query:
             for (k,v) in query.items():
                 rs = qmodel.filter_by(title = v).all()
@@ -182,13 +199,15 @@ class SqliteIposonicDB(object):
         #
         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
         #
+        indexes = dict()
         for (id,artist_j) in self.get_artists().iteritems():
             a = artist_j.get('name')
             if not a: continue
             first = a[0:1].upper()
-            self.indexes.setdefault(first,[])
-            self.indexes[first].append(artist_j)
-        return self.indexes
+            indexes.setdefault(first,[])
+            indexes[first].append({'artist': artist_j})
+        print "indexes: %s" % indexes
+        return indexes
         raise NotImplemented()
         
     def get_music_folders(self):
@@ -210,7 +229,7 @@ class SqliteIposonicDB(object):
             try:
               record = self.Media(path)
               eid = record.id
-              self.log.info("adding file: %s, %s " % (eid, StringUtils.to_unicode(path))))
+              self.log.info("adding file: %s, %s " % (eid, StringUtils.to_unicode(path)))
             except UnsupportedMediaError, e:
               raise IposonicException(e)
               
@@ -228,25 +247,26 @@ class SqliteIposonicDB(object):
         """
         #raise NotImplemented("This method should not be used")
         print "walking: ", self.get_music_folders()
-
+        if self.initialized: return
         # reset database
         self.reset()
-        
+        def add_or_log(self,path):
+            try: 
+                self.add_entry(path)
+            except IposonicException as e:
+                self.log.error(e)
         # find all artists
         for music_folder in self.get_music_folders():        
           artists_local = [x for x in os.listdir(music_folder)  if os.path.isdir(join("/",music_folder,x)) ]
 
           #index all artists
           for a in artists_local:
+            print "scanning artist: %s" % a
             if a:
               path = join("/",music_folder,a)
-              try:
-                self.add_entry(path)
-              except IposonicException as e:
-                log.error(e)
+              add_or_log(self,path)
             for dirpath, dirnames, filenames in os.walk(path):
                 for f in filenames:
-                    path = join("/", path, dirpath, f)
-                    eid = self.add_entry(path)
+                    add_or_log(self, join("/", path, dirpath, f))
         self.initialized = True
    

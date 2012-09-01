@@ -385,8 +385,12 @@ class Iposonic:
 
 
     def get_entry_by_id(self, eid):
+        ret = None
         for f in [self.get_artists, self.get_albums, self.get_songs]:
-            ret = f(eid)
+            try:
+                ret = f(eid)
+            except:
+                pass
             if ret: return ret
         raise IposonicException("Missing entry with id: %s " % eid)
         
