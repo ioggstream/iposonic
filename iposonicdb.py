@@ -47,10 +47,13 @@ class LazyDeveloperMeta(DeclarativeMeta):
 
 Base = declarative_base(metaclass=LazyDeveloperMeta)     
 
-class IposonicDBTables:    
+class IposonicDBTables:
+    """DAO classes and Serializing methods."""
     class SerializerMixin(object):
+        """Methods for serializing DAO and expose a dict-like behavior."""
         __fields__ = []
         def __repr__(self):
+            """Return a dict/json representation of the public fields of the object."""
             ret = []
             for (k,v) in self.__dict__.iteritems():
                 if k in self.__fields__:
@@ -59,6 +62,7 @@ class IposonicDBTables:
                     ret.append((k,v))
             return dict(ret)
         def get(self, attr):
+            """Expose __dict__.get"""
             return self.__dict__.get(attr)
  
     class Artist(Base, SerializerMixin):
@@ -174,7 +178,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 rs = qmodel.filter_by(title = v).all()
         else:
             rs = qmodel.all()
-        assert rs, "Empty resultset %s" % rs
+        self.log.info("resultset %s" % rs)
         return [r.__repr__() for r in rs]
 
     @transactional
@@ -187,20 +191,19 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if not self.initialized:
             self.walk_music_directory()
             
-        self.log.info("get_artists: query: %s" % query)
+        self.log.info("query: %s" % query)
         qmodel = session.query(self.Artist)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
             return rs.__repr__()
         elif query:
             for (k,v) in query.items():
-                rs = qmodel.filter_by(title = v).all()
+                rs = qmodel.filter_by(name = v).all()
         else:
             rs = qmodel.all()
-        assert rs, "Empty resultset %s" % rs
+        self.log.info("resultset %s" % rs)
         return dict( [(r.id,r.__repr__()) for r in rs] )
 
-        raise NotImplemented()            
     def get_indexes(self):
         #
         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
@@ -214,7 +217,6 @@ class SqliteIposonicDB(object, IposonicDBTables):
             indexes[first].append({'artist': artist_j})
         print "indexes: %s" % indexes
         return indexes
-        raise NotImplemented()
         
     def get_music_folders(self):
         return self.music_folders

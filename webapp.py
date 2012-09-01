@@ -17,7 +17,7 @@ import logging
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
 try:
-    assert False #from iposonicdb import SqliteIposonicDB as dbh
+    from iposonicdb import SqliteIposonicDB as dbh
 except:
     from iposonic import IposonicDB as dbh
     
@@ -44,7 +44,7 @@ iposonic = Iposonic(music_folders, dbhandler = dbh)
 #
 @app.route("/rest/ping.view", methods = ['GET', 'POST'])
 def ping_view():
-    (u,p,v,c) = [request.args.get(x) for x in ['u','p','v','c']]
+    (u,p,v,c) = map(request.args.get, ['u','p','v','c'])
     print "songs: %s" % iposonic.db.get_songs()
     print "albums: %s" % iposonic.db.get_albums()
     print "artists: %s" % iposonic.db.get_artists()
@@ -61,7 +61,7 @@ def get_license_view():
 #
 @app.route("/rest/getMusicFolders.view", methods = ['GET', 'POST'])
 def get_music_folders_view():
-    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
     return request.formatter(
         { 
             'musicFolders': { 
@@ -108,6 +108,8 @@ def get_indexes_view():
     TODO implement @param musicFolderId
     TODO implement @param ifModifiedSince
     """
+    (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
+
     # refresh indexes
     iposonic.refresh()
 
@@ -121,7 +123,6 @@ def get_indexes_view():
     #     wasting time with unsearchable, dict-based
     #     data to format
     #
-    (u, p, v, c, f, callback) = [request.args.get(x) for x in ['u','p','v','c','f','callback']]
     return request.formatter( { 'indexes': iposonic.get_indexes()})
 
 @app.route("/rest/getMusicDirectory.view", methods = ['GET', 'POST'])
@@ -152,7 +153,7 @@ def get_music_directory_view():
         TODO getAlbumArt
         TODO getBitRate
     """
-    (u, p, v, c, f, callback, dir_id) = [request.args.get(x) for x in ['u','p','v','c','f','callback', 'id']]
+    (u, p, v, c, f, callback, dir_id) = map(request.args.get, ['u','p','v','c','f','callback', 'id'])
 
     if not dir_id:
         raise SubsonicProtocolException("Missing required parameter: 'id' in getMusicDirectory.view")
@@ -206,12 +207,12 @@ def search2_view():
     </searchResult2>
 
     """
-    (u, p, v, c, f, callback, query) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback','query']]
+    (u, p, v, c, f, callback, query) = map(request.args.get, ['u','p','v','c','f','callback','query'])
     print "query:%s\n\n" % query
     if not query:
         raise SubsonicProtocolException("Missing required parameter: 'query' in search2.view")
         
-    (artistCount, albumCount, songCount) = [request.args.get(x) for x in ("artistCount", "albumCount", "songCount")]
+    (artistCount, albumCount, songCount) = map(request.args.get, ("artistCount", "albumCount", "songCount"))
 
     # ret is 
     print "searching"
@@ -288,8 +289,7 @@ def get_random_songs_view():
       path="ABBA/Arrival/Money, Money, Money.mp3"/>
       </randomSongs>
     """
-    #(size, genre, fromYear, toYear, musicFolderId) = [request.args(x) for x in ('size','genre','fromYear', 'toYear', 'musicFolderId')]
-    genre = None
+    (size, genre, fromYear, toYear, musicFolderId) = map(request.args, ('size','genre','fromYear', 'toYear', 'musicFolderId'))
     songs = []
     if genre:
         print "genre: %s" % genre
@@ -315,7 +315,7 @@ def stream_view():
   """@params ?u=Aaa&p=enc:616263&v=1.2.0&c=android&id=1409097050&maxBitRate=0
 
   """
-  (u, p, v, c, f, callback, eid) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback','id']]
+  (u, p, v, c, f, callback, eid) = map(request.args.get, ['u','p','v','c','f','callback','id'])
 
   print("request.headers: %s" % request.headers)
   if not eid:
@@ -348,7 +348,7 @@ def download_view():
 @app.route("/rest/scrobble.view", methods = ['GET', 'POST']) 
 def scrobble_view():
     """Add song to last.fm"""
-    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
 
     return request.formatter({})
 
@@ -372,7 +372,7 @@ def get_lyrics_view():
 @app.before_request
 def set_formatter():
     """Return a function to create the response."""
-    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
     if f == 'jsonp':
         if not callback: raise SubsonicProtocolException("Missing callback with jsonp")
         request.formatter = lambda x : ResponseHelper.responsize_jsonp(x, callback)
@@ -382,7 +382,7 @@ def set_formatter():
 
 @app.after_request
 def set_content_type(response):
-    (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+    (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
     print "response is streamed: %s" % response.is_streamed
     
     if not request.endpoint in ['stream_view','download_view']:
@@ -393,7 +393,7 @@ def set_content_type(response):
 
 #@app.after_request
 def fix_content_length_for_static(res):
-  (u, p, v, c, f, callback) = [request.args.get(x, None) for x in ['u','p','v','c','f','callback']]
+  (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
 
   # problems behind Nginx with HTTPS
   print("request: %s" %request.path)
