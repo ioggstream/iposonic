@@ -17,7 +17,7 @@ import logging
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
 try:
-    from iposonicdb import SqliteIposonicDB as dbh
+    assert False #from iposonicdb import SqliteIposonicDB as dbh
 except:
     from iposonic import IposonicDB as dbh
     

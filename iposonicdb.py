@@ -51,7 +51,13 @@ class IposonicDBTables:
     class SerializerMixin(object):
         __fields__ = []
         def __repr__(self):
-            return dict( [(k,v) for (k,v) in self.__dict__.iteritems() if k in self.__fields__])
+            ret = []
+            for (k,v) in self.__dict__.iteritems():
+                if k in self.__fields__:
+                    if k.lower() == 'isdir':
+                        v = (v.lower() == 'true')
+                    ret.append((k,v))
+            return dict(ret)
         def get(self, attr):
             return self.__dict__.get(attr)
  
