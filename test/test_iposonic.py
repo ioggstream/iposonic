@@ -101,30 +101,17 @@ class TestIposonic:
 class TestIposonicDB:
     dbhandler = IposonicDB
     def setup(self):
+        # setup class
+        self.test_dir = os.getcwd()+"/test/data/"
+        self.db = self.dbhandler([self.test_dir])
+        self.db.walk_music_directory()
+        
+        # Run the harnesses
         self.id_songs = []
         self.id_artists = []
         self.id_albums = []
 
-        self.test_dir = os.getcwd()+"/test/data/"
-        self.db = self.dbhandler([self.test_dir])
-        self.db.walk_music_directory()
-
-    def test_get_music_folders(self):
-        assert self.db.get_music_folders()
-    @SkipTest
-    def test_get_indexes(self):
-        raise NotImplemented
-    @SkipTest
-    def test_get_artists(self):
-        raise NotImplemented
-    @SkipTest
-    def test_get_albums(self):
-        raise NotImplemented
-    def test_get_songs(self):
-        songs = self.db.get_songs()
-        assert songs
-        for s in songs:
-            assert s.title , "Missing title in song: %s" % s
+        self.harn_load_fs2()
         
     def harn_load_fs(self):
         """Adds the entries in root to the iposonic index"""
@@ -145,12 +132,26 @@ class TestIposonicDB:
                 path = join("/", root, f)
                 self.id_songs.append(self.db.add_entry(path))
 
+    def test_get_music_folders(self):
+        assert self.db.get_music_folders()
+    @SkipTest
+    def test_get_indexes(self):
+        raise NotImplemented
+    @SkipTest
+    def test_get_albums(self):
+        raise NotImplemented
+    def test_get_songs(self):
+        songs = self.db.get_songs()
+        assert songs
+        for s in songs:
+            assert 'title' in s, "Missing title in song: %s" % s
+
 
     def test_get_artists(self):
         ret = self.db.get_artists()
         assert ret
-        for (eid,info) in ret.iteritems():
-            assert 'name' in info, "Bad music_directories: %s" % ret
+        for artist in ret:
+            assert 'name' in artist, "Bad music_directories: %s" % ret
       
     def test_search_songs_by_artist(self):
         self.harn_load_fs2()

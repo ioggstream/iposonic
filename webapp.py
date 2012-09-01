@@ -17,9 +17,9 @@ import logging
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
 try:
-    from iposonicdb import SqliteIposonicDB as dbh
+    from iposonicdb import SqliteIposonicDB as Dbh
 except:
-    from iposonic import IposonicDB as dbh
+    from iposonic import IposonicDB as Dbh
     
 app = Flask(__name__)
 
@@ -33,7 +33,7 @@ music_folders = [
     #, "/opt/music/"
     ]
 
-iposonic = Iposonic(music_folders, dbhandler = dbh)
+iposonic = Iposonic(music_folders, dbhandler = Dbh)
 
 ###
 # The web

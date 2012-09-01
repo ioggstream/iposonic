@@ -246,13 +246,20 @@ class IposonicDB(object):
 
     @staticmethod
     def _search(hash, query, limit = 10, key_only = False):
-        """return items in hash matching query.
+        """return values in hash matching query.
         
             query is a dict, eg {'title': 'Viva l'Italia'}
+            
+            return a list of values or keys:
+            [ 
+                {'id':.., 'name':.., 'path': ..},
+                {'id':.., 'name':.., 'path': ..},
+                {'id':.., 'name':.., 'path': ..},
+            ]
         """
         assert query, "Query is required"
         assert hash, "Hash is required"
-        ret = {}
+        ret = []
         for (field, value) in query.items():
             re_query = re.compile(".*%s.*"%value, re.IGNORECASE)
             ret = filter(lambda x : re_query.match(hash[x].get(field)) != None, hash)
@@ -267,7 +274,7 @@ class IposonicDB(object):
             return hash.get(eid)
         if query:
             return IposonicDB._search(hash, query)
-        return hash
+        return hash.values()
 
     def get_songs(self, eid = None, query = None):
         """Return a list of songs in the following form.
@@ -282,7 +289,11 @@ class IposonicDB(object):
     def get_artists(self, eid = None, query = None): 
         """This method should trigger a filesystem initialization.
             
-            returns a dict-array {'artist':[]}
+            returns a list of dict 
+            [
+                {'name': .., 'path': ..},
+                {'name': .., 'path': ..},
+            ]
 
         """
         if not self.artists:
@@ -361,7 +372,9 @@ class Iposonic:
     log = logging.getLogger('Iposonic')
     
     def __init__(self, music_folders, dbhandler = IposonicDB):
+        print("Creating Iposonic with dbhandler: %s" % dbhandler)
         self.db = dbhandler(music_folders)
+        self.log.setLevel(logging.INFO)
 
     def __getattr__(self, method):
         """Proxies DB methods."""

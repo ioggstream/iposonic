@@ -2,7 +2,7 @@
 # Subsonic API uses those three items
 #  for storing songs, albums and artists
 #  Those entities require and id
-import os, sys, re
+import os, sys, re, time
 from os.path import join, basename, dirname
 from binascii import crc32
 
@@ -52,7 +52,8 @@ class IposonicDBTables:
     class SerializerMixin(object):
         """Methods for serializing DAO and expose a dict-like behavior."""
         __fields__ = []
-        def __repr__(self):
+
+        def json(self):
             """Return a dict/json representation of the public fields of the object."""
             ret = []
             for (k,v) in self.__dict__.iteritems():
@@ -64,6 +65,8 @@ class IposonicDBTables:
         def get(self, attr):
             """Expose __dict__.get"""
             return self.__dict__.get(attr)
+        def __repr__(self):
+            return self.json().__repr__()
  
     class Artist(Base, SerializerMixin):
         __fields__  = ['id','name', 'isDir', 'path']
@@ -130,14 +133,17 @@ class SqliteIposonicDB(object, IposonicDBTables):
         transact.__name__ = fn.__name__
         return transact
 
-    def __init__(self, music_folders, dbfile = ""):
+    def __init__(self, music_folders, dbfile = "", refresh_always = True):
         self.music_folders = music_folders
         # Create the database
         self.engine = create_engine('sqlite://'+dbfile, echo=True)
         self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
-        self.initialized = False
+        self.initialized = 0
+        self.refresh_always = refresh_always
         self.indexes = dict()
+        self.log.setLevel(logging.INFO)
+        assert self.log.isEnabledFor(logging.INFO)
 
     def reset(self):
         """Drop and recreate database. Reinstantiate session."""
@@ -157,35 +163,35 @@ class SqliteIposonicDB(object, IposonicDBTables):
         qmodel = session.query(self.Media)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
-            return rs.__repr__()
+            return rs.json()
         elif query:
             for (k,v) in query.items():
                 rs = qmodel.filter_by(title = v).all()
         else:
             rs = qmodel.all()
         if not rs: return []
-        return [r.__repr__() for r in rs]
+        return [r.json() for r in rs]
 
     @transactional    
     def get_albums(self, eid = None, query = None, session = None ):
-        self.log.info("get_songs: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
         qmodel = session.query(self.Album)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
-            return rs.__repr__()
+            return rs.json()
         elif query:
             for (k,v) in query.items():
                 rs = qmodel.filter_by(title = v).all()
         else:
             rs = qmodel.all()
         self.log.info("resultset %s" % rs)
-        return [r.__repr__() for r in rs]
+        return [r.json() for r in rs]
 
     @transactional
     def get_artists(self, eid = None, query = None, session = None): 
         """This method should trigger a filesystem initialization.
             
-            returns a dict-array {'artist':[]}
+            returns a dict-array [{'id': .., 'name': .., 'path': .. }]
 
         """
         if not self.initialized:
@@ -195,21 +201,21 @@ class SqliteIposonicDB(object, IposonicDBTables):
         qmodel = session.query(self.Artist)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
-            return rs.__repr__()
+            return rs.json()
         elif query:
             for (k,v) in query.items():
                 rs = qmodel.filter_by(name = v).all()
         else:
             rs = qmodel.all()
-        self.log.info("resultset %s" % rs)
-        return dict( [(r.id,r.__repr__()) for r in rs] )
+        print("resultset: %s" % rs)
+        return [r.json() for r in rs] 
 
     def get_indexes(self):
         #
         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
         #
         indexes = dict()
-        for (id,artist_j) in self.get_artists().iteritems():
+        for artist_j in self.get_artists():
             a = artist_j.get('name')
             if not a: continue
             first = a[0:1].upper()
@@ -251,11 +257,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def walk_music_directory(self):
         """Find all artists (top-level directories) and create indexes.
 
-          TODO: create a cache for this.
+          TODO: use ctime|mtime or inotify to avoid unuseful I/O.
         """
         #raise NotImplemented("This method should not be used")
         print "walking: ", self.get_music_folders()
-        if self.initialized: return
+        
+        if time.time() - self.initialized < 60:
+            return
+            
         # reset database
         self.reset()
         def add_or_log(self,path):
@@ -273,8 +282,16 @@ class SqliteIposonicDB(object, IposonicDBTables):
             if a:
               path = join("/",music_folder,a)
               add_or_log(self,path)
+            if self.refresh_always:
+                continue
+            #
+            # Scan recurrently only if not refresh_always
+            #    
             for dirpath, dirnames, filenames in os.walk(path):
                 for f in filenames:
                     add_or_log(self, join("/", path, dirpath, f))
-        self.initialized = True
+        # 
+        # We're ok now
+        #
+        self.initialized = time.time()
    
