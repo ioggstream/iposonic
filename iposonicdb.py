@@ -133,14 +133,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
         transact.__name__ = fn.__name__
         return transact
 
-    def __init__(self, music_folders, dbfile = "", refresh_always = True):
+    def __init__(self, music_folders, dbfile = "", refresh_interval = 60 ):
         self.music_folders = music_folders
         # Create the database
         self.engine = create_engine('sqlite://'+dbfile, echo=True, convert_unicode=True)
         self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.initialized = 0
-        self.refresh_always = refresh_always
+        self.refresh_interval = refresh_interval
         self.indexes = dict()
         self.log.setLevel(logging.INFO)
         assert self.log.isEnabledFor(logging.INFO)
@@ -262,7 +262,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         #raise NotImplemented("This method should not be used")
         print "walking: ", self.get_music_folders()
         
-        if time.time() - self.initialized < 60:
+        if time.time() - self.initialized < self.refresh_interval:
             return
             
         # reset database
@@ -282,7 +282,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             if a:
               path = join("/",music_folder,a)
               add_or_log(self,path)
-            if self.refresh_always:
+            if self.refresh_interval:
                 continue
             #
             # Scan recurrently only if not refresh_always
