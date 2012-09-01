@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- co ding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # iposonic - a micro implementation of the subsonic server API
 #  for didactical purposes: I just wanted to play with flask

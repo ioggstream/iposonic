@@ -94,19 +94,19 @@ class IposonicDBTables:
             self.__dict__.get(id, default)
 
     class Album(Base, SerializerMixin):
-        __fields__  = ['id', 'name', 'isDir', 'path', 'title', 'parent', 'album']
+        __fields__  = ['id', 'name', 'isDir', 'path', 'title', 'parent', 'album', 'artist']
         __tablename__ = "album"
         def __init__(self,path):
             Base.__init__(self)
             parent = dirname(path)
             self.__dict__.update({
                 'id' : MediaManager.get_entry_id(path),
-                'title' : StringUtils.to_unicode(basename(path)),
-                'album' : StringUtils.to_unicode(basename(path)),
                 'name' : StringUtils.to_unicode(basename(path)),
-                'path': StringUtils.to_unicode(path),
                 'isDir' : 'true',
-                'parent' : parent,
+                'path': StringUtils.to_unicode(path),
+                'title' : StringUtils.to_unicode(basename(path)),
+                'parent' : MediaManager.get_entry_id(parent),
+                'album' : StringUtils.to_unicode(basename(path)),
                 'artist' : basename(parent)
                 })
             
@@ -136,7 +136,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def __init__(self, music_folders, dbfile = "", refresh_always = True):
         self.music_folders = music_folders
         # Create the database
-        self.engine = create_engine('sqlite://'+dbfile, echo=True)
+        self.engine = create_engine('sqlite://'+dbfile, echo=True, convert_unicode=True)
         self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.initialized = 0

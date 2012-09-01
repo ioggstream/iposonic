@@ -1,4 +1,4 @@
-# -*- co ding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # The Flask part of iposonic
 #
@@ -17,6 +17,7 @@ import logging
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
 try:
+    #assert False 
     from iposonicdb import SqliteIposonicDB as Dbh
 except:
     from iposonic import IposonicDB as Dbh
@@ -29,8 +30,8 @@ log = logging.getLogger('iposonic-webapp')
 # Configuration
 #
 music_folders = [
-    "/home/rpolli/workspace-py/iposonic/test/data/"
-    #, "/opt/music/"
+    #"/home/rpolli/workspace-py/iposonic/test/data/"
+    "/opt/music/"
     ]
 
 iposonic = Iposonic(music_folders, dbhandler = Dbh)
@@ -161,6 +162,7 @@ def get_music_directory_view():
     artist = iposonic.db.Artist(path)
     children = []
     for child in os.listdir(dir_path):
+        child = StringUtils.to_unicode(child)
         if child[0] in ['.','_']:
             continue
         path = join("/", dir_path, child)
