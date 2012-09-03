@@ -66,6 +66,8 @@ class MediaManager:
     re_track_2 = re.compile("^(.*)([0-9]+)?$")    
     @staticmethod
     def get_entry_id(path):
+        if isinstance(path, unicode):
+            path = path.encode('utf8')
         return str(crc32(path))
 
     @staticmethod

@@ -154,7 +154,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 return ret
             except Exception as e:
                 session.rollback()
-                print "error: %s" % e
+                print "error: string: %s, ex: %s" %  (StringUtils.to_unicode(args[0]), e)
                 raise
         transact.__name__ = fn.__name__
         return transact
@@ -164,7 +164,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if self.engine_s == 'sqlite':
             return "%s:///%s" % (self.engine_s, self.dbfile)
         elif self.engine_s.startswith('mysql'):
-            return "%s://%s:%s@%s/%s" % (self.engine_s, self.user, self.passwd, self.host, self.dbfile)
+            return "%s://%s:%s@%s/%s?charset=utf8" % (self.engine_s, self.user, self.passwd, self.host, self.dbfile)
 
     def __init__(self, music_folders, dbfile = "iposonic1", refresh_interval = 60, user = "iposonic", passwd = "iposonic", host="localhost"  ):
         self.music_folders = music_folders
