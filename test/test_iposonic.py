@@ -182,7 +182,7 @@ class TestIposonicDB:
         ret = IposonicDB._search(artists, {'name': 'mock_artist'})
         assert '-1408122649' in ret[0].get('id'), "Expected %s got %s" % ('-1408122649', ret)
 
-class TestIposonicSqliteDB(TestIposonicDB):
+class TestSqliteIposonicDB(TestIposonicDB):
     dbhandler = SqliteIposonicDB
     def setup(self):
         self.id_songs = []
@@ -193,6 +193,8 @@ class TestIposonicSqliteDB(TestIposonicDB):
         self.db = self.dbhandler([self.test_dir])
         self.db.reset()
     def teardown(self):
+        print "closing server"
+        self.db.end_db()
         pass #os.unlink("meta.db")
     def test_get_songs(self):
         self.db.add_entry(self.test_dir + "mock_artist/mock_album/sample.ogg")
@@ -208,3 +210,6 @@ class TestIposonicSqliteDB(TestIposonicDB):
         l_session = self.db.Session()
         ret = l_session.execute("select * from song;").fetchall()
         assert ret, "ret: %s" % ret
+
+class TestMySQLIposonicDB(TestSqliteIposonicDB):
+    pass

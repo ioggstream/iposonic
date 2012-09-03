@@ -13,6 +13,8 @@ import logging
 from iposonic import IposonicException, Iposonic, IposonicDB
 from iposonic import MediaManager, StringUtils, UnsupportedMediaError
 
+
+
 # SqlAlchemy for ORM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
@@ -20,6 +22,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
+
+from threading import Lock
+def synchronized(lock):
+    """ Synchronization decorator. """
+
+    def wrap(f):
+        def newFunction(*args, **kw):
+            lock.acquire()
+            try:
+                return f(*args, **kw)
+            finally:
+                lock.release()
+        return newFunction
+    return wrap
+
 
 class LazyDeveloperMeta(DeclarativeMeta):
     """This class allows a lazy initialization of DAOs.
@@ -39,7 +56,7 @@ class LazyDeveloperMeta(DeclarativeMeta):
         # Additionally, set attributes on the new object.        
         is_pk = True
         for name in dict_.get('__fields__',[]):
-            setattr(klass, name, Column(name, String, primary_key = is_pk))
+            setattr(klass, name, Column(name, String(128), primary_key = is_pk))
             is_pk = False
 
         # Return the new object using super().
@@ -109,13 +126,15 @@ class IposonicDBTables:
                 'album' : StringUtils.to_unicode(basename(path)),
                 'artist' : basename(parent)
                 })
-            
+
+         
             
 
 class SqliteIposonicDB(object, IposonicDBTables):
     """Store data on Sqlite
     """
-    log = logging.getLogger('SqliteIposonicDB')   
+    log = logging.getLogger('SqliteIposonicDB')  
+    engine_s = "sqlite"
     def transactional(fn):
         """add transactional semantics to a method.
                 
@@ -127,65 +146,80 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 ret = fn(self, *args, **kwds)
                 session.commit()
                 return ret
-            except:
+            except Exception as e:
                 session.rollback()
+                print "error: %s" % e
                 raise
         transact.__name__ = fn.__name__
         return transact
 
-    def __init__(self, music_folders, dbfile = "", refresh_interval = 60 ):
+
+    def create_uri(self):
+        if self.engine_s == 'sqlite':
+            return "%s:///%s" % (self.engine_s, self.dbfile)
+        elif self.engine_s.startswith('mysql'):
+            return "%s://%s:%s@%s/%s" % (self.engine_s, self.user, self.passwd, self.host, self.dbfile)
+
+    def __init__(self, music_folders, dbfile = "iposonic1", refresh_interval = 60, user = "iposonic", passwd = "iposonic", host="localhost"  ):
         self.music_folders = music_folders
-        # Create the database
-        self.engine = create_engine('sqlite://'+dbfile, echo=True, convert_unicode=True)
-        self.engine.raw_connection().connection.text_factory = str
+
+        # database credentials
+        self.dbfile = dbfile
+        self.user = user
+        self.passwd = passwd
+        self.host = host
+        
+        # sql alchemy db connector
+        self.engine =  create_engine(self.create_uri(), echo=True, convert_unicode=True)
+
+        #self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.initialized = 0
         self.refresh_interval = refresh_interval
         self.indexes = dict()
         self.log.setLevel(logging.INFO)
+        self.initialized = False
+
         assert self.log.isEnabledFor(logging.INFO)
+
+    def init_db(self):
+        """On sqlite does nothing."""
+        pass
+        
+    def end_db(self):
+        pass
 
     def reset(self):
         """Drop and recreate database. Reinstantiate session."""
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
 
-    def _query(self, table, query):
-        assert table, "Table must not be null"
-        assert query, "Query must not be null"
-        for (field, value) in query.items():
-            pass
-            
-    @transactional
-    def get_songs(self, eid = None, query = None, session = None):
-        assert session
-        self.log.info("get_songs: eid: %s, query: %s" % (eid, query))
-        qmodel = session.query(self.Media)
+    def _query(self, table_o, field_o, query, eid = None, session = None):
+        assert table_o, "Table must not be null"
+        qmodel = session.query(table_o)
         if eid:
             rs = qmodel.filter_by(id = eid).one()
             return rs.json()
         elif query:
+            assert field_o, "Field must not be null"
             for (k,v) in query.items():
-                rs = qmodel.filter_by(title = v).all()
+                rs = qmodel.filter(field_o.like("%%%s%%" %v)).all()
         else:
             rs = qmodel.all()
         if not rs: return []
         return [r.json() for r in rs]
 
+            
+    @transactional
+    def get_songs(self, eid = None, query = None, session = None):
+        assert session
+        print("get_songs: eid: %s, query: %s" % (eid, query))
+        return self._query(self.Media, self.Media.title, query, eid = eid, session = session)    
+
     @transactional    
     def get_albums(self, eid = None, query = None, session = None ):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
-        qmodel = session.query(self.Album)
-        if eid:
-            rs = qmodel.filter_by(id = eid).one()
-            return rs.json()
-        elif query:
-            for (k,v) in query.items():
-                rs = qmodel.filter_by(title = v).all()
-        else:
-            rs = qmodel.all()
-        self.log.info("resultset %s" % rs)
-        return [r.json() for r in rs]
+        return self._query(self.Album, self.Album.title, query, eid = eid, session = session)
 
     @transactional
     def get_artists(self, eid = None, query = None, session = None): 
@@ -196,19 +230,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         """
         if not self.initialized:
             self.walk_music_directory()
-            
-        self.log.info("query: %s" % query)
-        qmodel = session.query(self.Artist)
-        if eid:
-            rs = qmodel.filter_by(id = eid).one()
-            return rs.json()
-        elif query:
-            for (k,v) in query.items():
-                rs = qmodel.filter_by(name = v).all()
-        else:
-            rs = qmodel.all()
-        print("resultset: %s" % rs)
-        return [r.json() for r in rs] 
+        return self._query(self.Artist, self.Artist.name, query, eid = eid, session = session)
 
     def get_indexes(self):
         #
@@ -295,3 +317,55 @@ class SqliteIposonicDB(object, IposonicDBTables):
         #
         self.initialized = time.time()
    
+
+
+class MySQLIposonicDB(SqliteIposonicDB):
+    # mysql embedded
+    import _mysql
+    """MySQL standard and embedded version.
+    
+        Classic version requires uri, otherwise 
+        you need to play with embedded.
+    """
+    log = logging.getLogger('SqliteIposonicDB')  
+    engine_s = "mysql+mysqldb"
+    driver = _mysql
+    datadir = "/tmp/iposonic/"
+
+    sql_lock = Lock()
+    
+    def end_db(self):
+        if self.initialized and self.driver:
+            self.driver.server_end()
+            
+    #@synchronized(sql_lock)
+    def init_db(self):
+        if self.initialized: return
+        print "initializing database"
+        if not os.path.isdir(dself.atadir):
+            os.mkdir(self.datadir)
+        self.driver.server_init( 
+            ['ipython', "-h", self.datadir,  '--bootstrap' ]
+            , ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
+        
+        conn = self.driver.connection(user="iposonic", passwd="iposonic")
+        try:
+            conn.autocommit(True)
+            
+            conn.query("create database if not exists %s ;" % dbfile)
+            conn.store_result()
+            
+            conn.query("use %s;" % dbfile)
+            conn.store_result()
+            
+            conn.query("create table if not exists iposonic(version text);")
+            conn.store_result()
+            conn.query("insert into iposonic(version) values('0.0.1');")
+            conn.store_result()
+            assert not conn.error()
+        except:
+            raise
+        finally:
+            conn.close()
+        self.initialized = True
+        #_mysql.server_end()

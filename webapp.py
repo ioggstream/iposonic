@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
 # The Flask part of iposonic
@@ -10,16 +11,23 @@ from flask import request, send_file
 from flask import Response
 
 import os,sys,random
+from os.path import  join,dirname,abspath 
+
 import simplejson
-from os.path import join,dirname,abspath
 import logging
 
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
+
+
 try:
+    sys.path.insert(0,'.')
     #assert False 
+    import _mysql
+    import _mysql as MySQLdb
     from iposonicdb import SqliteIposonicDB as Dbh
 except:
+    raise
     from iposonic import IposonicDB as Dbh
     
 app = Flask(__name__)
@@ -214,7 +222,7 @@ def search2_view():
     if not query:
         raise SubsonicProtocolException("Missing required parameter: 'query' in search2.view")
         
-    (artistCount, albumCount, songCount) = map(request.args.get, ("artistCount", "albumCount", "songCount"))
+    (artistCount, albumCount, songCount) = map(request.args.get, ["artistCount", "albumCount", "songCount"])
 
     # ret is 
     print "searching"
@@ -291,7 +299,7 @@ def get_random_songs_view():
       path="ABBA/Arrival/Money, Money, Money.mp3"/>
       </randomSongs>
     """
-    (size, genre, fromYear, toYear, musicFolderId) = map(request.args, ('size','genre','fromYear', 'toYear', 'musicFolderId'))
+    (size, genre, fromYear, toYear, musicFolderId) = map(request.args.get, ['size','genre','fromYear', 'toYear', 'musicFolderId'])
     songs = []
     if genre:
         print "genre: %s" % genre
@@ -537,5 +545,6 @@ class ResponseHelper:
     
 
 if __name__ == "__main__":
+    iposonic.db.init_db("iposonic")
     app.run(host='0.0.0.0', port=5000, debug=True)
 
