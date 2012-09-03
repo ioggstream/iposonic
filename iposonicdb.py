@@ -6,14 +6,20 @@ import os, sys, re, time
 from os.path import join, basename, dirname
 from binascii import crc32
 
-# logging and json
-import simplejson
+# logging
 import logging
 
 from iposonic import IposonicException, Iposonic, IposonicDB
 from iposonic import MediaManager, StringUtils, UnsupportedMediaError
 
-
+# add local path for loading _mysqlembedded
+sys.path.insert(0,'./lib')
+try:
+    import _mysqlembedded
+    sys.modules['_mysql'] = _mysqlembedded
+except:
+    """Fall back to mysql server module"""
+    pass
 
 # SqlAlchemy for ORM
 from sqlalchemy.ext.declarative import declarative_base
@@ -321,7 +327,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
 class MySQLIposonicDB(SqliteIposonicDB):
     # mysql embedded
-    import _mysql
+    import _mysqlembedded as _mysql
     """MySQL standard and embedded version.
     
         Classic version requires uri, otherwise 
@@ -341,21 +347,21 @@ class MySQLIposonicDB(SqliteIposonicDB):
     #@synchronized(sql_lock)
     def init_db(self):
         if self.initialized: return
-        print "initializing database"
-        if not os.path.isdir(dself.atadir):
+        print "initializing database in %s" % self.datadir
+        if not os.path.isdir(self.datadir):
             os.mkdir(self.datadir)
         self.driver.server_init( 
             ['ipython', "-h", self.datadir,  '--bootstrap' ]
             , ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
         
-        conn = self.driver.connection(user="iposonic", passwd="iposonic")
+        conn = self.driver.connection(user=self.user, passwd=self.passwd)
         try:
             conn.autocommit(True)
             
-            conn.query("create database if not exists %s ;" % dbfile)
+            conn.query("create database if not exists %s ;" % self.dbfile)
             conn.store_result()
             
-            conn.query("use %s;" % dbfile)
+            conn.query("use %s;" % self.dbfile)
             conn.store_result()
             
             conn.query("create table if not exists iposonic(version text);")

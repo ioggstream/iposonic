@@ -20,16 +20,13 @@ from iposonic import Iposonic, IposonicException, SubsonicProtocolException, Med
 from iposonic import StringUtils
 
 
+
 try:
-    sys.path.insert(0,'.')
-    #assert False 
-    import _mysql
-    import _mysql as MySQLdb
-    from iposonicdb import SqliteIposonicDB as Dbh
+    from iposonicdb import MySQLIposonicDB as Dbh
 except:
-    raise
-    from iposonic import IposonicDB as Dbh
-    
+    from iposonicdb import IposonicDB as DBh
+
+
 app = Flask(__name__)
 
 log = logging.getLogger('iposonic-webapp')
@@ -545,6 +542,6 @@ class ResponseHelper:
     
 
 if __name__ == "__main__":
-    iposonic.db.init_db("iposonic")
+    iposonic.db.init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
 
