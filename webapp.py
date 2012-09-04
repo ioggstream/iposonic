@@ -24,7 +24,7 @@ from iposonic import StringUtils
 try:
     from iposonicdb import MySQLIposonicDB as Dbh
 except:
-    from iposonicdb import IposonicDB as DBh
+    from iposonic import IposonicDB as Dbh
 
 
 app = Flask(__name__)
@@ -264,11 +264,15 @@ def get_album_list_view():
     mock_albums= [
       {'album': {'id': 11, 'parent': 1, 'title' : 'Arrival', 'artist': 'ABBA', 'isDir': 'true'}}
       ]
-    if not 'type' in request.args:
-        raise SubsonicProtocolException("Type is a require parameter")
+    (u, p, v, c, f, callback, dir_id) = map(request.args.get, ['u','p','v','c','f','callback', 'id'])
+    (size, type_a, offset) = map(request.args.get, ['size','type','offset'])   
+    
+    if not type_a in ['random','newest','highest','frequent','recent']:
+        raise SubsonicProtocolException("Invalid or missing parameter: type")
+
 
     #albums = randomize(iposonic.albums, 20)
-    albums = [a for a in iposonic.albums.values()]
+    albums = [a for a in iposonic.get_albums()]
     return request.formatter({'albumList' : {'album': albums }})
     
 @app.route("/rest/getRandomSongs.view", methods = ['GET', 'POST'])

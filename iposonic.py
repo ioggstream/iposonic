@@ -66,6 +66,8 @@ class MediaManager:
     re_track_2 = re.compile("^(.*)([0-9]+)?$")    
     @staticmethod
     def get_entry_id(path):
+        # path should be byte[], so convert it
+        #   if it's unicode
         if isinstance(path, unicode):
             path = path.encode('utf8')
         return str(crc32(path))
@@ -240,6 +242,10 @@ class IposonicDB(object):
             IposonicDB.Entry.__init__(self)
             self.update(MediaManager.get_info(path))
 
+    def init_db(self):
+        pass
+    def end_db(self):
+        pass
     def reset(self):
         self.indexes = dict()
         self.artists = dict()
