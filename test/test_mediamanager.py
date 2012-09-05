@@ -18,6 +18,8 @@ from iposonic import MediaManager
 
 import logging
 log = logging.getLogger("test")
+
+
 class TestMediaManager:
     def get_info_harn(self, file_name, expected):
         info = MediaManager.get_info(os.getcwd() + "/" + file_name)
@@ -28,7 +30,7 @@ class TestMediaManager:
     def get_info_test_ogg(self):
         file_name = "./test/data/mock_artist/mock_album/sample.ogg"
         parent = dirname(file_name)
-        
+
         expected = {
             'title': 'mock_title',
             'artist': 'mock_artist',
@@ -44,7 +46,7 @@ class TestMediaManager:
         expected = {
             'title': 'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)',
             'artist': 'Lara St John (PREVIEW: buy it at www.magnatune.com)',
-            'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent ))
+            'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
 

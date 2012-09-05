@@ -118,10 +118,10 @@ class MediaManager:
         except:
             (track, title) = (0, filename)
         return {
-            'title': title, 
-            'track': track, 
-            'path': path, 
-            'size': os.path.getsize(path), 
+            'title': title,
+            'track': track,
+            'path': path,
+            'size': os.path.getsize(path),
             'suffix': path[-3:]
         }
 

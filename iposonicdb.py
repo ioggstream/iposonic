@@ -108,7 +108,8 @@ class IposonicDBTables:
             return "<%s: %s>" % (self.__class__.__name__, self.json().__repr__())
 
     class Artist(Base, SerializerMixin):
-        __fields__ = ['id', 'name', 'isDir', 'path', 'userRating', 'averageRating']
+        __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
+                      'averageRating']
         __tablename__ = "artist"
 
         def __init__(self, path):
