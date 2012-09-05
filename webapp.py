@@ -177,8 +177,12 @@ def get_music_directory_view():
           # This is a Lazy Indexing. It should not be there
           #   unless a cache is set
           # XXX
-          eid = iposonic.add_entry(path, album = is_dir)
-          child_j = iposonic.get_entry_by_id(eid)
+          eid = MediaManager.get_entry_id(path)
+          try:
+            child_j = iposonic.get_entry_by_id(eid)
+          except IposonicException:
+            iposonic.add_entry(path, album = is_dir)
+            child_j = iposonic.get_entry_by_id(eid)
         
           children.append(child_j)  
         except IposonicException as e:
@@ -273,7 +277,8 @@ def get_album_list_view():
 
     #albums = randomize(iposonic.albums, 20)
     albums = [a for a in iposonic.get_albums()]
-    return request.formatter({'albumList' : {'album': albums }})
+    
+    return request.formatter({'albumList' : {'album': albums, 'song': iposonic.get_highest() }})
     
 @app.route("/rest/getRandomSongs.view", methods = ['GET', 'POST'])
 def get_random_songs_view():
@@ -374,12 +379,26 @@ def get_cover_art_view():
 def get_lyrics_view():
     raise NotImplemented("WriteMe")
 
+@app.route("/rest/setRating.view", methods = ['GET',  'POST'])
+def set_rating_view():
+    (u, p, v, c, f, callback) = map(request.args.get, ['u','p','v','c','f','callback'])
+    (eid, rating) = map(request.args.get, ['id','rating'])
+    if not rating:
+        raise SubsonicMissingParameterException('rating', sys._getframe().f_code.co_name)
+    if not eid:
+        raise SubsonicMissingParameterException('id', sys._getframe().f_code.co_name)
+    iposonic.update_entry(eid, {'rating' : 5})
+    return request.formatter ({})
+    
 
 
 #
 # Helpers
 #
-    
+class SubsonicMissingParameterException(SubsonicProtocolException):
+    def __init__(self, param, method):
+        SubsonicProtocolException.__init__(self, "Missing required parameter: %s in %s", param, method)    
+
 @app.before_request
 def set_formatter():
     """Return a function to create the response."""

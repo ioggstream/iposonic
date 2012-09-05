@@ -104,6 +104,8 @@ class TestIposonicDB:
         # setup class
         self.test_dir = os.getcwd()+"/test/data/"
         self.db = self.dbhandler([self.test_dir])
+        self.db.reset()
+
         self.db.walk_music_directory()
         
         # Run the harnesses
@@ -112,6 +114,7 @@ class TestIposonicDB:
         self.id_albums = []
 
         self.harn_load_fs2()
+        self.db.add_entry("/tmp/")
         
     def harn_load_fs(self):
         """Adds the entries in root to the iposonic index"""
@@ -146,6 +149,30 @@ class TestIposonicDB:
         for s in songs:
             assert 'title' in s, "Missing title in song: %s" % s
 
+    def test_update_entry_artist(self):
+        ret = self.db.get_artists()
+        assert ret and ret[0]
+        eid = ret[0].get('id')
+        print "test_update_entry: record: %s" % eid
+        self.db.update_entry(eid, {'rating' : 5})
+        ret = self.db.get_artists(eid = eid)
+        assert ret.get('rating') == '5', "Value was: %s" % ret
+
+    def test_merge(self):
+        session = self.db.Session()
+        record = session.query(self.db.Artist).filter_by(id="-1525717793")
+        eid = record.one().id
+        record.update({'rating' : 5})
+        """
+        print "retrieved: %s" % record
+        record.update({'rating':5})
+        print "merging: %s " % record
+        session.merge(record)
+        session.flush()
+        """
+        session.commit()
+        dup = session.query(self.db.Artist).filter_by(id=eid).one()
+        assert dup.rating == '5', "dup: %s" % dup
 
     def test_get_artists(self):
         ret = self.db.get_artists()
@@ -181,10 +208,16 @@ class TestIposonicDB:
         artists = {'-1408122649': {'isDir': 'true', 'path': '/opt/music/mock_artist', 'name': 'mock_artist', 'id': '-1408122649'} }
         ret = IposonicDB._search(artists, {'name': 'mock_artist'})
         assert '-1408122649' in ret[0].get('id'), "Expected %s got %s" % ('-1408122649', ret)
+        
+    def test_highest(self):
+        ret = self.db._query_top(self.db.Media, self.db.Media.rating, session = self.db.Session())
+        assert ret, "Missing ret. %s" % ret            
+        print "ret: %s" %ret
+
 
 class TestSqliteIposonicDB(TestIposonicDB):
     dbhandler = SqliteIposonicDB
-    def setup(self):
+    def _setup(self):
         self.id_songs = []
         self.id_artists = []
         self.id_albums = []
@@ -192,6 +225,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         self.test_dir = os.getcwd()+"/test/data/"
         self.db = self.dbhandler([self.test_dir])
         self.db.reset()
+        self.db.add_entry("/tmp/")
     def teardown(self):
         print "closing server"
         self.db.end_db()

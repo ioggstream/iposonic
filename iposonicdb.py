@@ -24,7 +24,7 @@ except:
 # SqlAlchemy for ORM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
@@ -83,16 +83,21 @@ class IposonicDBTables:
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
+                    elif k.lower() == 'rating':
+                        v = int(v) if v != None else 0
                     ret.append((k,v))
             return dict(ret)
         def get(self, attr):
             """Expose __dict__.get"""
             return self.__dict__.get(attr)
+        def update(self, dict_):
+            """Expose __dict__.update"""
+            return self.__dict__.update(dict_)
         def __repr__(self):
-            return self.json().__repr__()
+            return "<%s: %s>" % (self.__class__.__name__, self.json().__repr__())
  
     class Artist(Base, SerializerMixin):
-        __fields__  = ['id','name', 'isDir', 'path']
+        __fields__  = ['id','name', 'isDir', 'path', 'rating']
         __tablename__ = "artist"
         def __init__(self,path):
             Base.__init__(self)
@@ -108,7 +113,7 @@ class IposonicDBTables:
         __fields__ = ['id','name','path', 'parent', 
             'title', 'artist', 'isDir', 'album',
             'genre', 'track', 'tracknumber', 'date', 'suffix',
-            'isvideo', 'duration', 'size', 'bitrate' 
+            'isvideo', 'duration', 'size', 'bitrate', 'rating' 
         ]
         def __init__(self,path):
             Base.__init__(self)
@@ -117,7 +122,7 @@ class IposonicDBTables:
             self.__dict__.get(id, default)
 
     class Album(Base, SerializerMixin):
-        __fields__  = ['id', 'name', 'isDir', 'path', 'title', 'parent', 'album', 'artist']
+        __fields__  = ['id', 'name', 'isDir', 'path', 'title', 'parent', 'album', 'artist', 'rating']
         __tablename__ = "album"
         def __init__(self,path):
             Base.__init__(self)
@@ -154,7 +159,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 return ret
             except Exception as e:
                 session.rollback()
-                print "error: string: %s, ex: %s" %  (StringUtils.to_unicode(args[0]), e)
+                if len(args): ret = args[0]
+                else: ret=""
+                print "error: string: %s, ex: %s" %  (StringUtils.to_unicode(ret), e)
                 raise
         transact.__name__ = fn.__name__
         return transact
@@ -215,7 +222,29 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if not rs: return []
         return [r.json() for r in rs]
 
-            
+    def _query_id(self, eid, session=None):
+        assert eid, "Missing eid"
+        for table_o in [self.Media, self.Album, self.Artist]:
+            qmodel = session.query(table_o)
+            try:
+                rs = qmodel.filter_by(id = eid)
+                if rs.one(): 
+                    return rs
+            except:
+                pass
+        raise ValueError("Eid not in db: %s" % eid)
+
+    def _query_top(self, table_o, field_o, limit = 20, session = None):
+        """Return a list of songs, in json"""
+        assert table_o and field_o
+        qmodel = session.query(table_o)
+        rs = qmodel.order_by(field_o.desc()).limit(limit)
+        if not rs: return []
+        return [r.json() for r in rs.all()]
+           
+    @transactional
+    def get_highest(self, session=None):
+        return self._query_top(self.Media, self.Media.rating, session=session)
     @transactional
     def get_songs(self, eid = None, query = None, session = None):
         assert session
@@ -256,6 +285,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
         return self.music_folders
         
     @transactional
+    def update_entry(self, eid, new, session = None):
+        assert session, "Missing Session"
+        assert eid, "Missing eid"
+        assert new, "Missing new object"
+        old = self._query_id(eid, session = session).update(new)
+        
+
+    @transactional
     def add_entry(self, path, album = False, session = None):
         assert session
         eid = None
@@ -294,7 +331,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             return
             
         # reset database
-        self.reset()
+        #self.reset()
         def add_or_log(self,path):
             try: 
                 self.add_entry(path)

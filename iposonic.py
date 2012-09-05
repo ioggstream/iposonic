@@ -283,6 +283,13 @@ class IposonicDB(object):
         if query:
             return IposonicDB._search(hash, query)
         return hash.values()
+    def update_entry(self, eid, new):
+        for h in [ self.songs, self.artists, self.albums]:
+            record = self._get_hash(h, eid)
+            if record: 
+                h[eid].update(new)
+                return
+        raise ValueError("Entry not found with eid: %s" % eid)
 
     def get_songs(self, eid = None, query = None):
         """Return a list of songs in the following form.
@@ -386,7 +393,7 @@ class Iposonic:
 
     def __getattr__(self, method):
         """Proxies DB methods."""
-        if method in [ "get_%s" % m  for m in ['artists', 'music_folders', 'albums', 'songs']]:
+        if method in ['get_artists', 'get_music_folders', 'get_albums', 'get_songs', 'get_highest']:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
         raise NotImplemented("Method not found: %s" % method)
@@ -452,6 +459,9 @@ class Iposonic:
     def add_entry(self, path, album = False):
         """TODO move do db"""
         return self.db.add_entry(path, album)
+    def update_entry(self, eid, new):
+        """TODO move do db"""
+        return self.db.update_entry(eid, new)
 
     def get_genre_songs(self, query):
         songs = []
