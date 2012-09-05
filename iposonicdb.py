@@ -31,7 +31,7 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, OperationalError
 
 from threading import Lock
 
@@ -109,7 +109,7 @@ class IposonicDBTables:
 
     class Artist(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
-                      'averageRating']
+                      'averageRating', 'coverArt']
         __tablename__ = "artist"
 
         def __init__(self, path):
@@ -126,7 +126,8 @@ class IposonicDBTables:
         __fields__ = ['id', 'name', 'path', 'parent',
                       'title', 'artist', 'isDir', 'album',
                       'genre', 'track', 'tracknumber', 'date', 'suffix',
-                      'isvideo', 'duration', 'size', 'bitrate', 'userRating', 'averageRating'
+                      'isvideo', 'duration', 'size', 'bitrate',
+                      'userRating', 'averageRating', 'coverArt'
                       ]
 
         def __init__(self, path):
@@ -139,21 +140,29 @@ class IposonicDBTables:
 
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
-                      'parent', 'album', 'artist', 'userRating', 'averageRating']
+                      'parent', 'album', 'artist',
+                      'userRating', 'averageRating', 'coverArt']
         __tablename__ = "album"
 
         def __init__(self, path):
             Base.__init__(self)
+            eid = MediaManager.get_entry_id(path)
+            path_u = StringUtils.to_unicode(path)
             parent = dirname(path)
+            dirname_u = basename(path_u)
+            if dirname_u.find("-") > 0:
+                dirname_u = re.split("\s*-\s*", dirname_u, 1)[1]
+
             self.__dict__.update({
-                'id': MediaManager.get_entry_id(path),
-                'name': StringUtils.to_unicode(basename(path)),
+                'id': eid,
+                'name': dirname_u,
                 'isDir': 'true',
-                'path': StringUtils.to_unicode(path),
-                'title': StringUtils.to_unicode(basename(path)),
+                'path': path_u,
+                'title': dirname_u,
                 'parent': MediaManager.get_entry_id(parent),
-                'album': StringUtils.to_unicode(basename(path)),
-                'artist': basename(parent)
+                'album': dirname_u,
+                'artist': basename(parent),
+                'coverArt': eid
             })
 
 
@@ -174,7 +183,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 ret = fn(self, *args, **kwds)
                 session.commit()
                 return ret
-            except ProgrammingError as e:
+            except (ProgrammingError, OperationalError) as e:
                 session.rollback()
                 print "Corrupted database: removing and recreating"
                 self.reset()
@@ -196,7 +205,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         elif self.engine_s.startswith('mysql'):
             return "%s://%s:%s@%s/%s?charset=utf8" % (self.engine_s, self.user, self.passwd, self.host, self.dbfile)
 
-    def __init__(self, music_folders, dbfile="iposonic1", refresh_interval=60, user="iposonic", passwd="iposonic", host="localhost"):
+    def __init__(self, music_folders, dbfile="iposonic1", refresh_interval=60, user="iposonic", passwd="iposonic", host="localhost", recreate_db=False):
         self.music_folders = music_folders
 
         # database credentials
@@ -216,11 +225,13 @@ class SqliteIposonicDB(object, IposonicDBTables):
         self.indexes = dict()
         self.log.setLevel(logging.INFO)
         self.initialized = False
-
+        self.recreate_db = recreate_db
         assert self.log.isEnabledFor(logging.INFO)
 
     def init_db(self):
         """On sqlite does nothing."""
+        if recreate_db:
+            self.reset()
 
     def end_db(self):
         pass
@@ -352,7 +363,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
         """
-        #raise NotImplemented("This method should not be used")
+        #raise NotImplementedError("This method should not be used")
         print "walking: ", self.get_music_folders()
 
         if time.time() - self.initialized < self.refresh_interval:
@@ -406,6 +417,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
     sql_lock = Lock()
 
     def end_db(self):
+        """MySQL requires teardown of connections and memory structures."""
         if self.initialized and self.driver:
             self.driver.server_end()
 
@@ -438,5 +450,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
             raise
         finally:
             conn.close()
+        if self.recreate_db:
+            self.reset()
         self.initialized = True
         #_mysql.server_end()

@@ -23,12 +23,17 @@ import re
 from os.path import join, basename, dirname
 from binascii import crc32
 
+#
 # manage media files
+#
+# tags
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
 import mutagen.oggvorbis
 import mutagen.asf
+# albumArt
+from art_downloader import CoverSource
 
 # logging and json
 import simplejson
@@ -241,6 +246,8 @@ class IposonicDB(object):
 
         def __init__(self, path):
             IposonicDB.Artist.__init__(self, path)
+            if self['name'].find("-") > 0:
+                self['name'] = re.split("\s*-\s*", self['name'], 1)[1]
             self['title'] = self['name']
             self['album'] = self['name']
             parent = dirname(path)
@@ -367,7 +374,7 @@ class IposonicDB(object):
 
           TODO: create a cache for this.
         """
-        #raise NotImplemented("This method should not be used")
+        #raise NotImplementedError("This method should not be used")
         print "walking: ", self.get_music_folders()
 
         # reset database
@@ -421,7 +428,7 @@ class Iposonic:
         if method in ['get_artists', 'get_music_folders', 'get_albums', 'get_songs', 'get_highest']:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
-        raise NotImplemented("Method not found: %s" % method)
+        raise NotImplementedError("Method not found: %s" % method)
 
     @staticmethod
     def is_allowed_extension(file):
@@ -508,7 +515,7 @@ class Iposonic:
               path="ABBA/Arrival/Money, Money, Money.mp3"/>
 
         """
-        #if albumCount != 10 or songCount != 10 or artistCount != 10: raise NotImplemented()
+        #if albumCount != 10 or songCount != 10 or artistCount != 10: raise NotImplementedError()
 
         # create an empty result set
         tags = ['artist', 'album', 'title']

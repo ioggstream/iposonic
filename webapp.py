@@ -6,8 +6,14 @@
 # author: Roberto Polli robipolli@gmail.com (c) 2012
 #
 # License AGPLv3
+#
+# TODO manage argv for:
+#   * music_folders
+#   * authentication backend
+#   * reset db
+#
 from flask import Flask
-from flask import request, send_file
+from flask import request, send_file, redirect
 from flask import Response
 
 import os
@@ -21,7 +27,7 @@ import logging
 from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
 from iposonic import StringUtils
 
-
+from art_downloader import CoverSource
 try:
     from iposonicdb import MySQLIposonicDB as Dbh
 except:
@@ -252,7 +258,7 @@ def search2_view():
             }
         }
     )
-    raise NotImplemented("WriteMe")
+    raise NotImplementedError("WriteMe")
 
 
 #
@@ -325,7 +331,7 @@ def get_random_songs_view():
         assert len(iposonic.get_songs())
         songs = iposonic.get_songs()
     assert songs
-    #raise NotImplemented("WriteMe")
+    #raise NotImplementedError("WriteMe")
     songs = [{'song': s} for s in songs]
     randomSongs = {'randomSongs': {'song': songs}}
     return request.formatter(randomSongs)
@@ -379,19 +385,28 @@ def scrobble_view():
 
     return request.formatter({})
 
-#
-# TO BE DONE
-#
-
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
 def get_cover_art_view():
-    raise NotImplemented("WriteMe")
-
-
-@app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
-def get_lyrics_view():
-    raise NotImplemented("WriteMe")
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (eid, size) = map(request.args.get, ['id', 'size'])
+    info = iposonic.get_entry_by_id(eid)
+    print "searching info for: %s" % info
+    query = "%s - %s" % (
+        info.get('artist', info.get('name')), info.get('album'))
+    query = info.get('album')
+    print "search path: %s" % query
+    c = CoverSource()
+    for cover in c.search(info.get('album')):
+        print "confronting info with: %s" % cover
+        if len(set([x.get('artist').lower() for x in [info, cover]])) == 1:
+            print "Artist match"
+            return redirect(cover.get('cover_small'), 302)
+        else:
+            print "Artist mismatch: %s, %s" % tuple(
+                [x.get('artist') for x in [info, cover]])
+    return ""
 
 
 @app.route("/rest/setRating.view", methods=['GET', 'POST'])
@@ -410,6 +425,15 @@ def set_rating_view():
 
 
 #
+# TO BE DONE
+#
+
+@app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
+def get_lyrics_view():
+    raise NotImplementedError("WriteMe")
+
+
+#
 # Helpers
 #
 class SubsonicMissingParameterException(SubsonicProtocolException):
@@ -425,11 +449,17 @@ def set_formatter():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     if f == 'jsonp':
         if not callback:
-            raise SubsonicProtocolException("Missing callback with jsonp")
+            # MiniSub has a bug, trying to retrieve jsonp without
+            #   callback in case of getCoverArt.view
+            #   it's not a problem because the getCoverArt should
+            #   return a byte stream
+            if request.endpoint not in ['get_cover_art_view']:
+                raise SubsonicProtocolException(
+                    "Missing callback with jsonp in: %s" % request.endpoint)
         request.formatter = lambda x: ResponseHelper.responsize_jsonp(
             x, callback)
     else:
-        request.formatter = lambda x: ResponseHelper.responsize_xml(x)
+        request.formatter = ResponseHelper.responsize_xml
 
 
 @app.after_request
@@ -504,6 +534,7 @@ class ResponseHelper:
 
     @staticmethod
     def responsize_jsonp(ret, callback, status="ok", version="9.0.0"):
+        assert status and version  # TODO
         if not callback:
             raise SubsonicProtocolException()
         # add headers to response
