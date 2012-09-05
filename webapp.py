@@ -311,8 +311,8 @@ def get_random_songs_view():
         print "genre: %s" % genre
         songs = iposonic.get_genre_songs(genre)
     else:
-        assert len(iposonic.get_songs().values())
-        songs = iposonic.get_songs().values()
+        assert len(iposonic.get_songs())
+        songs = iposonic.get_songs()
     assert songs
     #raise NotImplemented("WriteMe")
     songs = [{'song': s} for s in songs]
