@@ -81,6 +81,7 @@ class MediaManager:
     log = logging.getLogger('MediaManager')
     re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
     re_track_2 = re.compile("^(.*)([0-9]+)?$")
+    re_split_s = "\s*-\s*"
 
     @staticmethod
     def get_entry_id(path):
@@ -129,6 +130,29 @@ class MediaManager:
             'size': os.path.getsize(path),
             'suffix': path[-3:]
         }
+
+    @staticmethod
+    def get_album_name(path_u):
+        """Get album name from an unicode path.
+
+            First splits by "-" to work out the possible artist name,
+            then rules out the year by parentheses.
+
+        """
+        if not os.path.isdir(path_u):
+            raise UnsupportedMediaError("Path is not an Album: %s" % path_u)
+        MediaManager.log.info("parsing album path: %s" % path_u)
+        title = basename(path_u)
+        for separator in ['-', '(']:
+            if title.find(separator) > 0:
+                a0, a1 = title.split(separator, 1)
+                try:
+                    t_ = int(a1.strip("() []"))
+                    title = a0.strip().strip(separator)
+                except:
+                    title = a1.strip().strip(separator)
+
+        return title
 
     @staticmethod
     def get_info(path):
@@ -352,6 +376,7 @@ class IposonicDB(object):
 
     def add_entry(self, path, album=False):
         if os.path.isdir(path):
+            print "Adding entry %s" % path
             eid = MediaManager.get_entry_id(path)
             if album:
                 self.albums[eid] = IposonicDB.Album(path)

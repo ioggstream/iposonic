@@ -19,6 +19,7 @@ from flask import Response
 import os
 import sys
 import random
+import re
 from os.path import join, dirname, abspath
 
 import simplejson
@@ -397,10 +398,11 @@ def get_cover_art_view():
         info.get('artist', info.get('name')), info.get('album'))
     query = info.get('album')
     print "search path: %s" % query
+    re_notascii = re.compile("[^A-z0-9]")
     c = CoverSource()
     for cover in c.search(info.get('album')):
         print "confronting info with: %s" % cover
-        if len(set([x.get('artist').lower() for x in [info, cover]])) == 1:
+        if len(set([re_notascii.sub(x.get('artist').lower(), "") for x in [info, cover]])) == 1:
             print "Artist match"
             return redirect(cover.get('cover_small'), 302)
         else:

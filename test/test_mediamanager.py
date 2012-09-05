@@ -58,3 +58,13 @@ class TestMediaManager:
     @SkipTest
     def browse_path_test(self):
         MediaManager.browse_path("/opt/music")
+        
+    def test_get_album_name(self):
+        for name in ['mock_album - 2004', 'mock_album (2004)']:
+            path_u = join("/", os.getcwd(), "test/data/mock_artist/",name)    
+            try: os.mkdir(path_u)        
+            except: pass
+            ret = MediaManager.get_album_name(path_u)
+            assert ret == 'mock_album', "ret: %s" %ret
+            os.rmdir(path_u)
+            

@@ -149,10 +149,8 @@ class IposonicDBTables:
             eid = MediaManager.get_entry_id(path)
             path_u = StringUtils.to_unicode(path)
             parent = dirname(path)
-            dirname_u = basename(path_u)
-            if dirname_u.find("-") > 0:
-                dirname_u = re.split("\s*-\s*", dirname_u, 1)[1]
-
+            dirname_u = MediaManager.get_album_name(path_u)
+            print "Album name is: %s" % dirname_u
             self.__dict__.update({
                 'id': eid,
                 'name': dirname_u,
