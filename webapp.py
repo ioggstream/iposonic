@@ -393,9 +393,10 @@ def get_cover_art_view():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (eid, size) = map(request.args.get, ['id', 'size'])
     info = iposonic.get_entry_by_id(eid)
+    if info.get('coverArtUrl'):
+        return redirect(info.get('coverArtUrl'), 302)
+
     print "searching info for: %s" % info
-    query = "%s - %s" % (
-        info.get('artist', info.get('name')), info.get('album'))
     query = info.get('album')
     print "search path: %s" % query
     re_notascii = re.compile("[^A-z0-9]")
@@ -404,6 +405,8 @@ def get_cover_art_view():
         print "confronting info with: %s" % cover
         if len(set([re_notascii.sub(x.get('artist').lower(), "") for x in [info, cover]])) == 1:
             print "Artist match"
+            iposonic.update_entry(
+                eid, {'coverArtUrl': cover.get('cover_small')})
             return redirect(cover.get('cover_small'), 302)
         else:
             print "Artist mismatch: %s, %s" % tuple(

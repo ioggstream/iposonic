@@ -141,7 +141,8 @@ class IposonicDBTables:
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
                       'parent', 'album', 'artist',
-                      'userRating', 'averageRating', 'coverArt']
+                      'userRating', 'averageRating', 'coverArt',
+                      'coverArtUrl']
         __tablename__ = "album"
 
         def __init__(self, path):
