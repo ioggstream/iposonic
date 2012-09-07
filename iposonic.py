@@ -298,16 +298,17 @@ class MediaManager:
 
 
 class IposonicDB(object):
-    """An abstract data store for Iposonic songs.
+    """An abstract in-memory data store based on dictionaries.
 
         Implement your own backend.
     """
     log = logging.getLogger('IposonicDB')
 
-    def __init__(self, music_folders):
+    def __init__(self, music_folders, **kwargs):
+        """Initialize using music_folders, and ignore other kwargs."""
         self.music_folders = music_folders
         #
-        # Private data TODO use a local store?
+        # Private data
         #
         self.indexes = dict()
         #
@@ -355,11 +356,6 @@ class IposonicDB(object):
             self['artist'] = basename(parent)
             self['isDir'] = True
 
-    class AlbumTest:
-        def test_1(self):
-            a = IposonicDB.Album("./test/data/mock_artist/mock_album")
-            assert a['name'] == "mock_album"
-
     class Media(Entry):
         required_fields = ['name', 'id', 'title', 'path', 'isDir']
 
@@ -380,7 +376,7 @@ class IposonicDB(object):
         self.songs = dict()
 
     @staticmethod
-    def _search(hash, query, limit=10, key_only=False):
+    def _search(hash_, query, limit=10, key_only=False):
         """return values in hash matching query.
 
             query is a dict, eg {'title': 'Viva l'Italia'}
@@ -393,24 +389,32 @@ class IposonicDB(object):
             ]
         """
         assert query, "Query is required"
-        assert hash, "Hash is required"
+        assert hash_, "Hash is required"
         ret = []
         for (field, value) in query.items():
             re_query = re.compile(".*%s.*" % value, re.IGNORECASE)
-            ret = filter(
-                lambda x: re_query.match(hash[x].get(field)) is not None, hash)
+
+            def f_get_field(x):
+                try:
+                    value = hash_.get(x).get(field)
+                    return re_query.match(value) is not None
+                except:
+                    pass
+                return False
+
+            ret = filter(f_get_field, hash_)
             if not key_only:
-                ret = [hash[x] for x in ret]
+                ret = [hash_[x] for x in ret]
             return ret
         raise IposonicException("No entries returned")
 
     @staticmethod
-    def _get_hash(hash, eid=None, query=None):
+    def _get_hash(hash_, eid=None, query=None):
         if eid:
-            return hash.get(eid)
+            return hash_.get(eid)
         if query:
-            return IposonicDB._search(hash, query)
-        return hash.values()
+            return IposonicDB._search(hash_, query)
+        return hash_.values()
 
     def update_entry(self, eid, new):
         for h in [self.songs, self.artists, self.albums]:
@@ -449,6 +453,11 @@ class IposonicDB(object):
 
     def get_music_folders(self):
         return self.music_folders
+
+    def get_highest(self):
+        """Return a list of songs. [ { id:, title:, ..} ,..]"""
+        f_sort = lambda x: self.songs.get(x).get('userRating')
+        return sorted(self.songs, key=f_sort, reverse=True)[0:20]
 
     def add_entry(self, path, album=False):
         if os.path.isdir(path):
@@ -526,7 +535,14 @@ class Iposonic:
 
     def __getattr__(self, method):
         """Proxies DB methods."""
-        if method in ['get_artists', 'get_music_folders', 'get_albums', 'get_songs', 'get_highest']:
+        if method in [
+            'get_artists',
+            'get_music_folders',
+            'get_albums',
+            'get_songs',
+            'get_highest',
+            'get_playlists'
+        ]:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
         raise NotImplementedError("Method not found: %s" % method)

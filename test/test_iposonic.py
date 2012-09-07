@@ -13,7 +13,7 @@ class TestIposonic:
         self.test_dir = os.getcwd() + "/test/data/"
         self.iposonic = Iposonic([self.test_dir])
         self.iposonic.db.walk_music_directory()
-        self.harn_load_fs2()
+        harn_load_fs2(self)
 
     def teardown(self):
         self.iposonic = None
@@ -88,35 +88,43 @@ class TestIposonic:
             assert x['genre'] == "mock_genre"
 
     def test_directory_get(self):
-        try:
-            dirs = self.iposonic.db.get_artists()
-            assert dirs.keys(), "empty artists %s" % dirs
-            k = dirs.keys()[0]
-            (id_1, dir_1) = (k, dirs[k])
-            print self.db.get_directory_path_by_id(id_1)
-        except:
-            raise Exception("Can't find entry %s in %s" % (
-                id_1, self.iposonic.db.get_artists()))
+        dirs = self.iposonic.db.get_artists()
+        assert dirs, "empty artists %s" % dirs
+        artist = dirs[0]
+        eid = artist['id']
+        assert artist
+        assert artist['path'] == self.iposonic.get_directory_path_by_id(eid)[0], "Can't find entry %s in %s" % (
+                eid, dirs)
+
+def harn_setup(klass, test_dir):
+        klass.test_dir = os.getcwd() + test_dir
+        klass.db = klass.dbhandler([klass.test_dir], dbfile = "mock_iposonic")
+        klass.db.reset()
+
+        klass.db.walk_music_directory()
+
+        # Run the harnesses
+        klass.id_songs = []
+        klass.id_artists = []
+        klass.id_albums = []
+def harn_load_fs2(klass):
+    for (root, dirfile, files) in os.walk(klass.test_dir):
+        for d in dirfile:
+            path = join("/", root, d)
+            klass.id_albums.append(klass.db.add_entry(path))
+        for f in files:
+            path = join("/", root, f)
+            klass.id_songs.append(klass.db.add_entry(path))
+
 
 
 class TestIposonicDB:
     dbhandler = IposonicDB
 
     def setup(self):
-        # setup class
-        self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.dbhandler([self.test_dir], dbfile = "mock_iposonic")
-        self.db.reset()
-
-        self.db.walk_music_directory()
-
-        # Run the harnesses
-        self.id_songs = []
-        self.id_artists = []
-        self.id_albums = []
-
-        self.harn_load_fs2()
-        self.db.add_entry("/tmp/")
+        harn_setup(self, "/test/data")
+        klass.harn_load_fs2()
+        klass.db.add_entry("/tmp/")
 
     def harn_load_fs(self):
         """Adds the entries in root to the iposonic index"""
@@ -127,15 +135,6 @@ class TestIposonicDB:
             path = join("/", root, f)
             eid = self.db.add_entry(path)
             self.id_l.append(eid)
-
-    def harn_load_fs2(self):
-        for (root, dirfile, files) in os.walk(self.test_dir):
-            for d in dirfile:
-                path = join("/", root, d)
-                self.id_albums.append(self.db.add_entry(path))
-            for f in files:
-                path = join("/", root, f)
-                self.id_songs.append(self.db.add_entry(path))
 
     def test_get_music_folders(self):
         assert self.db.get_music_folders()
@@ -186,7 +185,7 @@ class TestIposonicDB:
             assert 'name' in artist, "Bad music_directories: %s" % ret
 
     def test_search_songs_by_artist(self):
-        self.harn_load_fs2()
+        harn_load_fs2(self)
         ret = self.db.get_songs(query={'artist': 'mock_artist'})
         assert ret[0]['title'], ret
 
@@ -198,7 +197,7 @@ class TestIposonicDB:
             assert 'path' in info, "error processing eid: %s" % eid
 
     def test_search_songs_by_title(self):
-        self.harn_load_fs2()
+        harn_load_fs2(self)
         ret = self.db.get_songs(query={'title': 'mock_title'})
         assert ret[0]['title'], ret
 
@@ -215,46 +214,38 @@ class TestIposonicDB:
             'id'), "Expected %s got %s" % ('-1408122649', ret)
 
     def test_highest(self):
-        ret = self.db._query_top(
-            self.db.Media, self.db.Media.rating, session=self.db.Session())
+        ret = self.db.get_highest()
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret
 
-
-class TestSqliteIposonicDB(TestIposonicDB):
+    
+class TestPlaylistIposonicDB:
     dbhandler = SqliteIposonicDB
 
-    def _setup(self):
-        self.id_songs = []
-        self.id_artists = []
-        self.id_albums = []
-
-        self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.dbhandler([self.test_dir], dbfile="mock_iposonic")
-        self.db.reset()
-        self.db.add_entry("/tmp/")
-
-    def teardown(self):
-        print "closing server"
-        self.db.end_db()
-        pass  # os.unlink("meta.db")
-
-    def test_get_songs(self):
-        self.db.add_entry(self.test_dir + "mock_artist/mock_album/sample.ogg")
-
-        l_session = self.db.Session()
-        ret = l_session.execute("select * from song;").fetchall()
-        print "ret_execute: %s" % ret
-
-        ret = self.db.get_songs()
-        assert ret, "ret_get_songs: %s" % ret
-
-    def test_get_songs_with_select(self):
-        self.db.add_entry(self.test_dir + "mock_artist/mock_album/sample.ogg")
-        l_session = self.db.Session()
-        ret = l_session.execute("select * from song;").fetchall()
-        assert ret, "ret: %s" % ret
-
-
-class TestMySQLIposonicDB(TestSqliteIposonicDB):
-    pass
+    def setup_playlist(self):
+        item = self.db.Playlist("mock_playlist")
+        songs = str.join(",",[str(x.get('id')) for x in self.db.get_songs()])
+        item.update({'entry': songs})
+        
+        session = self.db.Session()
+        session.add(item)
+        session.commit()
+        session.close()
+        
+    def setup(self):
+        harn_setup(self, "/test/data")
+        harn_load_fs2(self)
+        
+        self.setup_playlist()
+        
+        
+    def test_get_playlists(self):
+        items = self.db.get_playlists()
+        item = items[0]
+        assert item.get('name') == 'mock_playlist' , "No playlists: %s" % item
+        
+    def test_get_playlist(self):
+        eid = MediaManager.get_entry_id('mock_playlist')
+        ret = self.db.get_playlists(eid=eid)
+        assert ret, "Can't find playlist %s" % eid
+        assert ret.get('name') == 'mock_playlist' , "No playlists: %s" % ret

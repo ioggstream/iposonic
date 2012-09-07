@@ -361,6 +361,91 @@ def get_random_songs_view():
 
 
 #
+#
+#
+@app.route("/rest/getPlaylists.view", methods=['GET', 'POST'])
+def get_playlists_view():
+    """ response xml:
+        <playlists>
+                <playlist id="15" name="Some random songs" comment="Just something I tossed together" owner="admin" public="false" songCount="6" duration="1391" created="2012-04-17T19:53:44">
+                    <allowedUser>sindre</allowedUser>
+                    <allowedUser>john</allowedUser>
+                </playlist>
+                <playlist id="16" name="More random songs" comment="No comment" owner="admin" public="true" songCount="5" duration="1018" created="2012-04-17T19:55:49"/>
+            </playlists>
+
+        response jsonp:
+            {playlists: { playlist : [
+                {   id : ,
+                    name: ,
+                    comment: ,
+                    owner: ,
+                    public: ,
+                    songCount:,
+                    duration: ,
+                    created:,
+                },
+                {   id, name, comment, owner, public, allowedUser: [
+                    'jon',
+                    'mary'
+                    ] }
+                ]
+            }}
+    """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+
+    playlists = [iposonic.db.Playlist(
+        name).json() for name in ['sample', 'random', 'genre']]
+
+    playlists.extend(iposonic.get_playlists())
+    return request.formatter({'playlists': {'playlist': playlists}})
+    raise NotImplementedError()
+
+
+@app.route("/rest/getPlaylist.view", methods=['GET', 'POST'])
+def get_playlist_view():
+    """Return a playlist.
+
+        response xml:
+     <playlist id="15" name="kokos" comment="fan" owner="admin" public="true" songCount="6" duration="1391"
+5                     created="2012-04-17T19:53:44">
+6               <allowedUser>sindre</allowedUser>
+7               <allowedUser>john</allowedUser>
+8               <entry id="657" parent="655" title="Making Me Nervous" album="I Don&apos;t Know What I&apos;m Doing"
+9                      artist="Brad Sucks" isDir="false" coverArt="655" created="2008-04-10T07:10:32" duration="159"
+10                     bitRate="202" track="1" year="2003" size="4060113" suffix="mp3" contentType="audio/mpeg" isVideo="false"
+11                     path="Brad Sucks/I Don&apos;t Know What I&apos;m Doing/01 - Making Me Nervous.mp3" albumId="58"
+12                     artistId="45" type="music"/>
+        response jsonp:
+            {'playlist': {
+                'id':,
+                'name':,
+                'songCount',
+                'allowedUser': [ 'user1', 'user2' ],
+                'entry': [ {
+                    id:,
+                    title:,
+                    ...
+                    },
+                ]
+                }}
+    """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (eid) = map(request.args.get, ['id'])
+    if not eid:
+        raise SubsonicProtocolException(
+            "Missing required parameter: 'id' in stream.view")
+
+    playlist = iposonic.get_playlists(eid=eid)
+    entries = [iposonic.get_songs(eid=x).__dict__() for x in playlist.entries]
+    j_playlist = playlist.__dict__()
+    j_playlist.update({'entry': entries})
+    return request.formatter({'playlist': j_playlist})
+
+
+#
 # download and stream
 #
 @app.route("/rest/stream.view", methods=['GET', 'POST'])

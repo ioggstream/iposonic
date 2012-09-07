@@ -170,6 +170,19 @@ class IposonicDBTables:
                 'coverArt': eid
             })
 
+    class Playlist(Base, SerializerMixin):
+        __fields__ = ['id', 'name', 'comment', 'owner', 'public',
+                      'songCount', 'duration', 'created', 'entry'
+                      ]
+        __tablename__ = "playlist"
+
+        def __init__(self, name):
+            Base.__init__(self)
+            self.__dict__.update({
+                'id': MediaManager.get_entry_id(name),
+                'name': name
+            })
+
 
 class SqliteIposonicDB(object, IposonicDBTables):
     """Store data on Sqlite
@@ -321,6 +334,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_albums(self, eid=None, query=None, session=None):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
         return self._query(self.Album, self.Album.title, query, eid=eid, session=session)
+
+    @connectable
+    def get_playlists(self, eid=None, query=None, session=None):
+        self.log.info("get_playlists: eid: %s, query: %s" % (eid, query))
+        return self._query(self.Playlist, self.Playlist.name, query, eid=eid, session=session)
 
     @connectable
     def get_artists(self, eid=None, query=None, session=None):
