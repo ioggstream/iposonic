@@ -68,8 +68,14 @@ class LazyDeveloperMeta(DeclarativeMeta):
         # Additionally, set attributes on the new object.
         is_pk = True
         for name in dict_.get('__fields__', []):
+            if name == 'id':
+                kol = Integer()
+            elif name == 'path':
+                kol = String(128)
+            else:
+                kol = String(32)
             setattr(
-                klass, name, Column(name, String(128), primary_key=is_pk))
+                klass, name, Column(name, kol, primary_key=is_pk))
             is_pk = False
 
         # Return the new object using super().
@@ -141,8 +147,8 @@ class IposonicDBTables:
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
                       'parent', 'album', 'artist',
-                      'userRating', 'averageRating', 'coverArt',
-                      'coverArtUrl']
+                      'userRating', 'averageRating', 'coverArt'
+                      ]
         __tablename__ = "album"
 
         def __init__(self, path):
@@ -170,6 +176,30 @@ class SqliteIposonicDB(object, IposonicDBTables):
     """
     log = logging.getLogger('SqliteIposonicDB')
     engine_s = "sqlite"
+
+    def connectable(fn):
+        """add connectable semantics to a method.
+
+        """
+        def connect(self, *args, **kwds):
+            session = self.Session()
+            kwds['session'] = session
+            try:
+                ret = fn(self, *args, **kwds)
+                return ret
+            except (ProgrammingError, OperationalError) as e:
+                print "Corrupted database: removing and recreating"
+                self.reset()
+            except Exception as e:
+                if len(args):
+                    ret = args[0]
+                else:
+                    ret = ""
+                print "error: string: %s, ex: %s" % (
+                    StringUtils.to_unicode(ret), e)
+                raise
+        connect.__name__ = fn.__name__
+        return connect
 
     def transactional(fn):
         """add transactional semantics to a method.
@@ -281,18 +311,18 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_highest(self, session=None):
         return self._query_top(self.Media, self.Media.userRating, session=session)
 
-    @transactional
+    @connectable
     def get_songs(self, eid=None, query=None, session=None):
         assert session
         print("get_songs: eid: %s, query: %s" % (eid, query))
         return self._query(self.Media, self.Media.title, query, eid=eid, session=session)
 
-    @transactional
+    @connectable
     def get_albums(self, eid=None, query=None, session=None):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
         return self._query(self.Album, self.Album.title, query, eid=eid, session=session)
 
-    @transactional
+    @connectable
     def get_artists(self, eid=None, query=None, session=None):
         """This method should trigger a filesystem initialization.
 
@@ -352,12 +382,12 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
         if record and id:
             session.merge(record)
-            session.flush()
             return eid
 
         raise IposonicException("Path not found or bad extension: %s " % path)
 
-    def walk_music_directory(self):
+    @transactional
+    def walk_music_directory(self, session=None):
         """Find all artists (top-level directories) and create indexes.
 
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
@@ -372,7 +402,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         #self.reset()
         def add_or_log(self, path):
             try:
-                self.add_entry(path)
+                self.add_entry(path, session=session)
             except IposonicException as e:
                 self.log.error(e)
         # find all artists

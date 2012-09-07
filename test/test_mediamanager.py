@@ -60,11 +60,32 @@ class TestMediaManager:
         MediaManager.browse_path("/opt/music")
         
     def test_get_album_name(self):
-        for name in ['mock_album - 2004', 'mock_album (2004)']:
+        for name in ['mock_album - 2004', 'mock_album (2004)', 'mock_album (Disk1)']:
             path_u = join("/", os.getcwd(), "test/data/mock_artist/",name)    
             try: os.mkdir(path_u)        
             except: pass
-            ret = MediaManager.get_album_name(path_u)
-            assert ret == 'mock_album', "ret: %s" %ret
+            ret = MediaManager.get_info_from_filename2(path_u)
+            assert ret['title'] == 'mock_album', "ret: %s" %ret
             os.rmdir(path_u)
             
+    def test_get_info_from_name2(self):
+        for name in [
+                'While my guitar gently weeps.mp3'
+                , 'The Beatles - While my guitar gently weeps.mp3'
+                , 'While my guitar gently weeps (1969).mp3'
+                , 'The Beatles - While my guitar gently weeps (1969).mp3'
+                ,  'Greatest Hits - 01 - While my guitar gently weeps.mp3'
+                , 'While my guitar gently weeps (Disk1)'
+                , 'While my guitar gently weeps (EP) - 2003'
+                ]:
+            info = MediaManager.get_info_from_filename2(name)
+            print "info: %s" % info
+            assert info.get('title') == 'While my guitar gently weeps', "ret: %s" %info
+            
+    def test_get_info_from_name2_full_path(self):
+        for path in ['/opt/music/CSI/CSI - Kodemondo/Celluloide 03.ogg']:
+            info = MediaManager.get_info_from_filename2(path)
+            print "info: %s" %info
+            
+
+

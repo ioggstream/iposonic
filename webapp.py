@@ -25,15 +25,18 @@ from os.path import join, dirname, abspath
 import simplejson
 import logging
 
-from iposonic import Iposonic, IposonicException, SubsonicProtocolException, MediaManager
+from iposonic import (Iposonic,
+                      IposonicException,
+                      SubsonicProtocolException,
+                      MediaManager)
 from iposonic import StringUtils
 
 from art_downloader import CoverSource
+from urllib import urlopen
 try:
     from iposonicdb import MySQLIposonicDB as Dbh
 except:
     from iposonic import IposonicDB as Dbh
-
 
 app = Flask(__name__)
 
@@ -42,6 +45,7 @@ log = logging.getLogger('iposonic-webapp')
 #
 # Configuration
 #
+cache_dir = "/tmp/iposonic/_cache/"
 music_folders = [
     #"/home/rpolli/workspace-py/iposonic/test/data/"
     "/opt/music/"
@@ -205,8 +209,13 @@ def get_music_directory_view():
         except IposonicException as e:
             log.info(e)
 
+    def _track_or_die(x):
+        try:
+            return int(x['track'])
+        except:
+            return 0
     # Sort songs by track id, if possible
-    children = sorted(children, key=lambda x: x.get('track', 0))
+    children = sorted(children, key=_track_or_die)
 
     return request.formatter({'directory': {'id': dir_id, 'name': artist.get('name'), 'child': children}})
 
@@ -308,7 +317,7 @@ def get_random_songs_view():
       toYear  No      Only return songs published before or in this year.
       musicFolderId   No      Only return songs in the music folder with the given ID. See getMusicFolders.
 
-    response:
+    response xml:
       <randomSongs>
       <song id="111" parent="11" title="Dancing Queen" isDir="false"
       album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
@@ -321,6 +330,18 @@ def get_random_songs_view():
       transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
       path="ABBA/Arrival/Money, Money, Money.mp3"/>
       </randomSongs>
+
+    response json:
+        {'randomSongs':
+            { 'song' : [
+                {   'id' : ..,
+                    'coverArt': ..,
+                    'contentType': ..,
+                    'transcodedContentType': ..,
+                    'transcodedSuffix': ..
+                }, ..
+            }
+        }
     """
     (size, genre, fromYear, toYear, musicFolderId) = map(request.args.get,
                                                          ['size', 'genre', 'fromYear', 'toYear', 'musicFolderId'])
@@ -331,9 +352,10 @@ def get_random_songs_view():
     else:
         assert len(iposonic.get_songs())
         songs = iposonic.get_songs()
+        songs = randomize2_list(songs)
     assert songs
     #raise NotImplementedError("WriteMe")
-    songs = [{'song': s} for s in songs]
+    #songs = [{'song': s} for s in songs]
     randomSongs = {'randomSongs': {'song': songs}}
     return request.formatter(randomSongs)
 
@@ -387,8 +409,8 @@ def scrobble_view():
     return request.formatter({})
 
 
-@app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
-def get_cover_art_view():
+#@app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
+def _get_cover_art_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (eid, size) = map(request.args.get, ['id', 'size'])
@@ -407,7 +429,41 @@ def get_cover_art_view():
             print "Artist match"
             iposonic.update_entry(
                 eid, {'coverArtUrl': cover.get('cover_small')})
+            open(join("/", cache_dir, "%s" % eid), "w").write()
             return redirect(cover.get('cover_small'), 302)
+        else:
+            print "Artist mismatch: %s, %s" % tuple(
+                [x.get('artist') for x in [info, cover]])
+    return ""
+
+
+@app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
+def get_cover_art_view():
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (eid, size) = map(request.args.get, ['id', 'size'])
+    cover_art_path = join("/", cache_dir, "%s" % eid)
+    try:
+        return send_file(cover_art_path)
+    except IOError:
+        pass
+
+    def normalize_album(x):
+        re_notascii = re.compile("[^A-z0-9]")
+        return re_notascii.sub(x.get('artist').lower(), "")
+    info = iposonic.get_entry_by_id(eid)
+    # Download missing cover_art in cache_dir
+    query = info.get('album')
+    c = CoverSource()
+    for cover in c.search(info.get('album')):
+        print "confronting info with: %s" % cover
+        if len(set([normalize_album(x) for x in [info, cover]])) == 1:
+            print "Saving image %s -> %s" % (cover.get('cover_small'), eid)
+            fd = open(cover_art_path, "w")
+            fd.write(urlopen(cover.get('cover_small')).read())
+            fd.close()
+
+            return send_file(cover_art_path)
         else:
             print "Artist mismatch: %s, %s" % tuple(
                 [x.get('artist') for x in [info, cover]])
@@ -458,7 +514,7 @@ def set_formatter():
             #   callback in case of getCoverArt.view
             #   it's not a problem because the getCoverArt should
             #   return a byte stream
-            if request.endpoint not in ['get_cover_art_view']:
+            if request.endpoint not in ['get_cover_art_view', 'stream_view', 'download_view']:
                 raise SubsonicProtocolException(
                     "Missing callback with jsonp in: %s" % request.endpoint)
         request.formatter = lambda x: ResponseHelper.responsize_jsonp(
@@ -473,28 +529,13 @@ def set_content_type(response):
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     print "response is streamed: %s" % response.is_streamed
 
-    if not request.endpoint in ['stream_view', 'download_view']:
-        print("response: %s" % response.data)
     if f == 'jsonp':
         response.headers['content-type'] = 'application/json'
+
+    if not response.is_streamed and not request.endpoint in ['stream_view', 'download_view']:
+        print("response: %s" % response.data)
+
     return response
-
-#@app.after_request
-
-
-def fix_content_length_for_static(res):
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
-    # problems behind Nginx with HTTPS
-    print("request: %s" % request.path)
-    if request.endpoint == 'stream_view':
-        directory = dirname(abspath(__file__))
-        requested_file = join(
-            directory, request.path[1:])  # what about when 404?
-        res.headers.add("Content-Length", str(os.path.getsize(requested_file)
-                                              ))  # do I need to sanitize this to stop ../../ attacks
-    return res
 
 
 def randomize(dictionary, limit=20):
@@ -526,6 +567,18 @@ def randomize2(dictionary, limit=20):
         if k_rnd > limit:
             continue
         ret.append(v)
+    return ret
+
+
+def randomize2_list(lst, limit=20):
+    a_max = len(lst)
+    ret = []
+
+    for k in lst:
+        k_rnd = random.randint(0, a_max)
+        if k_rnd > limit:
+            continue
+        ret.append(k)
     return ret
 
 
@@ -637,5 +690,7 @@ class ResponseHelper:
 
 
 if __name__ == "__main__":
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
     iposonic.db.init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)

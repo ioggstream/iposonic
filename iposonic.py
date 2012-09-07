@@ -82,6 +82,7 @@ class MediaManager:
     re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
     re_track_2 = re.compile("^(.*)([0-9]+)?$")
     re_split_s = "\s*-\s*"
+    re_notes = re.compile('\((.+)\)')
 
     @staticmethod
     def get_entry_id(path):
@@ -119,17 +120,90 @@ class MediaManager:
         #assert os.path.isfile(path)
         filename = basename(path[:path.rfind(".")])
         try:
-            (track, title) = re.split("[ _\-]+", filename, 1)
+            (track, title) = re.split("\s+[_\-]\s+", filename, 1)
             track = int(track)
         except:
             (track, title) = (0, filename)
+        try:
+            size = os.path.getsize(path)
+        except:
+            size = 0
         return {
             'title': title,
             'track': track,
             'path': path,
-            'size': os.path.getsize(path),
+            'size': size,
             'suffix': path[-3:]
         }
+
+    @staticmethod
+    def get_info_from_filename2(path_u):
+        """Improve v1"""
+        filename = basename(path_u)
+
+        # strip extension
+        try:
+            filename = filename[:filename.rindex(".")]
+        except:
+            pass  # if no extension found
+
+        ret = {}
+        # strip notes (eg. cdno, year) from filename
+        m_notes = MediaManager.re_notes.search(filename)
+        if m_notes:
+            try:
+                notes = m_notes.group(1)
+
+                filename = filename.replace(m_notes.group(), "").strip()
+                ret['year'] = int(notes)
+                print "year: %s " % notes
+
+            except:
+                print "notes: %s" % notes
+
+        info_l = [x.strip(" -") for x in re.split("-", filename)]
+        title, album, artist, track = (None, None, None, None)
+        for x in info_l:
+            try:
+                track = int(x)
+                if track > 1900:
+                    ret['year'] = track
+                    track = 0
+                else:
+                    ret['track'] = track
+                continue
+            except:
+                pass
+            if not title:
+                title = x
+            elif not album:
+                title, album = x, title
+            elif not artist:
+                album, artist = x, album
+
+        try:
+            size = os.path.getsize(path)
+        except:
+            size = -1
+
+        if not 'track' in ret:
+            try:
+                t, n = title.split(" ", 1)
+                track = int(t)
+                title = n
+            except:
+                pass
+
+        ret.update({
+            'title': title,
+            'album': album,
+            'artist': artist,
+            'size': size,
+            'track': track,
+            'path': path_u,
+            'suffix': path_u[path_u.rfind("."):],
+        })
+        return dict([(k, v) for (k, v) in ret.iteritems() if v is not None])
 
     @staticmethod
     def get_album_name(path_u):
@@ -141,6 +215,8 @@ class MediaManager:
         """
         if not os.path.isdir(path_u):
             raise UnsupportedMediaError("Path is not an Album: %s" % path_u)
+        return MediaManager.get_info_from_filename2(path_u).get('title')
+
         MediaManager.log.info("parsing album path: %s" % path_u)
         title = basename(path_u)
         for separator in ['-', '(']:
@@ -167,7 +243,7 @@ class MediaManager:
         if os.path.isfile(path):
             try:
                 # get basic info
-                ret = MediaManager.get_info_from_filename(path)
+                ret = MediaManager.get_info_from_filename2(path)
 
                 manager = MediaManager.get_tag_manager(path)
                 audio = manager(path)

@@ -105,7 +105,7 @@ class TestIposonicDB:
     def setup(self):
         # setup class
         self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.dbhandler([self.test_dir])
+        self.db = self.dbhandler([self.test_dir], dbfile = "mock_iposonic")
         self.db.reset()
 
         self.db.walk_music_directory()
@@ -230,7 +230,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         self.id_albums = []
 
         self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.dbhandler([self.test_dir])
+        self.db = self.dbhandler([self.test_dir], dbfile="mock_iposonic")
         self.db.reset()
         self.db.add_entry("/tmp/")
 
