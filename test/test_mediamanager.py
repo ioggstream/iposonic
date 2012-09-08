@@ -87,5 +87,9 @@ class TestMediaManager:
             info = MediaManager.get_info_from_filename2(path)
             print "info: %s" %info
             
+    def test_normalize(self):
+        info = {'album': 'pippo', 'artist': u'Fiorella Mannoia'}
+        assert MediaManager.normalize_album(info)
+            
 
 

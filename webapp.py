@@ -51,7 +51,7 @@ music_folders = [
     "/opt/music/"
 ]
 
-iposonic = Iposonic(music_folders, dbhandler=Dbh)
+iposonic = None 
 
 ###
 # The web
@@ -446,34 +446,88 @@ def get_playlist_view():
         eid,
         eid in map(unicode,playlists_static)
         )
+    entries = []    
     # use default playlists
     if eid in playlists_static:
         j_playlist = iposonic.db.Playlist('sample').json()
-        entries = iposonic.get_songs()
+        entries = randomize2_list(iposonic.get_songs(), 5)
     else:    
         playlist = iposonic.get_playlists(eid=eid)
-        entries = [iposonic.get_songs(eid=x) for x in playlist.entries]
-        j_playlist = playlist.__dict__()
-    j_playlist.update({'entry': entries})
+        print "found playlist: %s" % playlist
+        entry_ids = playlist.get('entry')
+        if entry_ids:
+            entries = [x for x in iposonic.get_song_list(entry_ids.split(","))]
+        j_playlist = playlist
+    j_playlist.update({
+        'entry': entries, 
+        'songCount': len(entries), 
+        'duration' : sum([x.get('duration',0) for x in entries ]) 
+    })
     return request.formatter({'playlist': j_playlist})
 
-
+    
 @app.route("/rest/createPlaylist.view",methods=['GET', 'POST'])
 def create_playlist_view():
-    """TODO move to iposonic"""
+    """TODO move to iposonic
+    
+        request body:
+            name=2012-09-08&
+            songId=-2072958145&
+            songId=-2021195453&
+            songId=-1785884780
+            
+    """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    name = request.args.get('name')
-    if not name:
-        raise SubsonicMissingParameterException('id')
+
+    (name, playlistId) = map(request.values.get, ['name', 'playlistId'])
+    songId_l =  request.values.getlist('songId')
+    print "songId: %s" % songId_l 
+    if not name or playlistId:
+        print "request: %s" % request.environ['body_copy']
+        raise SubsonicMissingParameterException('id or playlistId', 'create_playlist_view')
         
-    eid = MediaManager.get_entry_id(name)
-    playlist = iposonic.get_playlists(eid=eid)
-    if playlist:
-        raise IposonicException("Playlist esistente")
+    # create a new playlist
+    if not playlistId:    
+        eid = MediaManager.get_entry_id(name)
+        try:
+            playlist = iposonic.get_playlists(eid=eid)
+            raise IposonicException("Playlist esistente")        
+        except:
+            pass
+            
+        playlist = iposonic.db.Playlist(name)
+        playlist.update({'entry': ",".join(songId_l)})
+        iposonic.create_entry(playlist)
+        
+    # update
+    else:
+        playlist = iposonic.get_playlists(eid=playlistId)
+        songs = ",".join(playlist.get('entry'), songId_l)
+        iposonic.update_entry(eid=playlistId, new={'entry': songs })
+    return request.formatter({})
     
-    playlist = iposonic.db.Playlist(name)
+@app.route("/rest/deletePlaylist.view",methods=['GET', 'POST'])
+def delete_playlist_view():
+    """TODO move to iposonic
     
+        request body:
+            name=2012-09-08&
+            songId=-2072958145&
+            songId=-2021195453&
+            songId=-1785884780
+            
+    """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+
+    eid = request.values.get('id')
+    
+    if not eid:
+        raise SubsonicMissingParameterException('id', 'delete_playlist_view')
+        
+    iposonic.delete_entry(eid=eid)
+    return request.formatter({})
 
 #
 # download and stream
@@ -554,25 +608,25 @@ def _get_cover_art_view():
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
 def get_cover_art_view():
+
+
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (eid, size) = map(request.args.get, ['id', 'size'])
+        
+    # Return file if present    
     cover_art_path = join("/", cache_dir, "%s" % eid)
     try:
         return send_file(cover_art_path)
     except IOError:
         pass
-
-    def normalize_album(x):
-        re_notascii = re.compile("[^A-z0-9]")
-        return re_notascii.sub(x.get('artist').lower(), "")
+        
     info = iposonic.get_entry_by_id(eid)
     # Download missing cover_art in cache_dir
-    query = info.get('album')
     c = CoverSource()
     for cover in c.search(info.get('album')):
-        print "confronting info with: %s" % cover
-        if len(set([normalize_album(x) for x in [info, cover]])) == 1:
+        print "confronting info: %s with: %s" % (info, cover)
+        if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
             print "Saving image %s -> %s" % (cover.get('cover_small'), eid)
             fd = open(cover_art_path, "w")
             fd.write(urlopen(cover.get('cover_small')).read())
@@ -613,7 +667,7 @@ def get_lyrics_view():
 # Helpers
 #
 class SubsonicMissingParameterException(SubsonicProtocolException):
-    def __init__(self, param, method):
+    def __init__(self, param, method, request=None):
         SubsonicProtocolException.__init__(
             self, "Missing required parameter: %s in %s", param, method)
 
@@ -630,6 +684,7 @@ def set_formatter():
             #   it's not a problem because the getCoverArt should
             #   return a byte stream
             if request.endpoint not in ['get_cover_art_view', 'stream_view', 'download_view']:
+                print "request: %s" % request.data
                 raise SubsonicProtocolException(
                     "Missing callback with jsonp in: %s" % request.endpoint)
         request.formatter = lambda x: ResponseHelper.responsize_jsonp(
@@ -644,7 +699,7 @@ def set_content_type(response):
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     print "response is streamed: %s" % response.is_streamed
 
-    if f == 'jsonp':
+    if f == 'jsonp' and not response.is_streamed:
         response.headers['content-type'] = 'application/json'
 
     if not response.is_streamed and not request.endpoint in ['stream_view', 'download_view']:
@@ -696,7 +751,7 @@ def randomize2_list(lst, limit=20):
         ret.append(k)
     return ret
 
-
+import cgi
 class ResponseHelper:
     """Serialize a python dict to an xml object, and embeds it in a subsonic-response
 
@@ -768,8 +823,12 @@ class ResponseHelper:
                     for (attr, value) in t.iteritems():
                         # only serializable values are attributes
                         if value.__class__.__name__ in 'str':
-                            attributes = """%s %s="%s" """ % (attributes, attr , StringUtils.to_unicode(value))
-                        elif value.__class__.__name__ in ['int', 'unicode', 'bool']:
+                            attributes = """%s %s="%s" """ % (
+                                attributes, 
+                                attr , 
+                                cgi.escape(StringUtils.to_unicode(value), quote=None)
+                            )
+                        elif value.__class__.__name__ in ['int', 'unicode', 'bool', 'long']:
                             attributes = """%s %s="%s" """ % (
                                 attributes, attr, value)
                         # other values are content
@@ -805,7 +864,19 @@ class ResponseHelper:
 
 
 if __name__ == "__main__":
+    argc, argv = len(sys.argv), sys.argv
+    
+    try:
+        if argv[1] == '--reset':
+            recreate_db = True
+    except:
+        recreate_db = False
+        
+    if not os.path.isdir("/tmp/iposonic/"):
+        os.mkdir("/tmp/iposonic/")
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
+        
+    iposonic = Iposonic(music_folders, dbhandler=Dbh, recreate_db=recreate_db)
     iposonic.db.init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)

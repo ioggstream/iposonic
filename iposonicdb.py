@@ -68,10 +68,10 @@ class LazyDeveloperMeta(DeclarativeMeta):
         # Additionally, set attributes on the new object.
         is_pk = True
         for name in dict_.get('__fields__', []):
-            if name == 'id':
+            if name in ['id', 'duration']:
                 kol = Integer()
-            elif name == 'path':
-                kol = String(128)
+            elif name in [ 'path','entry']:
+                kol = String(192)
             else:
                 kol = String(32)
             setattr(
@@ -97,14 +97,14 @@ class IposonicDBTables:
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
-                    elif k.lower() in ['userrating', 'averagerating']:
+                    elif k.lower() in ['userrating', 'averagerating', 'duration']:
                         v = int(v) if v is not None else 0
                     ret.append((k, v))
             return dict(ret)
 
-        def get(self, attr):
+        def get(self, attr, default=None):
             """Expose __dict__.get"""
-            return self.__dict__.get(attr)
+            return self.__dict__.get(attr, default)
 
         def update(self, dict_):
             """Expose __dict__.update"""
@@ -141,8 +141,6 @@ class IposonicDBTables:
             self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
                 k, v) in MediaManager.get_info(path).iteritems()]))
 
-        def get(id, default=None):
-            self.__dict__.get(id, default)
 
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
@@ -301,7 +299,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     def _query_id(self, eid, session=None):
         assert eid, "Missing eid"
-        for table_o in [self.Media, self.Album, self.Artist]:
+        for table_o in [self.Media, self.Album, self.Artist, self.Playlist]:
             qmodel = session.query(table_o)
             try:
                 rs = qmodel.filter_by(id=eid)
@@ -319,6 +317,20 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if not rs:
             return []
         return [r.json() for r in rs.all()]
+
+    @connectable
+    def get_song_list(self, eids=[], session=None):
+        """return iterable"""
+        ret = []
+        for k in eids:
+            if k == None: continue
+            try:
+                ret.append( self.get_songs(eid=k))
+            except Exception as e:
+                print "error retrieving %s due %s" % (k, e)
+        return ret
+
+
 
     @transactional
     def get_highest(self, session=None):
@@ -369,14 +381,24 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_music_folders(self):
         return self.music_folders
 
-
-
+    @transactional
+    def create_entry(self, entry, session=None):
+        assert entry, "Entry is null"
+        session.merge(entry)
+        return entry.get('id')
+        
     @transactional
     def update_entry(self, eid, new, session=None):
         assert session, "Missing Session"
         assert eid, "Missing eid"
         assert new, "Missing new object"
         old = self._query_id(eid, session=session).update(new)
+        
+    @transactional
+    def delete_entry(self, eid,  session=None):
+        assert session, "Missing Session"
+        assert eid, "Missing eid"
+        old = self._query_id(eid, session=session).delete()
 
     @transactional
     def add_entry(self, path, album=False, session=None):

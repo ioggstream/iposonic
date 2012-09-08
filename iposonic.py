@@ -43,6 +43,9 @@ log = logging.getLogger('iposonic')
 
 class SubsonicProtocolException(Exception):
     """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
+    def __init__(self, request = None):
+        if request:
+            print "request: %s" % request.data
     pass
 
 
@@ -84,6 +87,16 @@ class MediaManager:
     re_split_s = "\s*-\s*"
     re_notes = re.compile('\((.+)\)')
 
+    @staticmethod
+    def normalize_album(x):
+        """Return the ascci part of a album name"""
+        # normalize artist name
+        re_notascii = re.compile("[^A-z0-9]")
+        artist = x.get('artist').lower()
+        ret = re_notascii.sub("", artist)
+        print "normalize_album(%s): %s" %  (x,ret)
+        return ret
+        
     @staticmethod
     def get_entry_id(path):
         # path should be byte[], so convert it
@@ -542,9 +555,9 @@ class Iposonic:
     ALLOWED_FILE_EXTENSIONS = ["mp3", "ogg", "wma"]
     log = logging.getLogger('Iposonic')
 
-    def __init__(self, music_folders, dbhandler=IposonicDB):
+    def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False):
         print("Creating Iposonic with dbhandler: %s" % dbhandler)
-        self.db = dbhandler(music_folders)
+        self.db = dbhandler(music_folders, recreate_db=recreate_db)
         self.log.setLevel(logging.INFO)
 
     def __getattr__(self, method):
@@ -555,7 +568,9 @@ class Iposonic:
             'get_albums',
             'get_songs',
             'get_highest',
-            'get_playlists'
+            'get_playlists',
+            'get_song_list',
+            'delete_entry'
         ]:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
@@ -629,6 +644,9 @@ class Iposonic:
     def update_entry(self, eid, new):
         """TODO move do db"""
         return self.db.update_entry(eid, new)
+        
+    def create_entry(self, entry):
+        return self.db.create_entry(entry)
 
     def get_genre_songs(self, query):
         songs = []

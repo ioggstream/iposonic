@@ -8,12 +8,34 @@ from iposonic import Iposonic, MediaManager, IposonicDB
 from iposonicdb import SqliteIposonicDB
 
 
+def harn_setup(klass, test_dir):
+        klass.test_dir = os.getcwd() + test_dir
+        klass.db = klass.dbhandler([klass.test_dir], dbfile = "mock_iposonic")
+        klass.db.reset()
+
+        klass.db.walk_music_directory()
+
+def harn_load_fs2(klass):
+    for (root, dirfile, files) in os.walk(klass.test_dir):
+        for d in dirfile:
+            path = join("/", root, d)
+            klass.id_albums.append(klass.db.add_entry(path))
+        for f in files:
+            path = join("/", root, f)
+            klass.id_songs.append(klass.db.add_entry(path))
+
+
 class TestIposonic:
+    # Run the harnesses
+    id_songs = []
+    id_artists = []
+    id_albums = []
+
     def setup(self):
         self.test_dir = os.getcwd() + "/test/data/"
         self.iposonic = Iposonic([self.test_dir])
         self.iposonic.db.walk_music_directory()
-        harn_load_fs2(self)
+        self.harn_load_fs2()
 
     def teardown(self):
         self.iposonic = None
@@ -96,35 +118,19 @@ class TestIposonic:
         assert artist['path'] == self.iposonic.get_directory_path_by_id(eid)[0], "Can't find entry %s in %s" % (
                 eid, dirs)
 
-def harn_setup(klass, test_dir):
-        klass.test_dir = os.getcwd() + test_dir
-        klass.db = klass.dbhandler([klass.test_dir], dbfile = "mock_iposonic")
-        klass.db.reset()
-
-        klass.db.walk_music_directory()
-
-        # Run the harnesses
-        klass.id_songs = []
-        klass.id_artists = []
-        klass.id_albums = []
-def harn_load_fs2(klass):
-    for (root, dirfile, files) in os.walk(klass.test_dir):
-        for d in dirfile:
-            path = join("/", root, d)
-            klass.id_albums.append(klass.db.add_entry(path))
-        for f in files:
-            path = join("/", root, f)
-            klass.id_songs.append(klass.db.add_entry(path))
-
 
 
 class TestIposonicDB:
     dbhandler = IposonicDB
+    # Run the harnesses
+    id_songs = []
+    id_artists = []
+    id_albums = []
 
     def setup(self):
         harn_setup(self, "/test/data")
-        klass.harn_load_fs2()
-        klass.db.add_entry("/tmp/")
+        harn_load_fs2(self)
+        self.db.add_entry("/tmp/")
 
     def harn_load_fs(self):
         """Adds the entries in root to the iposonic index"""
@@ -160,23 +166,8 @@ class TestIposonicDB:
         print "test_update_entry: record: %s" % eid
         self.db.update_entry(eid, {'rating': 5})
         ret = self.db.get_artists(eid=eid)
-        assert ret.get('rating') == '5', "Value was: %s" % ret
+        assert ret.get('rating') == 5, "Value was: %s" % ret
 
-    def test_merge(self):
-        session = self.db.Session()
-        record = session.query(self.db.Artist).filter_by(id="-1525717793")
-        eid = record.one().id
-        record.update({'rating': 5})
-        """
-        print "retrieved: %s" % record
-        record.update({'rating':5})
-        print "merging: %s " % record
-        session.merge(record)
-        session.flush()
-        """
-        session.commit()
-        dup = session.query(self.db.Artist).filter_by(id=eid).one()
-        assert dup.rating == '5', "dup: %s" % dup
 
     def test_get_artists(self):
         ret = self.db.get_artists()
@@ -221,6 +212,10 @@ class TestIposonicDB:
     
 class TestPlaylistIposonicDB:
     dbhandler = SqliteIposonicDB
+    # Harness
+    id_songs = []
+    id_artists = []
+    id_albums = []
 
     def setup_playlist(self):
         item = self.db.Playlist("mock_playlist")
