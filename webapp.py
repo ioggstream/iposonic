@@ -430,20 +430,50 @@ def get_playlist_view():
                     },
                 ]
                 }}
+
+        TODO move database objects to iposonicdb. They  shouldn't be
+                exposed outside.
     """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    (eid) = map(request.args.get, ['id'])
+    eid = request.args.get('id')
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
-
-    playlist = iposonic.get_playlists(eid=eid)
-    entries = [iposonic.get_songs(eid=x).__dict__() for x in playlist.entries]
-    j_playlist = playlist.__dict__()
+    playlists_static = map(MediaManager.get_entry_id, ['sample', 'random', 'genre'])
+    print "Allowable: %s , id: %s, match: %s" %(
+        playlists_static,
+        eid,
+        eid in map(unicode,playlists_static)
+        )
+    # use default playlists
+    if eid in playlists_static:
+        j_playlist = iposonic.db.Playlist('sample').json()
+        entries = iposonic.get_songs()
+    else:    
+        playlist = iposonic.get_playlists(eid=eid)
+        entries = [iposonic.get_songs(eid=x) for x in playlist.entries]
+        j_playlist = playlist.__dict__()
     j_playlist.update({'entry': entries})
     return request.formatter({'playlist': j_playlist})
 
+
+@app.route("/rest/createPlaylist.view",methods=['GET', 'POST'])
+def create_playlist_view():
+    """TODO move to iposonic"""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    name = request.args.get('name')
+    if not name:
+        raise SubsonicMissingParameterException('id')
+        
+    eid = MediaManager.get_entry_id(name)
+    playlist = iposonic.get_playlists(eid=eid)
+    if playlist:
+        raise IposonicException("Playlist esistente")
+    
+    playlist = iposonic.db.Playlist(name)
+    
 
 #
 # download and stream

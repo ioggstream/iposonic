@@ -369,6 +369,8 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_music_folders(self):
         return self.music_folders
 
+
+
     @transactional
     def update_entry(self, eid, new, session=None):
         assert session, "Missing Session"

@@ -362,6 +362,16 @@ class IposonicDB(object):
         def __init__(self, path):
             IposonicDB.Entry.__init__(self)
             self.update(MediaManager.get_info(path))
+    class Playlist(Entry):
+        required_fields = ['id', 'name', 'comment', 'owner', 'public',
+                      'songCount', 'duration', 'created', 'entry'
+                      ]
+        def __init__(self, name):
+            IposonicDB.Entry.__init__(self)
+            self.update({
+                'id': MediaManager.get_entry_id(name),
+                'name': name
+            })
 
     def init_db(self):
         pass
@@ -415,6 +425,10 @@ class IposonicDB(object):
         if query:
             return IposonicDB._search(hash_, query)
         return hash_.values()
+
+
+    def add(self, entry):
+        return self.db.add(entry)
 
     def update_entry(self, eid, new):
         for h in [self.songs, self.artists, self.albums]:
