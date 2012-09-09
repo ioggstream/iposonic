@@ -82,6 +82,7 @@ class MediaManager:
     re_split_s = "\s*-\s*"
     re_notes = re.compile('\((.+)\)')
 
+
     @staticmethod
     def normalize_album(x):
         """Return the ascci part of a album name"""
@@ -126,7 +127,12 @@ class MediaManager:
     def get_info_from_filename(path):
         """Get track number, path, file size from file name."""
         #assert os.path.isfile(path)
-        filename = basename(path[:path.rfind(".")])
+        
+        try:
+            filename,extension = basename(path).rsplit(".",1)
+        except:
+            filename,extension = basename(path), ""
+            
         try:
             (track, title) = re.split("\s+[_\-]\s+", filename, 1)
             track = int(track)
@@ -141,7 +147,7 @@ class MediaManager:
             'track': track,
             'path': path,
             'size': size,
-            'suffix': path[-3:]
+            'suffix': MediaManager.get_extension(path)
         }
 
     @staticmethod
@@ -151,9 +157,9 @@ class MediaManager:
 
         # strip extension
         try:
-            filename = filename[:filename.rindex(".")]
+            filename, extension = filename.rsplit(".",1)
         except:
-            pass  # if no extension found
+            extension = ""  # if no extension found
 
         ret = {}
         # strip notes (eg. cdno, year) from filename
@@ -209,7 +215,7 @@ class MediaManager:
             'size': size,
             'track': track,
             'path': path_u,
-            'suffix': path_u[path_u.rfind("."):],
+            'suffix': extension
         })
         return dict([(k, v) for (k, v) in ret.iteritems() if v is not None])
 
