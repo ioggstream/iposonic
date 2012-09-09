@@ -344,10 +344,12 @@ class IposonicDB(object):
 
         def __init__(self, path):
             IposonicDB.Entry.__init__(self)
-            self['path'] = path
-            self['name'] = basename(path)
-            self['id'] = MediaManager.get_entry_id(path)
-            self['isDir'] = 'true'
+            self.update({
+                'path':path,
+                'name':basename(path),
+                'id': MediaManager.get_entry_id(path),
+                'isDir': 'true'
+            })
 
     class Album(Artist):
         required_fields = ['name', 'id', 'isDir', 'path', 'title',
@@ -355,15 +357,18 @@ class IposonicDB(object):
 
         def __init__(self, path):
             IposonicDB.Artist.__init__(self, path)
+            parent = dirname(path)
+
             if self['name'].find("-") > 0:
                 self['name'] = re.split("\s*-\s*", self['name'], 1)[1]
-            self['title'] = self['name']
-            self['album'] = self['name']
-            parent = dirname(path)
-            self['parent'] = MediaManager.get_entry_id(parent)
-            self['artist'] = basename(parent)
-            self['isDir'] = True
-
+            self.update({
+                'title':self['name'],
+                'album':self['name'],
+                'parent': MediaManager.get_entry_id(parent),
+                'artist' : basename(parent),
+                'isDir' : True
+                })
+                
     class Media(Entry):
         required_fields = ['name', 'id', 'title', 'path', 'isDir']
 
@@ -571,7 +576,7 @@ class Iposonic:
     log = logging.getLogger('Iposonic')
 
     def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False):
-        print("Creating Iposonic with music folders: %s, dbhandler: %s" % (music_folders, dbhandler)
+        print("Creating Iposonic with music folders: %s, dbhandler: %s" % (music_folders, dbhandler))
         self.db = dbhandler(music_folders, recreate_db=recreate_db)
         self.log.setLevel(logging.INFO)
 
