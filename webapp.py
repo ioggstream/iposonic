@@ -350,12 +350,11 @@ def get_random_songs_view():
         print "genre: %s" % genre
         songs = iposonic.get_genre_songs(genre)
     else:
-        assert len(iposonic.get_songs())
-        songs = iposonic.get_songs()
-        songs = randomize2_list(songs)
+        all_songs = iposonic.get_songs()
+        assert len(all_songs)
+        songs = randomize2_list(all_songs)
     assert songs
-    #raise NotImplementedError("WriteMe")
-    #songs = [{'song': s} for s in songs]
+    songs = [x.update({'coverArt' : x.get('parent')}) or x for x in songs] 
     randomSongs = {'randomSongs': {'song': songs}}
     return request.formatter(randomSongs)
 
@@ -620,9 +619,17 @@ def get_cover_art_view():
         return send_file(cover_art_path)
     except IOError:
         pass
-        
+    
+    # ...then if song, try with parent...
     info = iposonic.get_entry_by_id(eid)
-    # Download missing cover_art in cache_dir
+    try:
+        if info.get('isDir') in [ False, 'false', 'False' ]:
+            cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
+            return send_file(cover_art_path)
+    except IOError:
+        pass
+        
+    # ..finally download missing cover_art in cache_dir
     c = CoverSource()
     for cover in c.search(info.get('album')):
         print "confronting info: %s with: %s" % (info, cover)
@@ -636,7 +643,7 @@ def get_cover_art_view():
         else:
             print "Artist mismatch: %s, %s" % tuple(
                 [x.get('artist') for x in [info, cover]])
-    return ""
+    raise IposonicException("Can't find CoverArt")
 
 
 @app.route("/rest/setRating.view", methods=['GET', 'POST'])
@@ -657,6 +664,31 @@ def set_rating_view():
 #
 # TO BE DONE
 #
+
+@app.route("/rest/getUser.view", methods=['GET', 'POST'])
+def set_rating_view():
+    """TODO return a mock username settings."""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    
+    user = {'username' : u,
+        'email': u,
+        'scrobblingEnabled' : True,
+        'adminRole' : False,
+        'settingsRole' : True,
+        'downloadRole'  : True,
+        'uploadRole' : True,
+        'playlistRole' : True,
+        'coverArtRole' : True,
+        'commentRole' : True,
+        'podcastRole' : True,
+        'streamRole' : True,
+        'jukeboxRole' : True,
+        'sharedRole' : False
+    } 
+    
+    return request.formatter({'user': user})
+
 
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
 def get_lyrics_view():

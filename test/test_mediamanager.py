@@ -88,8 +88,13 @@ class TestMediaManager:
             print "info: %s" %info
             
     def test_normalize(self):
-        info = {'album': 'pippo', 'artist': u'Fiorella Mannoia'}
-        assert MediaManager.normalize_album(info)
+        info_l = [
+            {'album': 'pippo', 'artist': u'Fiorella Mannoia'},
+            {'album': 'pippo', 'artist': u'Fiorella_Mannoia'}
+        ]
+        for info in info_l:
+            ret = MediaManager.normalize_album(info)
+            assert ret  == 'fiorellamannoia'
             
 
 
