@@ -14,13 +14,12 @@
 #
 from flask import Flask
 from flask import request, send_file, redirect
-from flask import Response
 
 import os
 import sys
 import random
 import re
-from os.path import join, dirname, abspath
+from os.path import join
 
 import simplejson
 import logging
@@ -30,6 +29,7 @@ from authorizer import Authorizer
 from iposonic import (Iposonic,
                       IposonicException,
                       SubsonicProtocolException,
+                      SubsonicMissingParameterException,
                       MediaManager,
                       StringUtils)
 
@@ -40,6 +40,7 @@ from urllib import urlopen
 # Use one of the allowed DB
 #
 try:
+    assert False  
     from iposonicdb import MySQLIposonicDB as Dbh
 except:
     from iposonic import IposonicDB as Dbh
@@ -92,6 +93,8 @@ def ping_view():
     print "albums: %s" % iposonic.db.get_albums()
     print "artists: %s" % iposonic.db.get_artists()
     print "indexes: %s" % iposonic.db.get_indexes()
+    print "indexes: %s" % iposonic.db.get_playlists()
+
     return request.formatter({})
 
 
@@ -437,8 +440,7 @@ def get_playlists_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
-    playlists = [iposonic.db.Playlist(
-        name).json() for name in ['sample', 'random', 'genre']]
+    playlists = iposonic.get_playlists_static()
 
     playlists.extend(iposonic.get_playlists())
     return request.formatter({'playlists': {'playlist': playlists}})
@@ -451,14 +453,14 @@ def get_playlist_view():
 
         response xml:
      <playlist id="15" name="kokos" comment="fan" owner="admin" public="true" songCount="6" duration="1391"
-5                     created="2012-04-17T19:53:44">
-6               <allowedUser>sindre</allowedUser>
-7               <allowedUser>john</allowedUser>
-8               <entry id="657" parent="655" title="Making Me Nervous" album="I Don&apos;t Know What I&apos;m Doing"
-9                      artist="Brad Sucks" isDir="false" coverArt="655" created="2008-04-10T07:10:32" duration="159"
-10                     bitRate="202" track="1" year="2003" size="4060113" suffix="mp3" contentType="audio/mpeg" isVideo="false"
-11                     path="Brad Sucks/I Don&apos;t Know What I&apos;m Doing/01 - Making Me Nervous.mp3" albumId="58"
-12                     artistId="45" type="music"/>
+                     created="2012-04-17T19:53:44">
+               <allowedUser>sindre</allowedUser>
+               <allowedUser>john</allowedUser>
+               <entry id="657" parent="655" title="Making Me Nervous" album="I Don&apos;t Know What I&apos;m Doing"
+                      artist="Brad Sucks" isDir="false" coverArt="655" created="2008-04-10T07:10:32" duration="159"
+                     bitRate="202" track="1" year="2003" size="4060113" suffix="mp3" contentType="audio/mpeg" isVideo="false"
+                     path="Brad Sucks/I Don&apos;t Know What I&apos;m Doing/01 - Making Me Nervous.mp3" albumId="58"
+                     artistId="45" type="music"/>
         response jsonp:
             {'playlist': {
                 'id':,
@@ -482,20 +484,16 @@ def get_playlist_view():
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
-    playlists_static = map(
-        MediaManager.get_entry_id, ['sample', 'random', 'genre'])
-    print "Allowable: %s , id: %s, match: %s" % (
-        playlists_static,
-        eid,
-        eid in map(unicode, playlists_static)
-    )
+
+
     entries = []
     # use default playlists
-    if eid in playlists_static:
-        j_playlist = iposonic.db.Playlist('sample').json()
+    if eid in [x.get('id') for x in iposonic.get_playlists_static()]:
+        j_playlist = iposonic.get_playlists_static(eid=eid)
         entries = randomize2_list(iposonic.get_songs(), 5)
     else:
         playlist = iposonic.get_playlists(eid=eid)
+        assert playlist, "Playlists: %s" % iposonic.db.playlists
         print "found playlist: %s" % playlist
         entry_ids = playlist.get('entry')
         if entry_ids:
@@ -539,7 +537,7 @@ def create_playlist_view():
             raise IposonicException("Playlist esistente")
         except:
             pass
-
+        # TODO DAO should not be exposed
         playlist = iposonic.db.Playlist(name)
         playlist.update({'entry': ",".join(songId_l)})
         iposonic.create_entry(playlist)
@@ -547,6 +545,7 @@ def create_playlist_view():
     # update
     else:
         playlist = iposonic.get_playlists(eid=playlistId)
+        assert playlist 
         songs = ",".join(playlist.get('entry'), songId_l)
         iposonic.update_entry(eid=playlistId, new={'entry': songs})
     return request.formatter({})
@@ -745,10 +744,26 @@ def get_lyrics_view():
 #
 # Helpers
 #
-class SubsonicMissingParameterException(SubsonicProtocolException):
-    def __init__(self, param, method, request=None):
-        SubsonicProtocolException.__init__(
-            self, "Missing required parameter: %s in %s", param, method)
+
+def hex_decode(s):
+    """Decode an eventually hex-encoded password."""
+    if not s:
+        return ""
+    ret = ""
+    if s.startswith("enc:"):
+        print "s: ", s
+        s = s[4:]
+        i = 0
+        while i < len(s):
+            l = int(s[i:i + 2], 16)
+            print "l:", l
+            l = chr(l)
+            ret += l
+            i += 2
+    else:
+        ret = s
+
+    return ret
 
 
 @app.before_request
@@ -757,20 +772,7 @@ def authorize():
     (u, p, v, c) = map(
         request.args.get, ['u', 'p', 'v', 'c'])
 
-    p_clear = ""
-    if p.startswith("enc:"):
-        print "p: ", p
-        p = p[4:]
-        i = 0
-        while i < len(p):
-            l = int(p[i:i + 2], 16)
-            print "l:", l
-            l = chr(l)
-            p_clear += l
-            i += 2
-    else:
-        p_clear = p
-
+    p_clear = hex_decode(p)
     if not authorizer.authorize(u, p_clear):
         return "401 Unauthorized", 401
 

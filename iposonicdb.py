@@ -137,9 +137,14 @@ class IposonicDBTables:
                       ]
 
         def __init__(self, path):
+            """Fill entry using MediaManager.get_info.
+            
+                TODO convert get_info to Unicode
+            """
             Base.__init__(self)
-            self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
-                k, v) in MediaManager.get_info(path).iteritems()]))
+            #self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
+            #    k, v) in MediaManager.get_info(path).iteritems()]))
+            self.__dict__.update(MediaManager.get_info(path))
 
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',

@@ -38,17 +38,22 @@ import mutagen.asf
 import logging
 log = logging.getLogger('iposonic')
 
+class IposonicException(Exception):
+    pass
 
-class SubsonicProtocolException(Exception):
+class SubsonicProtocolException(IposonicException):
     """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
     def __init__(self, request=None):
         if request:
             print "request: %s" % request.data
     pass
 
+class SubsonicMissingParameterException(SubsonicProtocolException):
+    def __init__(self, param, method, request=None):
+        SubsonicProtocolException.__init__(
+            self, "Missing required parameter: %s in %s", param, method)
 
-class IposonicException(Exception):
-    pass
+
 
 
 class StringUtils:
@@ -104,9 +109,10 @@ class MediaManager:
     def get_entry_id(path):
         # path should be byte[], so convert it
         #   if it's unicode
+        data = path
         if isinstance(path, unicode):
-            path = path.encode('utf8')
-        return str(crc32(path))
+            data = path.encode('utf8')
+        return str(crc32(data))
 
     @staticmethod
     def get_tag_manager(path):
@@ -255,9 +261,12 @@ class MediaManager:
            "isDir": false,
            "isVideo": false,
            "size": 6342112,
+           
+           TODO all strings should be unicode
         """
         if os.path.isfile(path):
             try:
+                path = StringUtils.to_unicode(path)
                 # get basic info
                 ret = MediaManager.get_info_from_filename2(path)
 
@@ -268,7 +277,7 @@ class MediaManager:
                 for (k, v) in audio.iteritems():
                     if isinstance(v, list) and v and v[0]:
                         ret[k] = v[0]
-
+                
                 ret['id'] = MediaManager.get_entry_id(path)
                 ret['isDir'] = 'false'
                 ret['isVideo'] = 'false'
@@ -339,17 +348,23 @@ class IposonicDB(object):
         # songs = { id: {path: ..., {info}} ,   id: {path: , {info}}}
         #
         self.songs = dict()
-
+        #
+        # playlists = { id: {name: .., entry: [], ...}
+        self.playlists = dict()
+        
     class Entry(dict):
         required_fields = ['name', 'id']
 
+        def json(self):
+            return self
+            
         def validate(self):
             for x in required_fields:
                 assert self[x]
 
     class Artist(Entry):
-        required_fields = ['name', 'id', 'isDir', 'path']
-
+        __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
+                      'averageRating', 'coverArt']
         def __init__(self, path):
             IposonicDB.Entry.__init__(self)
             self.update({
@@ -357,12 +372,14 @@ class IposonicDB(object):
                 'name': basename(path),
                 'id': MediaManager.get_entry_id(path),
                 'isDir': 'true'
+                
             })
 
     class Album(Artist):
-        required_fields = ['name', 'id', 'isDir', 'path', 'title',
-                           'parent', 'album']
-
+        __fields__ = ['id', 'name', 'isDir', 'path', 'title',
+                      'parent', 'album', 'artist',
+                      'userRating', 'averageRating', 'coverArt'
+                      ]
         def __init__(self, path):
             IposonicDB.Artist.__init__(self, path)
             parent = dirname(path)
@@ -374,11 +391,17 @@ class IposonicDB(object):
                 'album': self['name'],
                 'parent': MediaManager.get_entry_id(parent),
                 'artist': basename(parent),
-                'isDir': True
+                'isDir': True,
+                'coverArt': self['id']
             })
 
     class Media(Entry):
-        required_fields = ['name', 'id', 'title', 'path', 'isDir']
+        __fields__ = ['id', 'name', 'path', 'parent',
+                      'title', 'artist', 'isDir', 'album',
+                      'genre', 'track', 'tracknumber', 'date', 'suffix',
+                      'isvideo', 'duration', 'size', 'bitrate',
+                      'userRating', 'averageRating', 'coverArt'
+                      ]
 
         def __init__(self, path):
             IposonicDB.Entry.__init__(self)
@@ -395,6 +418,7 @@ class IposonicDB(object):
                 'id': MediaManager.get_entry_id(name),
                 'name': name
             })
+            
 
     def init_db(self):
         pass
@@ -407,14 +431,26 @@ class IposonicDB(object):
         self.artists = dict()
         self.albums = dict()
         self.songs = dict()
+        self.playlists = dict()
 
     def create_entry(self, entry):
         """Add an entry to the persistent store.
 
-            This is not needed with a memory store.
+            XXX See update_entry too and refactor.
         """
-        pass
-
+        if isinstance(entry, self.Playlist):
+            hash_ = self.playlists
+        else:
+            raise NotImplementedError("Only for playlists")
+            
+        eid = entry.get('id')
+        if eid in hash_:
+            hash_[eid].update(entry)
+        else:
+            hash_[eid] = entry
+            
+    update_entry = create_entry
+    
     @staticmethod
     def _search(hash_, query, limit=10, key_only=False):
         """return values in hash matching query.
@@ -491,6 +527,9 @@ class IposonicDB(object):
             self.walk_music_directory()
         return IposonicDB._get_hash(self.artists, eid, query)
 
+    def get_playlists(self, eid=None, query=None):
+        return IposonicDB._get_hash(self.playlists, eid, query)
+
     def get_indexes(self):
         return self.indexes
 
@@ -501,6 +540,18 @@ class IposonicDB(object):
         """Return a list of songs. [ { id:, title:, ..} ,..]"""
         f_sort = lambda x: self.songs.get(x).get('userRating')
         return sorted(self.songs, key=f_sort, reverse=True)[0:20]
+    
+    def get_song_list(self, eids=[]):
+        """return iterable"""
+        ret = []
+        for k in eids:
+            if k is None:
+                continue
+            try:
+                ret.append(self.get_songs(eid=k))
+            except Exception as e:
+                print "error retrieving %s due %s" % (k, e)
+        return ret
 
     def add_entry(self, path, album=False):
         if os.path.isdir(path):
@@ -515,6 +566,9 @@ class IposonicDB(object):
         elif Iposonic.is_allowed_extension(path):
             try:
                 info = MediaManager.get_info(path)
+                info.update({
+                    'coverArt':info.get('parent')
+                })
                 self.songs[info['id']] = info
                 self.log.info("adding file: %s, %s " % (info['id'], path))
                 return info['id']
@@ -744,5 +798,21 @@ class Iposonic:
           TODO: create a cache for this.
         """
         self.db.walk_music_directory()
-
+    
+    def get_playlists_static(self, eid=None):
+        """Return a set of static playlists like random songs or by genre.
+        
+            Useful for clients that doesn't support advanced queries.
+        """
+        playlist_static = [self.db.Playlist(
+            name).json() for name in ['sample', 'random', 'genre']]
+        if not eid:
+            return playlist_static
+        
+        for x in playlist_static:
+            if eid == x.get('id'):
+                return x
+            
+            
+        raise ValueError("Playlist not static")
 #
