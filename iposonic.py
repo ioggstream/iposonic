@@ -28,7 +28,7 @@ from binascii import crc32
 #
 # tags
 from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3NoHeaderError # ID3,
+from mutagen.id3 import ID3NoHeaderError  # ID3,
 from mutagen.mp3 import MP3, HeaderNotFoundError
 import mutagen.oggvorbis
 import mutagen.asf
@@ -41,7 +41,7 @@ log = logging.getLogger('iposonic')
 
 class SubsonicProtocolException(Exception):
     """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
-    def __init__(self, request = None):
+    def __init__(self, request=None):
         if request:
             print "request: %s" % request.data
     pass
@@ -57,6 +57,13 @@ class StringUtils:
 
     @staticmethod
     def to_unicode(s):
+        """Return the unicode representation of a string.
+        
+            Try every possible encoding of a string, returning
+            the first one that doesn't except.
+            
+            If s is not a string, return the unchanged object.
+        """
         if not isinstance(s, str):
             return s
         for e in StringUtils.encodings:
@@ -67,7 +74,6 @@ class StringUtils:
         raise UnicodeDecodeError("Cannot decode string: %s" % s)
 
 
-
 ##
 ## The app ;)
 ##
@@ -76,23 +82,24 @@ class UnsupportedMediaError(Exception):
 
 
 class MediaManager:
+    """Class to manage media object."""
+    
     log = logging.getLogger('MediaManager')
     re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
     re_track_2 = re.compile("^(.*)([0-9]+)?$")
     re_split_s = "\s*-\s*"
     re_notes = re.compile('\((.+)\)')
 
-
     @staticmethod
     def normalize_album(x):
-        """Return the ascci part of a album name"""
+        """Return the ascii part of a album name."""
         # normalize artist name
         re_notascii = re.compile("[^A-Za-z0-9]")
         artist = x.get('artist').lower()
         ret = re_notascii.sub("", artist)
-        print "normalize_album(%s): %s" %  (x,ret)
+        print "normalize_album(%s): %s" % (x, ret)
         return ret
-        
+
     @staticmethod
     def get_entry_id(path):
         # path should be byte[], so convert it
@@ -103,6 +110,7 @@ class MediaManager:
 
     @staticmethod
     def get_tag_manager(path):
+        """Return the most suitable mutagen tag manager for file."""
         path = path.lower()
         if not Iposonic.is_allowed_extension(path):
             raise UnsupportedMediaError(
@@ -118,21 +126,15 @@ class MediaManager:
             "Can't find tag manager for path: %s" % path)
 
     @staticmethod
-    def get_parent(path):
-        ret = path[0:path.rfind("/")]
-        MediaManager.log.info("parent(%s) = %s" % (path, ret))
-        return ret
-
-    @staticmethod
     def get_info_from_filename(path):
         """Get track number, path, file size from file name."""
         #assert os.path.isfile(path)
-        
+
         try:
-            filename,extension = basename(path).rsplit(".",1)
+            filename, extension = basename(path).rsplit(".", 1)
         except:
-            filename,extension = basename(path), ""
-            
+            filename, extension = basename(path), ""
+
         try:
             (track, title) = re.split("\s+[_\-]\s+", filename, 1)
             track = int(track)
@@ -157,7 +159,7 @@ class MediaManager:
 
         # strip extension
         try:
-            filename, extension = filename.rsplit(".",1)
+            filename, extension = filename.rsplit(".", 1)
         except:
             extension = ""  # if no extension found
 
@@ -351,8 +353,8 @@ class IposonicDB(object):
         def __init__(self, path):
             IposonicDB.Entry.__init__(self)
             self.update({
-                'path':path,
-                'name':basename(path),
+                'path': path,
+                'name': basename(path),
                 'id': MediaManager.get_entry_id(path),
                 'isDir': 'true'
             })
@@ -368,23 +370,25 @@ class IposonicDB(object):
             if self['name'].find("-") > 0:
                 self['name'] = re.split("\s*-\s*", self['name'], 1)[1]
             self.update({
-                'title':self['name'],
-                'album':self['name'],
+                'title': self['name'],
+                'album': self['name'],
                 'parent': MediaManager.get_entry_id(parent),
-                'artist' : basename(parent),
-                'isDir' : True
-                })
-                
+                'artist': basename(parent),
+                'isDir': True
+            })
+
     class Media(Entry):
         required_fields = ['name', 'id', 'title', 'path', 'isDir']
 
         def __init__(self, path):
             IposonicDB.Entry.__init__(self)
             self.update(MediaManager.get_info(path))
+
     class Playlist(Entry):
         required_fields = ['id', 'name', 'comment', 'owner', 'public',
-                      'songCount', 'duration', 'created', 'entry'
-                      ]
+                           'songCount', 'duration', 'created', 'entry'
+                           ]
+
         def __init__(self, name):
             IposonicDB.Entry.__init__(self)
             self.update({
@@ -406,10 +410,11 @@ class IposonicDB(object):
 
     def create_entry(self, entry):
         """Add an entry to the persistent store.
-        
+
             This is not needed with a memory store.
         """
         pass
+
     @staticmethod
     def _search(hash_, query, limit=10, key_only=False):
         """return values in hash matching query.
@@ -450,7 +455,6 @@ class IposonicDB(object):
         if query:
             return IposonicDB._search(hash_, query)
         return hash_.values()
-
 
     def add(self, entry):
         return self.db.add(entry)
@@ -563,26 +567,27 @@ class IposonicDB(object):
 #
 
 class Iposonic:
-    """Iposonic is a simple media server allowing to 
-        browse and stream music, managing playlists and 
+    """Iposonic is a simple media server allowing to
+        browse and stream music, managing playlists and
         cover arts.
-        
+
         This is the core class.
-        
+
         The initialization parameters are:
          - music_folders: a list of music directories
          - dbhandler: a database handler like the in-memory IposonicDB
                         or the included SQL backends (MySQL and Sqlite)
-        - recreate_db: a handler for sql storages that delete the previous 
+        - recreate_db: a handler for sql storages that delete the previous
                         copy of the db
-                        
+
         TODO replace print with log
         """
     ALLOWED_FILE_EXTENSIONS = ["mp3", "ogg", "wma"]
     log = logging.getLogger('Iposonic')
 
     def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False):
-        print("Creating Iposonic with music folders: %s, dbhandler: %s" % (music_folders, dbhandler))
+        print("Creating Iposonic with music folders: %s, dbhandler: %s" %
+              (music_folders, dbhandler))
         self.db = dbhandler(music_folders, recreate_db=recreate_db)
         self.log.setLevel(logging.INFO)
 
@@ -592,7 +597,7 @@ class Iposonic:
             'get_artists',
             'get_music_folders',
             'get_albums',
-        #    'get_songs',
+            #    'get_songs',
             'get_highest',
             'get_playlists',
             'get_song_list',
@@ -674,7 +679,7 @@ class Iposonic:
     def update_entry(self, eid, new):
         """TODO move do db"""
         return self.db.update_entry(eid, new)
-        
+
     def create_entry(self, entry):
         return self.db.create_entry(entry)
 
@@ -683,22 +688,22 @@ class Iposonic:
     #
     def get_songs(self, eid=None, query=None):
         """return one or more songs.
-            
+
             if eid, return a single dict,
             if query, return a list of dict
-            
+
             Parsing (eg. to add coverArt) should check the returned type.
         """
         songs = self.db.get_songs(eid=eid, query=query)
         #print "songs: %s (%s) " % (songs, songs.__class__)
 
-        # add album coverArt to each song        
+        # add album coverArt to each song
         if songs.__class__.__name__ == 'dict':
-            songs.update({'coverArt' : songs.get('parent')})
+            songs.update({'coverArt': songs.get('parent')})
             #print "songs2: %s " % songs
             return songs
-            
-        return [x.update({'coverArt' : x.get('parent')}) or x for x in songs]
+
+        return [x.update({'coverArt': x.get('parent')}) or x for x in songs]
 
     def get_genre_songs(self, query):
         songs = []

@@ -70,7 +70,7 @@ class LazyDeveloperMeta(DeclarativeMeta):
         for name in dict_.get('__fields__', []):
             if name in ['id', 'duration']:
                 kol = Integer()
-            elif name in [ 'path','entry']:
+            elif name in ['path', 'entry']:
                 kol = String(192)
             else:
                 kol = String(32)
@@ -140,7 +140,6 @@ class IposonicDBTables:
             Base.__init__(self)
             self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
                 k, v) in MediaManager.get_info(path).iteritems()]))
-
 
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
@@ -323,14 +322,13 @@ class SqliteIposonicDB(object, IposonicDBTables):
         """return iterable"""
         ret = []
         for k in eids:
-            if k == None: continue
+            if k is None:
+                continue
             try:
-                ret.append( self.get_songs(eid=k))
+                ret.append(self.get_songs(eid=k))
             except Exception as e:
                 print "error retrieving %s due %s" % (k, e)
         return ret
-
-
 
     @transactional
     def get_highest(self, session=None):
@@ -386,16 +384,16 @@ class SqliteIposonicDB(object, IposonicDBTables):
         assert entry, "Entry is null"
         session.merge(entry)
         return entry.get('id')
-        
+
     @transactional
     def update_entry(self, eid, new, session=None):
         assert session, "Missing Session"
         assert eid, "Missing eid"
         assert new, "Missing new object"
         old = self._query_id(eid, session=session).update(new)
-        
+
     @transactional
-    def delete_entry(self, eid,  session=None):
+    def delete_entry(self, eid, session=None):
         assert session, "Missing Session"
         assert eid, "Missing eid"
         old = self._query_id(eid, session=session).delete()

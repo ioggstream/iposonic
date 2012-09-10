@@ -10,10 +10,11 @@ from iposonicdb import SqliteIposonicDB
 
 def harn_setup(klass, test_dir):
         klass.test_dir = os.getcwd() + test_dir
-        klass.db = klass.dbhandler([klass.test_dir], dbfile = "mock_iposonic")
+        klass.db = klass.dbhandler([klass.test_dir], dbfile="mock_iposonic")
         klass.db.reset()
 
         klass.db.walk_music_directory()
+
 
 def harn_load_fs2(klass):
     for (root, dirfile, files) in os.walk(klass.test_dir):
@@ -116,8 +117,7 @@ class TestIposonic:
         eid = artist['id']
         assert artist
         assert artist['path'] == self.iposonic.get_directory_path_by_id(eid)[0], "Can't find entry %s in %s" % (
-                eid, dirs)
-
+            eid, dirs)
 
 
 class TestIposonicDB:
@@ -168,7 +168,6 @@ class TestIposonicDB:
         ret = self.db.get_artists(eid=eid)
         assert ret.get('rating') == 5, "Value was: %s" % ret
 
-
     def test_get_artists(self):
         ret = self.db.get_artists()
         assert ret
@@ -209,7 +208,7 @@ class TestIposonicDB:
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret
 
-    
+
 class TestPlaylistIposonicDB:
     dbhandler = SqliteIposonicDB
     # Harness
@@ -219,28 +218,27 @@ class TestPlaylistIposonicDB:
 
     def setup_playlist(self):
         item = self.db.Playlist("mock_playlist")
-        songs = str.join(",",[str(x.get('id')) for x in self.db.get_songs()])
+        songs = str.join(",", [str(x.get('id')) for x in self.db.get_songs()])
         item.update({'entry': songs})
-        
+
         session = self.db.Session()
         session.add(item)
         session.commit()
         session.close()
-        
+
     def setup(self):
         harn_setup(self, "/test/data")
         harn_load_fs2(self)
-        
+
         self.setup_playlist()
-        
-        
+
     def test_get_playlists(self):
         items = self.db.get_playlists()
         item = items[0]
-        assert item.get('name') == 'mock_playlist' , "No playlists: %s" % item
-        
+        assert item.get('name') == 'mock_playlist', "No playlists: %s" % item
+
     def test_get_playlist(self):
         eid = MediaManager.get_entry_id('mock_playlist')
         ret = self.db.get_playlists(eid=eid)
         assert ret, "Can't find playlist %s" % eid
-        assert ret.get('name') == 'mock_playlist' , "No playlists: %s" % ret
+        assert ret.get('name') == 'mock_playlist', "No playlists: %s" % ret
