@@ -25,18 +25,25 @@ from os.path import join, dirname, abspath
 import simplejson
 import logging
 
+from authorizer import Authorizer
+
 from iposonic import (Iposonic,
                       IposonicException,
                       SubsonicProtocolException,
-                      MediaManager)
-from iposonic import StringUtils
+                      MediaManager,
+                      StringUtils)
+
 
 from art_downloader import CoverSource
 from urllib import urlopen
+#
+# Use one of the allowed DB
+#
 try:
     from iposonicdb import MySQLIposonicDB as Dbh
 except:
     from iposonic import IposonicDB as Dbh
+
 
 app = Flask(__name__)
 
@@ -45,14 +52,20 @@ log = logging.getLogger('iposonic-webapp')
 #
 # Configuration
 #
-cache_dir = "/tmp/iposonic/_cache/"
+tmp_dir = "/tmp/iposonic"
+cache_dir = join(tmp_dir, "_cache/")
 music_folders = [
     #"/home/rpolli/workspace-py/iposonic/test/data/"
     "/opt/music/"
 ]
 
-iposonic = None
 
+iposonic = None
+# While developing don't enforce authentication
+#   otherwise you can use a credential file
+#   or specify your users inline
+authorizer = Authorizer(mock=True, access_file=None)
+authorizer.add_user("user", "password")
 ###
 # The web
 ###
@@ -64,6 +77,16 @@ iposonic = None
 
 @app.route("/rest/ping.view", methods=['GET', 'POST'])
 def ping_view():
+    """Return an empty response.
+
+        Basic parameters (valid for all requests) are:
+        - u
+        - p
+        - v
+        - c
+        - f
+        - callback
+    """
     (u, p, v, c) = map(request.args.get, ['u', 'p', 'v', 'c'])
     print "songs: %s" % iposonic.db.get_songs()
     print "albums: %s" % iposonic.db.get_albums()
@@ -74,6 +97,7 @@ def ping_view():
 
 @app.route("/rest/getLicense.view", methods=['GET', 'POST'])
 def get_license_view():
+    """Return a valid license ;) """
     (u, p, v, c) = [request.args.get(x, None) for x in ['u', 'p', 'v', 'c']]
     return request.formatter({'license': {'valid': 'true', 'email': 'robipolli@gmail.com', 'key': 'ABC123DEF', 'date': '2009-09-03T14:46:43'}})
 
@@ -84,6 +108,7 @@ def get_license_view():
 
 @app.route("/rest/getMusicFolders.view", methods=['GET', 'POST'])
 def get_music_folders_view():
+    """Return all music folders."""
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     return request.formatter(
@@ -99,37 +124,42 @@ def get_music_folders_view():
 
 @app.route("/rest/getIndexes.view", methods=['GET', 'POST'])
 def get_indexes_view():
-    """
-    Return subsonic indexes.
-    Request:
-      u=Aaa&p=enc:616263&v=1.2.0&c=android&ifModifiedSince=0&musicFolderId=591521045
-    Response:
-    <indexes lastModified="237462836472342">
-      <shortcut id="11" name="Audio books"/>
-      <shortcut id="10" name="Podcasts"/>
-      <index name="A">
-        <artist id="1" name="ABBA"/>
-        <artist id="2" name="Alanis Morisette"/>
-        <artist id="3" name="Alphaville"/>
-      </index>
-      <index name="B">
-        <artist name="Bob Dylan" id="4"/>
-      </index>
+    """Return subsonic indexes.
 
-      <child id="111" parent="11" title="Dancing Queen" isDir="false"
-      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
-      size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128"
-      path="ABBA/Arrival/Dancing Queen.mp3"/>
+        params:
+          - ifModifiedSince=0
+          - musicFolderId=591521045
 
-      <child id="112" parent="11" title="Money, Money, Money" isDir="false"
-      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
-      size="4910028" contentType="audio/flac" suffix="flac"
-      transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
-      path="ABBA/Arrival/Money, Money, Money.mp3"/>
-    </indexes>
+        xml response:
+            <indexes lastModified="237462836472342">
+              <shortcut id="11" name="Audio books"/>
+              <shortcut id="10" name="Podcasts"/>
+              <index name="A">
+                <artist id="1" name="ABBA"/>
+                <artist id="2" name="Alanis Morisette"/>
+                <artist id="3" name="Alphaville"/>
+              </index>
+              <index name="B">
+                <artist name="Bob Dylan" id="4"/>
+              </index>
 
-    TODO implement @param musicFolderId
-    TODO implement @param ifModifiedSince
+              <child id="111" parent="11" title="Dancing Queen" isDir="false"
+              album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
+              size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128"
+              path="ABBA/Arrival/Dancing Queen.mp3"/>
+
+              <child id="112" parent="11" title="Money, Money, Money" isDir="false"
+              album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
+              size="4910028" contentType="audio/flac" suffix="flac"
+              transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
+              path="ABBA/Arrival/Money, Money, Money.mp3"/>
+            </indexes>
+
+        jsonp response
+            ...
+
+        TODO implement @param musicFolderId
+        TODO implement @param ifModifiedSince
     """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
@@ -137,10 +167,6 @@ def get_indexes_view():
     # refresh indexes
     iposonic.refresh()
 
-    #
-    # XXX sample code to support jsonp clients
-    #     this should be managed with some
-    #     @jsonp_formatter
     #
     # XXX we should think to reimplement the
     #     DB in some consistent way before
@@ -152,16 +178,19 @@ def get_indexes_view():
 
 @app.route("/rest/getMusicDirectory.view", methods=['GET', 'POST'])
 def get_music_directory_view():
-    """
-      request:
-        /rest/getMusicDirectory.view?u=Aaa&p=enc:616263&v=1.2.0&c=android&id=-493506601
-      response1:
+    """Return the content of a directory.
+
+      params:
+        - id=-493506601
+        -
+
+      xml response 1:
       <directory id="1" name="ABBA">
         <child id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22"/>
         <child id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23"/>
       </directory>
 
-      response2:
+      xml response 2:
       <directory id="11" parent="1" name="Arrival">
         <child id="111" parent="11" title="Dancing Queen" isDir="false"
         album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
@@ -175,8 +204,7 @@ def get_music_directory_view():
         path="ABBA/Arrival/Money, Money, Money.mp3"/>
       </directory>
 
-        TODO getAlbumArt
-        TODO getBitRate
+        jsonp response
     """
     (u, p, v, c, f, callback, dir_id) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'id'])
@@ -225,21 +253,25 @@ def get_music_directory_view():
 #
 @app.route("/rest/search2.view", methods=['GET', 'POST'])
 def search2_view():
-    """
-    request:
-      u=Aaa&p=enc:616263&v=1.2.0&c=android&query=Mannoia&artistCount=10&albumCount=20&songCount=25
+    """Search songs in archive.
 
-    response:
-        <searchResult2>
-        <artist id="1" name="ABBA"/>
-        <album id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22"/>
-        <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23"/>
-        <song id="112" parent="11" title="Money, Money, Money" isDir="false"
-              album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
-              size="4910028" contentType="audio/flac" suffix="flac"
-              transcodedContentType="audio/mpeg" transcodedSuffix="mp3"
-              path="ABBA/Arrival/Money, Money, Money.mp3"/>
-    </searchResult2>
+        params:
+          - query=Mannoia
+          - artistCount=10  TODO
+          - albumCount=20   TODO
+          - songCount=25    TODO
+
+        xml response:
+            <searchResult2>
+                <artist id="1" name="ABBA"/>
+                <album id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22"/>
+                <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23"/>
+                <song id="112" parent="11" title="Money, Money, Money" isDir="false"
+                      album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
+                      size="4910028" contentType="audio/flac" suffix="flac"
+                      transcodedContentType="audio/mpeg" transcodedSuffix="mp3"
+                      path="ABBA/Arrival/Money, Money, Money.mp3"/>
+            </searchResult2>
 
     """
     (u, p, v, c, f, callback, query) = map(
@@ -276,23 +308,26 @@ def search2_view():
 #
 @app.route("/rest/getAlbumList.view", methods=['GET', 'POST'])
 def get_album_list_view():
+    """Get albums
 
+        params:
+           - type   in random,
+                    newest,     TODO
+                    highest,    TODO
+                    frequent,   TODO
+                    recent,     TODO
+                    starred,    TODO
+                    alphabeticalByName, TODO
+                    alphabeticalByArtist TODO
+           - size   items to return TODO
+           - offset paging offset   TODO
+
+        xml response:
+            <albumList>
+                <album id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22" userRating="4" averageRating="4.5"/>
+                <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23" averageRating="4.4"/>
+            </albumList>
     """
-    http://your-server/rest/getAlbumList.view
-    type    Yes     The list type. Must be one of the following: random, newest, highest, frequent, recent. Since 1.8.0 you can also use alphabeticalByName or alphabeticalByArtist to page through all albums alphabetically, and starred to retrieve starred albums.
-    size    No  10  The number of albums to return. Max 500.
-    offset  No  0   The list offset. Useful if you for example want to page through the list of newest albums.
-
-
-    <albumList>
-            <album id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22" userRating="4" averageRating="4.5"/>
-            <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23" averageRating="4.4"/>
-        </albumList>
-    """
-    mock_albums = [
-        {'album': {'id': 11, 'parent': 1, 'title': 'Arrival',
-                   'artist': 'ABBA', 'isDir': 'true'}}
-    ]
     (u, p, v, c, f, callback, dir_id) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'id'])
     (size, type_a, offset) = map(request.args.get, ['size', 'type', 'offset'])
@@ -300,10 +335,17 @@ def get_album_list_view():
     if not type_a in ['random', 'newest', 'highest', 'frequent', 'recent']:
         raise SubsonicProtocolException("Invalid or missing parameter: type")
 
-    #albums = randomize(iposonic.albums, 20)
-    albums = [a for a in iposonic.get_albums()]
+    if not size:
+        size = 20
 
-    return request.formatter({'albumList': {'album': albums, 'song': iposonic.get_highest()}})
+    if type_a == 'random':
+        albums = randomize2_list(iposonic.get_albums(), size)
+    elif type_a == 'highest':
+        albums = iposonic.get_albums()[:size]
+    else:
+        albums = [a for a in iposonic.get_albums()]
+
+    return request.formatter({'albumList': {'album': albums}})
 
 
 @app.route("/rest/getRandomSongs.view", methods=['GET', 'POST'])
@@ -351,9 +393,10 @@ def get_random_songs_view():
         songs = iposonic.get_genre_songs(genre)
     else:
         all_songs = iposonic.get_songs()
-        assert len(all_songs)
+        assert all_songs
         songs = randomize2_list(all_songs)
     assert songs
+    # add cover art
     songs = [x.update({'coverArt': x.get('parent')}) or x for x in songs]
     randomSongs = {'randomSongs': {'song': songs}}
     return request.formatter(randomSongs)
@@ -709,6 +752,32 @@ class SubsonicMissingParameterException(SubsonicProtocolException):
 
 
 @app.before_request
+def authorize():
+    """Authenticate users"""
+    (u, p, v, c) = map(
+        request.args.get, ['u', 'p', 'v', 'c'])
+
+    p_clear = ""
+    if p.startswith("enc:"):
+        print "p: ", p
+        p = p[4:]
+        i = 0
+        while i < len(p):
+            l = int(p[i:i + 2], 16)
+            print "l:", l
+            l = chr(l)
+            p_clear += l
+            i += 2
+    else:
+        p_clear = p
+
+    if not authorizer.authorize(u, p_clear):
+        return "401 Unauthorized", 401
+
+    pass
+
+
+@app.before_request
 def set_formatter():
     """Return a function to create the response."""
     (u, p, v, c, f, callback) = map(
@@ -901,7 +970,6 @@ class ResponseHelper:
 
         return ret.replace("isDir=\"True\"", "isDir=\"true\"")
 
-
 if __name__ == "__main__":
     argc, argv = len(sys.argv), sys.argv
 
@@ -911,8 +979,8 @@ if __name__ == "__main__":
     except:
         recreate_db = False
 
-    if not os.path.isdir("/tmp/iposonic/"):
-        os.mkdir("/tmp/iposonic/")
+    if not os.path.isdir(tmp_dir):
+        os.mkdir(tmp_dir)
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
 

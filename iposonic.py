@@ -58,10 +58,10 @@ class StringUtils:
     @staticmethod
     def to_unicode(s):
         """Return the unicode representation of a string.
-        
+
             Try every possible encoding of a string, returning
             the first one that doesn't except.
-            
+
             If s is not a string, return the unchanged object.
         """
         if not isinstance(s, str):
@@ -83,7 +83,7 @@ class UnsupportedMediaError(Exception):
 
 class MediaManager:
     """Class to manage media object."""
-    
+
     log = logging.getLogger('MediaManager')
     re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
     re_track_2 = re.compile("^(.*)([0-9]+)?$")
