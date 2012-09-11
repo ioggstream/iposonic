@@ -12,6 +12,8 @@
 #   * authentication backend
 #   * reset db
 #
+#from __future__ import unicode_literals
+
 from flask import Flask
 from flask import request, send_file, redirect
 
@@ -40,11 +42,10 @@ from urllib import urlopen
 # Use one of the allowed DB
 #
 try:
-    assert False  
+    #assert False
     from iposonicdb import MySQLIposonicDB as Dbh
 except:
     from iposonic import IposonicDB as Dbh
-
 
 app = Flask(__name__)
 
@@ -59,7 +60,7 @@ music_folders = [
     #"/home/rpolli/workspace-py/iposonic/test/data/"
     "/opt/music/"
 ]
-
+fs_cache = dict()
 
 iposonic = None
 # While developing don't enforce authentication
@@ -216,29 +217,42 @@ def get_music_directory_view():
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in getMusicDirectory.view")
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
+    #
+    # if nothing changed before our last visit
+    #    don't rescan
+    #
+    # os.stat ("/etc").st_mtime
+    last_modified = os.stat(dir_path).st_ctime
     artist = iposonic.db.Artist(path)
     children = []
-    for child in os.listdir(dir_path):
-        child = StringUtils.to_unicode(child)
-        if child[0] in ['.', '_']:
-            continue
-        path = join("/", dir_path, child)
-        try:
-            child_j = {}
-            is_dir = os.path.isdir(path)
-            # This is a Lazy Indexing. It should not be there
-            #   unless a cache is set
-            # XXX
-            eid = MediaManager.get_entry_id(path)
-            try:
-                child_j = iposonic.get_entry_by_id(eid)
-            except IposonicException:
-                iposonic.add_entry(path, album=is_dir)
-                child_j = iposonic.get_entry_by_id(eid)
 
-            children.append(child_j)
-        except IposonicException as e:
-            log.info(e)
+    if fs_cache.get(dir_id, 0) == last_modified:
+        print "Getting items from cache."
+        children = iposonic.get_songs(query={'parent': dir_id})
+        children.extend(iposonic.get_albums(query={'parent': dir_id}))
+    else:
+        for child in os.listdir(dir_path):
+            child = StringUtils.to_unicode(child)
+            if child[0] in ['.', '_']:
+                continue
+            path = join("/", dir_path, child)
+            try:
+                child_j = {}
+                is_dir = os.path.isdir(path)
+                # This is a Lazy Indexing. It should not be there
+                #   unless a cache is set
+                # XXX
+                eid = MediaManager.get_entry_id(path)
+                try:
+                    child_j = iposonic.get_entry_by_id(eid)
+                except IposonicException:
+                    iposonic.add_entry(path, album=is_dir)
+                    child_j = iposonic.get_entry_by_id(eid)
+
+                children.append(child_j)
+            except IposonicException as e:
+                log.info(e)
+        fs_cache.setdefault(dir_id, last_modified)
 
     def _track_or_die(x):
         try:
@@ -290,9 +304,9 @@ def search2_view():
     # ret is
     print "searching"
     ret = iposonic.search2(query, artistCount, albumCount, songCount)
-    songs = [{'song': s} for s in ret['title']]
-    songs.extend([{'album': a} for a in ret['album']])
-    songs.extend([{'artist': a} for a in ret['artist']])
+    #songs = [{'song': s} for s in ret['title']]
+    #songs.extend([{'album': a} for a in ret['album']])
+    #songs.extend([{'artist': a} for a in ret['artist']])
     print "ret: %s" % ret
     return request.formatter(
         {
@@ -485,7 +499,6 @@ def get_playlist_view():
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
 
-
     entries = []
     # use default playlists
     if eid in [x.get('id') for x in iposonic.get_playlists_static()]:
@@ -545,7 +558,7 @@ def create_playlist_view():
     # update
     else:
         playlist = iposonic.get_playlists(eid=playlistId)
-        assert playlist 
+        assert playlist
         songs = ",".join(playlist.get('entry'), songId_l)
         iposonic.update_entry(eid=playlistId, new={'entry': songs})
     return request.formatter({})
@@ -622,34 +635,6 @@ def scrobble_view():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
     return request.formatter({})
-
-
-#@app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
-def _get_cover_art_view():
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    (eid, size) = map(request.args.get, ['id', 'size'])
-    info = iposonic.get_entry_by_id(eid)
-    if info.get('coverArtUrl'):
-        return redirect(info.get('coverArtUrl'), 302)
-
-    print "searching info for: %s" % info
-    query = info.get('album')
-    print "search path: %s" % query
-    re_notascii = re.compile("[^A-z0-9]")
-    c = CoverSource()
-    for cover in c.search(info.get('album')):
-        print "confronting info with: %s" % cover
-        if len(set([re_notascii.sub(x.get('artist').lower(), "") for x in [info, cover]])) == 1:
-            print "Artist match"
-            iposonic.update_entry(
-                eid, {'coverArtUrl': cover.get('cover_small')})
-            open(join("/", cache_dir, "%s" % eid), "w").write()
-            return redirect(cover.get('cover_small'), 302)
-        else:
-            print "Artist mismatch: %s, %s" % tuple(
-                [x.get('artist') for x in [info, cover]])
-    return ""
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])

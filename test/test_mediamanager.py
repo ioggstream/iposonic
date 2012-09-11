@@ -14,7 +14,7 @@ import sys
 import re
 from os.path import join, basename, dirname
 
-from iposonic import MediaManager
+from iposonic import MediaManager, StringUtils
 
 import logging
 log = logging.getLogger("test")
@@ -92,3 +92,11 @@ class TestMediaManager:
         for info in info_l:
             ret = MediaManager.normalize_album(info)
             assert ret == 'fiorellamannoia'
+
+    def test_unicode(self):
+        for f in os.listdir("/opt/music/"):
+            # f is a byte sequence returned by the
+            #    filesystem and should be converted
+            #    to a unicode object
+            f_u = StringUtils.to_unicode(f)
+            print f.__class__, "%s" % f_u

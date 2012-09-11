@@ -2,6 +2,9 @@
 # Subsonic API uses those three items
 #  for storing songs, albums and artists
 #  Those entities require and id
+# -*- coding: utf-8 -*-
+#from __future__ import unicode_literals
+
 import os
 import sys
 import re
@@ -14,6 +17,7 @@ import logging
 
 from iposonic import IposonicException, Iposonic, IposonicDB
 from iposonic import MediaManager, StringUtils, UnsupportedMediaError
+
 
 # add local path for loading _mysqlembedded
 sys.path.insert(0, './lib')
@@ -73,7 +77,7 @@ class LazyDeveloperMeta(DeclarativeMeta):
             elif name in ['path', 'entry']:
                 kol = String(192)
             else:
-                kol = String(32)
+                kol = String(40)
             setattr(
                 klass, name, Column(name, kol, primary_key=is_pk))
             is_pk = False
@@ -118,12 +122,12 @@ class IposonicDBTables:
                       'averageRating', 'coverArt']
         __tablename__ = "artist"
 
-        def __init__(self, path):
+        def __init__(self, path_u):
             Base.__init__(self)
             self.__dict__.update({
-                'id': MediaManager.get_entry_id(path),
-                'name': StringUtils.to_unicode(basename(path)),
-                'path': StringUtils.to_unicode(path),
+                'id': MediaManager.get_entry_id(path_u),
+                'name': basename(path_u),
+                'path': path_u,
                 'isDir': 'true'
             })
 
@@ -138,7 +142,7 @@ class IposonicDBTables:
 
         def __init__(self, path):
             """Fill entry using MediaManager.get_info.
-            
+
                 TODO convert get_info to Unicode
             """
             Base.__init__(self)
@@ -234,11 +238,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
             except Exception as e:
                 session.rollback()
                 if len(args):
-                    ret = args[0]
+                    ret = StringUtils.to_unicode(args[0])
                 else:
                     ret = ""
-                print "error: string: %s, ex: %s" % (
-                    StringUtils.to_unicode(ret), e)
+                print u"error: string: %s, ex: %s" % (
+                    ret.__class__, e)
                 raise
         transact.__name__ = fn.__name__
         return transact
@@ -285,15 +289,16 @@ class SqliteIposonicDB(object, IposonicDBTables):
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
 
-    def _query(self, table_o, field_o, query, eid=None, session=None):
+    def _query(self, table_o, query, eid=None, session=None):
         assert table_o, "Table must not be null"
         qmodel = session.query(table_o)
         if eid:
             rs = qmodel.filter_by(id=eid).one()
             return rs.json()
         elif query:
-            assert field_o, "Field must not be null"
             for (k, v) in query.items():
+                field_o = table_o.__getattribute__(table_o, k)
+                assert field_o, "Field must not be null"
                 rs = qmodel.filter(field_o.like("%%%s%%" % v)).all()
         else:
             rs = qmodel.all()
@@ -343,17 +348,17 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_songs(self, eid=None, query=None, session=None):
         assert session
         print("get_songs: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Media, self.Media.title, query, eid=eid, session=session)
+        return self._query(self.Media, query, eid=eid, session=session)
 
     @connectable
     def get_albums(self, eid=None, query=None, session=None):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Album, self.Album.title, query, eid=eid, session=session)
+        return self._query(self.Album, query, eid=eid, session=session)
 
     @connectable
     def get_playlists(self, eid=None, query=None, session=None):
         self.log.info("get_playlists: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Playlist, self.Playlist.name, query, eid=eid, session=session)
+        return self._query(self.Playlist, query, eid=eid, session=session)
 
     @connectable
     def get_artists(self, eid=None, query=None, session=None):
@@ -364,7 +369,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         """
         if not self.initialized:
             self.walk_music_directory()
-        return self._query(self.Artist, self.Artist.name, query, eid=eid, session=session)
+        return self._query(self.Artist, query, eid=eid, session=session)
 
     def get_indexes(self):
         #
@@ -457,7 +462,10 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
             #index all artists
             for a in artists_local:
-                print "scanning artist: %s" % a
+                try:
+                    print u"scanning artist: %s" % a
+                except:
+                    print u'cannot read object: %s' % a.__class__
                 if a:
                     path = join("/", music_folder, a)
                     add_or_log(self, path)
