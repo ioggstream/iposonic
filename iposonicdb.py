@@ -16,7 +16,7 @@ from binascii import crc32
 import logging
 
 from iposonic import IposonicException, Iposonic, IposonicDB
-from iposonic import MediaManager, StringUtils, UnsupportedMediaError
+from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 
 
 # add local path for loading _mysqlembedded
@@ -421,7 +421,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 record = self.Artist(path)
             self.log.info("adding directory: %s, %s " % (eid,
                           StringUtils.to_unicode(path)))
-        elif Iposonic.is_allowed_extension(path):
+        elif MediaManager.is_allowed_extension(path):
             try:
                 record = self.Media(path)
                 eid = record.id

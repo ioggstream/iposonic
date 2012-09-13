@@ -15,12 +15,12 @@
 #from __future__ import unicode_literals
 
 from flask import Flask
-from flask import request, send_file, redirect
+from flask import request, send_file
 
 import os
 import sys
 import random
-import re
+
 from os.path import join
 
 import simplejson
@@ -32,9 +32,10 @@ from iposonic import (Iposonic,
                       IposonicException,
                       SubsonicProtocolException,
                       SubsonicMissingParameterException,
-                      MediaManager,
-                      StringUtils)
+                      )
 
+
+from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
 
 from art_downloader import CoverSource
 from urllib import urlopen
@@ -47,9 +48,9 @@ try:
 except:
     from iposonic import IposonicDB as Dbh
 
+log = logging.getLogger('iposonic-webapp')
 app = Flask(__name__)
 
-log = logging.getLogger('iposonic-webapp')
 
 #
 # Configuration
@@ -61,8 +62,8 @@ music_folders = [
     "/opt/music/"
 ]
 fs_cache = dict()
+iposonic = Iposonic(music_folders, dbhandler=Dbh, recreate_db=False)
 
-iposonic = None
 # While developing don't enforce authentication
 #   otherwise you can use a credential file
 #   or specify your users inline
@@ -419,224 +420,6 @@ def get_random_songs_view():
     return request.formatter(randomSongs)
 
 
-#
-#
-#
-@app.route("/rest/getPlaylists.view", methods=['GET', 'POST'])
-def get_playlists_view():
-    """ response xml:
-        <playlists>
-                <playlist id="15" name="Some random songs" comment="Just something I tossed together" owner="admin" public="false" songCount="6" duration="1391" created="2012-04-17T19:53:44">
-                    <allowedUser>sindre</allowedUser>
-                    <allowedUser>john</allowedUser>
-                </playlist>
-                <playlist id="16" name="More random songs" comment="No comment" owner="admin" public="true" songCount="5" duration="1018" created="2012-04-17T19:55:49"/>
-            </playlists>
-
-        response jsonp:
-            {playlists: { playlist : [
-                {   id : ,
-                    name: ,
-                    comment: ,
-                    owner: ,
-                    public: ,
-                    songCount:,
-                    duration: ,
-                    created:,
-                },
-                {   id, name, comment, owner, public, allowedUser: [
-                    'jon',
-                    'mary'
-                    ] }
-                ]
-            }}
-    """
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
-    playlists = iposonic.get_playlists_static()
-
-    playlists.extend(iposonic.get_playlists())
-    return request.formatter({'playlists': {'playlist': playlists}})
-    raise NotImplementedError()
-
-
-@app.route("/rest/getPlaylist.view", methods=['GET', 'POST'])
-def get_playlist_view():
-    """Return a playlist.
-
-        response xml:
-     <playlist id="15" name="kokos" comment="fan" owner="admin" public="true" songCount="6" duration="1391"
-                     created="2012-04-17T19:53:44">
-               <allowedUser>sindre</allowedUser>
-               <allowedUser>john</allowedUser>
-               <entry id="657" parent="655" title="Making Me Nervous" album="I Don&apos;t Know What I&apos;m Doing"
-                      artist="Brad Sucks" isDir="false" coverArt="655" created="2008-04-10T07:10:32" duration="159"
-                     bitRate="202" track="1" year="2003" size="4060113" suffix="mp3" contentType="audio/mpeg" isVideo="false"
-                     path="Brad Sucks/I Don&apos;t Know What I&apos;m Doing/01 - Making Me Nervous.mp3" albumId="58"
-                     artistId="45" type="music"/>
-        response jsonp:
-            {'playlist': {
-                'id':,
-                'name':,
-                'songCount',
-                'allowedUser': [ 'user1', 'user2' ],
-                'entry': [ {
-                    id:,
-                    title:,
-                    ...
-                    },
-                ]
-                }}
-
-        TODO move database objects to iposonicdb. They  shouldn't be
-                exposed outside.
-    """
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    eid = request.args.get('id')
-    if not eid:
-        raise SubsonicProtocolException(
-            "Missing required parameter: 'id' in stream.view")
-
-    entries = []
-    # use default playlists
-    if eid in [x.get('id') for x in iposonic.get_playlists_static()]:
-        j_playlist = iposonic.get_playlists_static(eid=eid)
-        entries = randomize2_list(iposonic.get_songs(), 5)
-    else:
-        playlist = iposonic.get_playlists(eid=eid)
-        assert playlist, "Playlists: %s" % iposonic.db.playlists
-        print "found playlist: %s" % playlist
-        entry_ids = playlist.get('entry')
-        if entry_ids:
-            entries = [x for x in iposonic.get_song_list(entry_ids.split(","))]
-        j_playlist = playlist
-    j_playlist.update({
-        'entry': entries,
-        'songCount': len(entries),
-        'duration': sum([x.get('duration', 0) for x in entries])
-    })
-    return request.formatter({'playlist': j_playlist})
-
-
-@app.route("/rest/createPlaylist.view", methods=['GET', 'POST'])
-def create_playlist_view():
-    """TODO move to iposonic
-
-        request body:
-            name=2012-09-08&
-            songId=-2072958145&
-            songId=-2021195453&
-            songId=-1785884780
-
-    """
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
-    (name, playlistId) = map(request.values.get, ['name', 'playlistId'])
-    songId_l = request.values.getlist('songId')
-    print "songId: %s" % songId_l
-    if not name or playlistId:
-        print "request: %s" % request.environ['body_copy']
-        raise SubsonicMissingParameterException(
-            'id or playlistId', 'create_playlist_view')
-
-    # create a new playlist
-    if not playlistId:
-        eid = MediaManager.get_entry_id(name)
-        try:
-            playlist = iposonic.get_playlists(eid=eid)
-            raise IposonicException("Playlist esistente")
-        except:
-            pass
-        # TODO DAO should not be exposed
-        playlist = iposonic.db.Playlist(name)
-        playlist.update({'entry': ",".join(songId_l)})
-        iposonic.create_entry(playlist)
-
-    # update
-    else:
-        playlist = iposonic.get_playlists(eid=playlistId)
-        assert playlist
-        songs = ",".join(playlist.get('entry'), songId_l)
-        iposonic.update_entry(eid=playlistId, new={'entry': songs})
-    return request.formatter({})
-
-
-@app.route("/rest/deletePlaylist.view", methods=['GET', 'POST'])
-def delete_playlist_view():
-    """TODO move to iposonic
-
-        request body:
-            name=2012-09-08&
-            songId=-2072958145&
-            songId=-2021195453&
-            songId=-1785884780
-
-    """
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
-    eid = request.values.get('id')
-
-    if not eid:
-        raise SubsonicMissingParameterException('id', 'delete_playlist_view')
-
-    iposonic.delete_entry(eid=eid)
-    return request.formatter({})
-
-#
-# download and stream
-#
-
-
-@app.route("/rest/stream.view", methods=['GET', 'POST'])
-def stream_view():
-    """@params ?u=Aaa&p=enc:616263&v=1.2.0&c=android&id=1409097050&maxBitRate=0
-
-    """
-    (u, p, v, c, f, callback, eid) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'id'])
-
-    print("request.headers: %s" % request.headers)
-    if not eid:
-        raise SubsonicProtocolException(
-            "Missing required parameter: 'id' in stream.view")
-    info = iposonic.get_entry_by_id(eid)
-    path = info.get('path', None)
-    assert path, "missing path in song: %s" % info
-    if os.path.isfile(path):
-        fp = open(path, "r")
-        print "sending static file: %s" % path
-        return send_file(path)
-    raise IposonicException("why here?")
-
-
-@app.route("/rest/download.view", methods=['GET', 'POST'])
-def download_view():
-    """@params ?u=Aaa&p=enc:616263&v=1.2.0&c=android&id=1409097050&maxBitRate=0
-
-    """
-    if not 'id' in request.args:
-        raise SubsonicProtocolException(
-            "Missing required parameter: 'id' in stream.view")
-    info = iposonic.get_entry_by_id(request.args['id'])
-    assert 'path' in info, "missing path in song: %s" % info
-    if os.path.isfile(info['path']):
-        return send_file(info['path'])
-    raise IposonicException("why here?")
-
-
-@app.route("/rest/scrobble.view", methods=['GET', 'POST'])
-def scrobble_view():
-    """Add song to last.fm"""
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
-    return request.formatter({})
-
-
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
 def get_cover_art_view():
 
@@ -675,55 +458,6 @@ def get_cover_art_view():
             print "Artist mismatch: %s, %s" % tuple(
                 [x.get('artist') for x in [info, cover]])
     raise IposonicException("Can't find CoverArt")
-
-
-@app.route("/rest/setRating.view", methods=['GET', 'POST'])
-def set_rating_view():
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    (eid, rating) = map(request.args.get, ['id', 'rating'])
-    if not rating:
-        raise SubsonicMissingParameterException(
-            'rating', sys._getframe().f_code.co_name)
-    if not eid:
-        raise SubsonicMissingParameterException(
-            'id', sys._getframe().f_code.co_name)
-    iposonic.update_entry(eid, {'userRating': 5})
-    return request.formatter({})
-
-
-#
-# TO BE DONE
-#
-
-@app.route("/rest/getUser.view", methods=['GET', 'POST'])
-def set_rating_view():
-    """TODO return a mock username settings."""
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
-    user = {'username': u,
-            'email': u,
-            'scrobblingEnabled': True,
-            'adminRole': False,
-            'settingsRole': True,
-            'downloadRole': True,
-            'uploadRole': True,
-            'playlistRole': True,
-            'coverArtRole': True,
-            'commentRole': True,
-            'podcastRole': True,
-            'streamRole': True,
-            'jukeboxRole': True,
-            'sharedRole': False
-            }
-
-    return request.formatter({'user': user})
-
-
-@app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
-def get_lyrics_view():
-    raise NotImplementedError("WriteMe")
 
 
 #
@@ -956,21 +690,3 @@ class ResponseHelper:
             "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))
 
         return ret.replace("isDir=\"True\"", "isDir=\"true\"")
-
-if __name__ == "__main__":
-    argc, argv = len(sys.argv), sys.argv
-
-    try:
-        if argv[1] == '--reset':
-            recreate_db = True
-    except:
-        recreate_db = False
-
-    if not os.path.isdir(tmp_dir):
-        os.mkdir(tmp_dir)
-    if not os.path.isdir(cache_dir):
-        os.mkdir(cache_dir)
-
-    iposonic = Iposonic(music_folders, dbhandler=Dbh, recreate_db=recreate_db)
-    iposonic.db.init_db()
-    app.run(host='0.0.0.0', port=5000, debug=True)
