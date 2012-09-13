@@ -7,11 +7,13 @@ from webapp import iposonic, app, randomize2_list
 from iposonic import SubsonicMissingParameterException, SubsonicProtocolException, IposonicException
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 import thread
-print thread.get_ident(), "iposonic view_playlist @%s" %  id(iposonic)
+print thread.get_ident(), "iposonic view_playlist @%s" % id(iposonic)
 
 #
 #
 #
+
+
 @app.route("/rest/getPlaylists.view", methods=['GET', 'POST'])
 def get_playlists_view():
     """ response xml:
@@ -48,6 +50,7 @@ def get_playlists_view():
 
     playlists.extend(iposonic.get_playlists())
     return request.formatter({'playlists': {'playlist': playlists}})
+
 
 @app.route("/rest/getPlaylist.view", methods=['GET', 'POST'])
 def get_playlist_view():
@@ -148,7 +151,7 @@ def create_playlist_view():
         playlist = iposonic.get_playlists(eid=playlistId)
         assert playlist
         songs = playlist.get('entry')
-        songs += ",".join(songId_l) 
+        songs += ",".join(songId_l)
         iposonic.update_entry(eid=playlistId, new={'entry': songs})
     return request.formatter({})
 
@@ -174,4 +177,3 @@ def delete_playlist_view():
 
     iposonic.delete_entry(eid=eid)
     return request.formatter({})
-

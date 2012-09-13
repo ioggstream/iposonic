@@ -101,7 +101,7 @@ class IposonicDBTables:
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
-                    elif k.lower() in ['userrating', 'averagerating', 'duration']:
+                    elif k.lower() in ['userrating', 'averagerating', 'duration', 'bitrate']:
                         v = int(v) if v is not None else 0
                     ret.append((k, v))
             return dict(ret)
@@ -136,7 +136,7 @@ class IposonicDBTables:
         __fields__ = ['id', 'name', 'path', 'parent',
                       'title', 'artist', 'isDir', 'album',
                       'genre', 'track', 'tracknumber', 'date', 'suffix',
-                      'isvideo', 'duration', 'size', 'bitrate',
+                      'isvideo', 'duration', 'size', 'bitRate',
                       'userRating', 'averageRating', 'coverArt'
                       ]
 
@@ -148,6 +148,7 @@ class IposonicDBTables:
             Base.__init__(self)
             #self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
             #    k, v) in MediaManager.get_info(path).iteritems()]))
+            
             self.__dict__.update(MediaManager.get_info(path))
 
     class Album(Base, SerializerMixin):
@@ -431,6 +432,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 raise IposonicException(e)
 
         if record and id:
+            print "Adding entry: %s " % record
             session.merge(record)
             return eid
 

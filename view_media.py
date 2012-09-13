@@ -2,7 +2,8 @@
 # Views for downloading songs
 #
 #
-import os, sys
+import os
+import sys
 from flask import request, send_file
 from webapp import iposonic, app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
@@ -15,13 +16,15 @@ from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 
 @app.route("/rest/stream.view", methods=['GET', 'POST'])
 def stream_view():
-    """@params 
+    """@params
         - id=1409097050
         - maxBitRate=0 TODO
 
     """
-    (u, p, v, c, f, callback, eid) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'id'])
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+        
+    (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
 
     print("request.headers: %s" % request.headers)
     if not eid:
@@ -30,8 +33,15 @@ def stream_view():
     info = iposonic.get_entry_by_id(eid)
     path = info.get('path', None)
     assert path, "missing path in song: %s" % info
-    if os.path.isfile(path):
-        fp = open(path, "r")
+    
+
+    with open(path, "r") as fp: 
+        print "actual bitRate: " , info.get('bitRate')
+        try:
+            if int(maxBitRate) < info.get('bitRate'):
+                print "reduce bitRate"
+        except:
+            print "sending unchanged"
         print "sending static file: %s" % path
         return send_file(path)
     raise IposonicException("why here?")
@@ -76,9 +86,6 @@ def set_rating_view():
     return request.formatter({})
 
 
-
-
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
 def get_lyrics_view():
     raise NotImplementedError("WriteMe")
-

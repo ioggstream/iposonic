@@ -9,6 +9,7 @@ from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 # TO BE DONE
 #
 
+
 @app.route("/rest/getUser.view", methods=['GET', 'POST'])
 def get_user_view():
     """TODO return a mock username settings."""

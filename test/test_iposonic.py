@@ -37,7 +37,7 @@ class TestIposonic:
         self.iposonic = Iposonic([self.test_dir])
         self.iposonic.db.walk_music_directory()
         self.harn_load_fs2()
-
+        assert self.iposonic.db.albums
     def teardown(self):
         self.iposonic = None
 
@@ -46,8 +46,9 @@ class TestIposonic:
             ret = dirfile
             ret.extend(files)
             for p in ret:
+                is_album = p in dirfile
                 path = join("/", root, p)
-                self.iposonic.db.add_entry(path)
+                self.iposonic.db.add_entry(path, album = is_album)
 
     def harn_load_fs(self):
         """Adds the entries in root to the iposonic index"""
@@ -185,11 +186,15 @@ class TestIposonicDB:
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
             assert 'path' in info, "error processing eid: %s" % eid
+            
 
     def test_search_songs_by_title(self):
         harn_load_fs2(self)
         ret = self.db.get_songs(query={'title': 'mock_title'})
-        assert ret[0]['title'], ret
+        info = ret[0]
+        assert info['title'], ret
+        assert info.get('bitRate'), ret
+        print info
 
     def test_walk_music_directory(self):
         print self.db.walk_music_directory()

@@ -46,6 +46,18 @@ class TestMediaManager:
         expected = {
             'title': 'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)',
             'artist': 'Lara St John (PREVIEW: buy it at www.magnatune.com)',
+            'bitRate': 128,
+            'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
+        }
+        self.get_info_harn(file_name, expected)
+    def get_info_test_mp3_2(self):
+        file_name = "./test/data/Aretha Franklin/20 Greatest hits/Angel.mp3"
+        parent = dirname(file_name)
+
+        expected = {
+            'title': 'Angel',
+            'artist': 'Aretha Franklin',
+            'bitRate': 128,
             'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
