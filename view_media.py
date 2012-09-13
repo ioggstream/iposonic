@@ -4,7 +4,9 @@
 #
 import os
 import sys
-from flask import request, send_file
+import subprocess
+
+from flask import request, send_file, Response
 from webapp import iposonic, app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
@@ -33,19 +35,33 @@ def stream_view():
     info = iposonic.get_entry_by_id(eid)
     path = info.get('path', None)
     assert path, "missing path in song: %s" % info
-    
 
-    with open(path, "r") as fp: 
-        print "actual bitRate: " , info.get('bitRate')
+    def change_bitrate(maxBitRate, info):
         try:
-            if int(maxBitRate) < info.get('bitRate'):
-                print "reduce bitRate"
+            return int(maxBitRate) < info.get('bitRate')
         except:
             print "sending unchanged"
-        print "sending static file: %s" % path
-        return send_file(path)
+            return False
+            
+    print "actual - bitRate: " , info.get('bitRate')
+    assert os.path.isfile(path), "Missing file: %s" % path
+    if change_bitrate(maxBitRate, info):
+        return Response(_downsample_mp3(path, maxBitRate), direct_passthrough = True)
+    print "sending static file: %s" % path
+    return send_file(path)
     raise IposonicException("why here?")
 
+def _downsample_mp3(path, maxBitRate):
+    """Transcode mp3 files reducing the bitrate."""
+    cmd = ["/usr/bin/lame" , "-B",  maxBitRate, path, "-"]
+    print "generate(): %s" % cmd
+    srcfile = subprocess.Popen(cmd, stdout = subprocess.PIPE) 
+    while True:
+        data = srcfile.stdout.read(4096)
+        if not data:
+            break
+        print
+        yield data
 
 @app.route("/rest/download.view", methods=['GET', 'POST'])
 def download_view():
