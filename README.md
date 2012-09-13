@@ -3,15 +3,18 @@ iposonic
 
 A tiny subsonic server api implementation with python + flask.
 Supports:
-	- coverArt search on the web
-	- playlist add/delete
-	- simple and customizable authentication
-	- full-text search
-	- optional database backends 
+	* coverArt search on the web
+	* playlist add/delete
+	* simple and customizable authentication
+	* full-text search songs and albums
+	* optional database backends 
   
 It works nicely for listing and playing your files with a subsonic client.
-	- Android client
-	- MiniSub and Perisonic
+	* Android client
+	* MiniSub and Perisonic
+
+Development branches supports:
+	* down-sampling for streaming via GPRS/UMTS
 
 quickstart
 ==========
