@@ -1,5 +1,4 @@
-from iposonic import ResponseHelper
-assert ResponseHelper
+from webapp import ResponseHelper
 
 
 def var_sample():

@@ -119,7 +119,7 @@ class IposonicDBTables:
 
     class Artist(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
-                      'averageRating', 'coverArt']
+                      'averageRating', 'coverArt', 'starred', 'created']
         __tablename__ = "artist"
 
         def __init__(self, path_u):
@@ -137,7 +137,7 @@ class IposonicDBTables:
                       'title', 'artist', 'isDir', 'album',
                       'genre', 'track', 'tracknumber', 'date', 'suffix',
                       'isvideo', 'duration', 'size', 'bitRate',
-                      'userRating', 'averageRating', 'coverArt'
+                      'userRating', 'averageRating', 'coverArt', 'starred', 'created'
                       ]
 
         def __init__(self, path):
@@ -154,7 +154,7 @@ class IposonicDBTables:
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
                       'parent', 'album', 'artist',
-                      'userRating', 'averageRating', 'coverArt'
+                      'userRating', 'averageRating', 'coverArt', 'starred', 'created'
                       ]
         __tablename__ = "album"
 
@@ -300,7 +300,12 @@ class SqliteIposonicDB(object, IposonicDBTables):
             for (k, v) in query.items():
                 field_o = table_o.__getattribute__(table_o, k)
                 assert field_o, "Field must not be null"
-                rs = qmodel.filter(field_o.like("%%%s%%" % v)).all()
+                if v == 'isNull':
+                    rs = qmodel.filter(field_o == None).all()
+                elif v == 'notNull':
+                    rs = qmodel.filter(field_o != None).all()
+                else:
+                    rs = qmodel.filter(field_o.like("%%%s%%" % v)).all()
         else:
             rs = qmodel.all()
         if not rs:

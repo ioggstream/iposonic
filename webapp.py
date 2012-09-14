@@ -39,6 +39,8 @@ from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
 
 from art_downloader import CoverSource
 from urllib import urlopen
+import cgi
+
 #
 # Use one of the allowed DB
 #
@@ -119,8 +121,10 @@ def get_music_folders_view():
     return request.formatter(
         {
             'musicFolders': {
-                'musicFolder': [
-                    {'id': MediaManager.get_entry_id(d), 'name': d} for d in iposonic.get_music_folders() if os.path.isdir(d)
+                'musicFolder': [{
+                    'id': MediaManager.get_entry_id(d), 
+                    'name': d
+                    } for d in iposonic.get_music_folders() if os.path.isdir(d)
                 ]
             }
         }
@@ -190,24 +194,51 @@ def get_music_directory_view():
         -
 
       xml response 1:
-      <directory id="1" name="ABBA">
-        <child id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22"/>
-        <child id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23"/>
-      </directory>
+          <directory id="1" name="ABBA">
+            <child id="11" 
+                parent="1" 
+                title="Arrival" 
+                artist="ABBA" 
+                isDir="true" 
+                coverArt="22"/>
+            <child id="12" 
+                parent="1" 
+                title="Super Trouper" 
+                artist="ABBA" 
+                isDir="true" 
+                coverArt="23"/>
+          </directory>
 
       xml response 2:
-      <directory id="11" parent="1" name="Arrival">
-        <child id="111" parent="11" title="Dancing Queen" isDir="false"
-        album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24"
-        size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128"
-        path="ABBA/Arrival/Dancing Queen.mp3"/>
+          <directory id="11" parent="1" name="Arrival">
+            <child id="111" 
+                parent="11" 
+                title="Dancing Queen" 
+                isDir="false"
+                album="Arrival" 
+                artist="ABBA" 
+                track="7" 
+                year="1978" 
+                genre="Pop" 
+                coverArt="24"
+                size="8421341" 
+                contentType="audio/mpeg" 
+                suffix="mp3" 
+                duration="146" 
+                bitRate="128"
+                path="ABBA/Arrival/Dancing Queen.mp3"/>
 
-        <child id="112" parent="11" title="Money, Money, Money" isDir="false"
-        album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
-        size="4910028" contentType="audio/flac" suffix="flac"
-        transcodedContentType="audio/mpeg" transcodedSuffix="mp3"  duration="208" bitRate="128"
-        path="ABBA/Arrival/Money, Money, Money.mp3"/>
-      </directory>
+            <child id="112" 
+                parent="11" 
+                ... # se above
+                contentType="audio/flac" 
+                suffix="flac"
+                transcodedContentType="audio/mpeg" 
+                transcodedSuffix="mp3"  
+                duration="208" 
+                bitRate="128"
+                />
+          </directory>
 
         jsonp response
     """
@@ -222,7 +253,6 @@ def get_music_directory_view():
     # if nothing changed before our last visit
     #    don't rescan
     #
-    # os.stat ("/etc").st_mtime
     last_modified = os.stat(dir_path).st_ctime
     artist = iposonic.db.Artist(path)
     children = []
@@ -320,6 +350,62 @@ def search2_view():
     )
     raise NotImplementedError("WriteMe")
 
+
+
+@app.route("/rest/getStarred.view", methods=['GET', 'POST'])
+def get_starred_view():
+    """
+        xml response
+            <starred>
+                <artist name="Kvelertak" id="143408"/>
+                <artist name="Dimmu Borgir" id="143402"/>
+                <artist name="Iron Maiden" id="143403"/>
+                <album id="143862" 
+                        ... # album attributes
+                       created="2011-02-26T10:45:30"
+                       starred="2012-04-05T18:40:08"/>
+                <album id="143888" 
+                        ... # album attributes
+                        created="2011-03-23T09:29:13" 
+                        starred="2012-04-05T18:40:02"/>
+                <song id="143588" 
+                        ... # song attributes
+                        created="2010-09-27T20:52:23" 
+                        starred="2012-04-02T17:17:01" 
+                      albumId="163" artistId="133" type="music"/>
+                <song id="143600" parent="143386" title="Satellite 15....The Final Frontier"
+                      album="The Final Frontier (Mission Edition)" artist="Iron Maiden" isDir="false" coverArt="143386"
+                      created="2010-08-16T21:08:01" starred="2012-04-02T14:12:54" duration="521" bitRate="320" track="1"
+                      year="2010" genre="Heavy Metal" size="21855635" suffix="mp3" contentType="audio/mpeg" isVideo="false"
+                      path="Iron Maiden/2010 The Final Frontier/01 Satellite 15....The Final Frontier.mp3" albumId="156"
+                      artistId="126" type="music"/>
+                <song id="143604" parent="143386" title="The Alchemist" album="The Final Frontier (Mission Edition)"
+                      artist="Iron Maiden" isDir="false" coverArt="143386" created="2010-08-16T21:07:51"
+                      starred="2012-04-02T14:12:52" duration="269" bitRate="320" track="5" year="2010" genre="Heavy Metal"
+                      size="11774455" suffix="mp3" contentType="audio/mpeg" isVideo="false"
+                      path="Iron Maiden/2010 The Final Frontier/05 The Alchemist.mp3" albumId="156" artistId="126"
+                      type="music"/>
+            </starred>
+    """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+
+    ret = iposonic.search2(query, artistCount, albumCount, songCount)
+    #songs = [{'song': s} for s in ret['title']]
+    #songs.extend([{'album': a} for a in ret['album']])
+    #songs.extend([{'artist': a} for a in ret['artist']])
+    print "ret: %s" % ret
+    return request.formatter(
+        {
+            'starred': {
+                'song': ret['title'],
+                'album': ret['album'],
+                'artist': ret['artist']
+            }
+        }
+    )
+
+    raise NotImplementedError()
 
 #
 # Extras
@@ -464,25 +550,6 @@ def get_cover_art_view():
 # Helpers
 #
 
-def hex_decode(s):
-    """Decode an eventually hex-encoded password."""
-    if not s:
-        return ""
-    ret = ""
-    if s.startswith("enc:"):
-        print "s: ", s
-        s = s[4:]
-        i = 0
-        while i < len(s):
-            l = int(s[i:i + 2], 16)
-            print "l:", l
-            l = chr(l)
-            ret += l
-            i += 2
-    else:
-        ret = s
-
-    return ret
 
 
 @app.before_request
@@ -534,6 +601,26 @@ def set_content_type(response):
     return response
 
 
+def hex_decode(s):
+    """Decode an eventually hex-encoded password."""
+    if not s:
+        return ""
+    ret = ""
+    if s.startswith("enc:"):
+        print "s: ", s
+        s = s[4:]
+        i = 0
+        while i < len(s):
+            l = int(s[i:i + 2], 16)
+            print "l:", l
+            l = chr(l)
+            ret += l
+            i += 2
+    else:
+        ret = s
+
+    return ret
+    
 def randomize(dictionary, limit=20):
     a_all = dictionary.keys()
     a_max = len(a_all)
@@ -577,7 +664,6 @@ def randomize2_list(lst, limit=20):
         ret.append(k)
     return ret
 
-import cgi
 
 
 class ResponseHelper:

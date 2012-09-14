@@ -92,7 +92,11 @@ def get_playlist_view():
 
     entries = []
     # use default playlists
-    if eid in [x.get('id') for x in iposonic.get_playlists_static()]:
+    if eid == MediaManager.get_entry_id('starred'):
+        j_playlist = iposonic.get_playlists_static(eid=eid)
+        songs = iposonic.get_starred().get('title')
+        entries = randomize2_list(songs, 5)
+    elif eid in [x.get('id') for x in iposonic.get_playlists_static()]:
         j_playlist = iposonic.get_playlists_static(eid=eid)
         entries = randomize2_list(iposonic.get_songs(), 5)
     else:
@@ -103,6 +107,9 @@ def get_playlist_view():
         if entry_ids:
             entries = [x for x in iposonic.get_song_list(entry_ids.split(","))]
         j_playlist = playlist
+    # format output
+    assert entries, "Missing entries: %s" % entries
+    print "Entries retrieved: %s" % entries
     j_playlist.update({
         'entry': entries,
         'songCount': len(entries),

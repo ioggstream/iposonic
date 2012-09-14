@@ -33,3 +33,28 @@ def get_user_view():
             }
 
     return request.formatter({'user': user})
+
+
+@app.route("/rest/getNowPlaying.view")
+def get_now_playing_view():
+    """TODO: save timestamp and song duration of every stream.view request
+
+        xml response:
+            <nowPlaying>
+                <entry username="sindre"
+                    minutesAgo="12"
+                    playerId="2"
+                    ... # all media properties />
+
+                <entry username="bente"
+                    minutesAgo="1"
+                    playerId="4"
+                    playerName="Kitchen"
+                    ... # all media properties
+                />
+            </nowPlaying>
+        """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+
+    raise NotImplementedError()

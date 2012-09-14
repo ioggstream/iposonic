@@ -54,11 +54,9 @@ class SubsonicMissingParameterException(SubsonicProtocolException):
             self, "Missing required parameter: %s in %s", param, method)
 
 
-
 ##
 ## The app ;)
 ##
-
 class IposonicDB(object):
     """An abstract in-memory data store based on dictionaries.
 
@@ -194,7 +192,8 @@ class IposonicDB(object):
         """return values in hash matching query.
 
             query is a dict, eg {'title': 'Viva l'Italia'}
-
+                it has two protected words: 'Null' and 'notNull', ex.
+                {'starred' : 'notNull' }
             return a list of values or keys:
             [
                 {'id':.., 'name':.., 'path': ..},
@@ -215,8 +214,23 @@ class IposonicDB(object):
                 except:
                     pass
                 return False
-
-            ret = filter(f_get_field, hash_)
+                
+            def f_is_null(x):
+                try:
+                    return  hash_.get(x).get(field) == None
+                except:
+                    return False
+            def f_is_not_null(x):
+                return not f_is_null(x)
+                
+            if value == 'isNull':
+                f_filter = f_is_null
+            elif value == 'notNull':
+                f_filter = f_is_not_null
+            else:
+                f_filter = f_get_field
+                
+            ret = filter(f_filter, hash_)
             if not key_only:
                 ret = [hash_[x] for x in ret]
             return ret
@@ -398,8 +412,6 @@ class Iposonic:
             return dbmethod
         raise NotImplementedError("Method not found: %s" % method)
 
-
-
     def get_folder_by_id(self, folder_id):
         """It's ok just because self.db.get_music_folders() are few"""
         for folder in self.db.get_music_folders():
@@ -497,19 +509,18 @@ class Iposonic:
         return self.db.get_songs(query={'genre': query})
 
     def search2(self, query, artistCount=10, albumCount=10, songCount=10):
-        """response: artist, album, song
-        <artist id="1" name="ABBA"/>
-        <album id="11" parent="1" title="Arrival" artist="ABBA" isDir="true" coverArt="22"/>
-        <album id="12" parent="1" title="Super Trouper" artist="ABBA" isDir="true" coverArt="23"/>
-        <song id="112" parent="11" title="Money, Money, Money" isDir="false"
-              album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25"
-              size="4910028" contentType="audio/flac" suffix="flac"
-              transcodedContentType="audio/mpeg" transcodedSuffix="mp3"
-              path="ABBA/Arrival/Money, Money, Money.mp3"/>
+        """Return items matching the query in their principal name.
+
+            ex. (song.title | album.title | artist.name) ~ query
+
+            return:
+            {
+                artist: [{}, .. ,{}]
+                album: [{}, .. ,{}]
+                song: [{}, .. ,{}]
+            }
 
         """
-        #if albumCount != 10 or songCount != 10 or artistCount != 10: raise NotImplementedError()
-
         # create an empty result set
         tags = ['artist', 'album', 'title']
         ret = dict(zip(tags, [[], [], []]))
@@ -526,6 +537,25 @@ class Iposonic:
         # TODO merge them or use sets
         return ret
 
+    def get_starred(self, artistCount=10, albumCount=10, songCount=10):
+        """Return items matching the query in their principal name.
+
+            ex. (song.title | album.title | artist.name) ~ query
+
+            return:
+            {
+                artist: [{}, .. ,{}]
+                album: [{}, .. ,{}]
+                song: [{}, .. ,{}]
+            }
+        """
+        query = {'starred': 'notNull'}
+        return {
+            'artist': self.db.get_artists(query=query),
+            'album': self.db.get_albums(query=query),
+            'title': self.db.get_songs(query=query)
+        }
+
     def refresh(self):
         """Find all artists (top-level directories) and create indexes.
 
@@ -539,7 +569,7 @@ class Iposonic:
             Useful for clients that doesn't support advanced queries.
         """
         playlist_static = [self.db.Playlist(
-            name).json() for name in ['sample', 'random', 'genre']]
+            name).json() for name in ['sample', 'random', 'genre', 'starred']]
         if not eid:
             return playlist_static
 
