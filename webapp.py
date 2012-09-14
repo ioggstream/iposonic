@@ -122,9 +122,9 @@ def get_music_folders_view():
         {
             'musicFolders': {
                 'musicFolder': [{
-                    'id': MediaManager.get_entry_id(d), 
+                    'id': MediaManager.get_entry_id(d),
                     'name': d
-                    } for d in iposonic.get_music_folders() if os.path.isdir(d)
+                } for d in iposonic.get_music_folders() if os.path.isdir(d)
                 ]
             }
         }
@@ -195,47 +195,47 @@ def get_music_directory_view():
 
       xml response 1:
           <directory id="1" name="ABBA">
-            <child id="11" 
-                parent="1" 
-                title="Arrival" 
-                artist="ABBA" 
-                isDir="true" 
+            <child id="11"
+                parent="1"
+                title="Arrival"
+                artist="ABBA"
+                isDir="true"
                 coverArt="22"/>
-            <child id="12" 
-                parent="1" 
-                title="Super Trouper" 
-                artist="ABBA" 
-                isDir="true" 
+            <child id="12"
+                parent="1"
+                title="Super Trouper"
+                artist="ABBA"
+                isDir="true"
                 coverArt="23"/>
           </directory>
 
       xml response 2:
           <directory id="11" parent="1" name="Arrival">
-            <child id="111" 
-                parent="11" 
-                title="Dancing Queen" 
+            <child id="111"
+                parent="11"
+                title="Dancing Queen"
                 isDir="false"
-                album="Arrival" 
-                artist="ABBA" 
-                track="7" 
-                year="1978" 
-                genre="Pop" 
+                album="Arrival"
+                artist="ABBA"
+                track="7"
+                year="1978"
+                genre="Pop"
                 coverArt="24"
-                size="8421341" 
-                contentType="audio/mpeg" 
-                suffix="mp3" 
-                duration="146" 
+                size="8421341"
+                contentType="audio/mpeg"
+                suffix="mp3"
+                duration="146"
                 bitRate="128"
                 path="ABBA/Arrival/Dancing Queen.mp3"/>
 
-            <child id="112" 
-                parent="11" 
+            <child id="112"
+                parent="11"
                 ... # se above
-                contentType="audio/flac" 
+                contentType="audio/flac"
                 suffix="flac"
-                transcodedContentType="audio/mpeg" 
-                transcodedSuffix="mp3"  
-                duration="208" 
+                transcodedContentType="audio/mpeg"
+                transcodedSuffix="mp3"
+                duration="208"
                 bitRate="128"
                 />
           </directory>
@@ -351,7 +351,6 @@ def search2_view():
     raise NotImplementedError("WriteMe")
 
 
-
 @app.route("/rest/getStarred.view", methods=['GET', 'POST'])
 def get_starred_view():
     """
@@ -360,18 +359,18 @@ def get_starred_view():
                 <artist name="Kvelertak" id="143408"/>
                 <artist name="Dimmu Borgir" id="143402"/>
                 <artist name="Iron Maiden" id="143403"/>
-                <album id="143862" 
+                <album id="143862"
                         ... # album attributes
                        created="2011-02-26T10:45:30"
                        starred="2012-04-05T18:40:08"/>
-                <album id="143888" 
+                <album id="143888"
                         ... # album attributes
-                        created="2011-03-23T09:29:13" 
+                        created="2011-03-23T09:29:13"
                         starred="2012-04-05T18:40:02"/>
-                <song id="143588" 
+                <song id="143588"
                         ... # song attributes
-                        created="2010-09-27T20:52:23" 
-                        starred="2012-04-02T17:17:01" 
+                        created="2010-09-27T20:52:23"
+                        starred="2012-04-02T17:17:01"
                       albumId="163" artistId="133" type="music"/>
                 <song id="143600" parent="143386" title="Satellite 15....The Final Frontier"
                       album="The Final Frontier (Mission Edition)" artist="Iron Maiden" isDir="false" coverArt="143386"
@@ -410,6 +409,8 @@ def get_starred_view():
 #
 # Extras
 #
+
+
 @app.route("/rest/getAlbumList.view", methods=['GET', 'POST'])
 def get_album_list_view():
     """Get albums
@@ -551,7 +552,6 @@ def get_cover_art_view():
 #
 
 
-
 @app.before_request
 def authorize():
     """Authenticate users"""
@@ -620,7 +620,8 @@ def hex_decode(s):
         ret = s
 
     return ret
-    
+
+
 def randomize(dictionary, limit=20):
     a_all = dictionary.keys()
     a_max = len(a_all)
@@ -663,7 +664,6 @@ def randomize2_list(lst, limit=20):
             continue
         ret.append(k)
     return ret
-
 
 
 class ResponseHelper:

@@ -148,7 +148,7 @@ class IposonicDBTables:
             Base.__init__(self)
             #self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
             #    k, v) in MediaManager.get_info(path).iteritems()]))
-            
+
             self.__dict__.update(MediaManager.get_info(path))
 
     class Album(Base, SerializerMixin):

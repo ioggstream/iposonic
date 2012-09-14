@@ -263,24 +263,25 @@ class MediaManager:
 
     @staticmethod
     def get_track_number(x):
-        """Search track info in various parameters."""            
+        """Search track info in various parameters."""
         def _trackize(x):
             if not x:
                 return 0
-                
+
             if x.find("/"):
                 x = x[:x.index("/")]
             try:
                 return int(x)
             except ValueError:
                 return 0
-        
-        for field in ['track','tracknumber']:
+
+        for field in ['track', 'tracknumber']:
             ret = _trackize(x.get(field))
             if ret:
                 return ret
         return 0
-            
+
+
 class StringUtils:
     encodings = ['utf-8', 'ascii', 'latin_1', 'iso8859_15', 'cp850',
                  'cp037', 'cp1252']

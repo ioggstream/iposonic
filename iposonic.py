@@ -214,22 +214,23 @@ class IposonicDB(object):
                 except:
                     pass
                 return False
-                
+
             def f_is_null(x):
                 try:
-                    return  hash_.get(x).get(field) == None
+                    return  hash_.get(x).get(field) is None
                 except:
                     return False
+
             def f_is_not_null(x):
                 return not f_is_null(x)
-                
+
             if value == 'isNull':
                 f_filter = f_is_null
             elif value == 'notNull':
                 f_filter = f_is_not_null
             else:
                 f_filter = f_get_field
-                
+
             ret = filter(f_filter, hash_)
             if not key_only:
                 ret = [hash_[x] for x in ret]

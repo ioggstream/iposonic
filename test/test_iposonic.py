@@ -49,11 +49,11 @@ class TestIposonic:
             ret.extend(files)
             for p in ret:
                 eid_list = self.id_songs
-                is_album = p in dirfile                
-                if is_album: 
+                is_album = p in dirfile
+                if is_album:
                     eid_list = self.id_albums
                 path = join("/", root, p)
-                eid = self.iposonic.db.add_entry(path, album = is_album)
+                eid = self.iposonic.db.add_entry(path, album=is_album)
                 eid_list.append(eid)
 
     def harn_load_fs(self):
@@ -125,7 +125,7 @@ class TestIposonic:
         assert artist
         assert artist['path'] == self.iposonic.get_directory_path_by_id(eid)[0], "Can't find entry %s in %s" % (
             eid, dirs)
-            
+
     def test_starred(self):
         eid = self.iposonic.get_songs()[0].get('id')
         print "songs: %s" % self.iposonic.get_songs()[0]
@@ -133,12 +133,14 @@ class TestIposonic:
         print self.iposonic.get_songs(eid=eid)
         ret = self.iposonic.get_starred()
         assert ret, "Missing ret. %s" % ret
-        assert '12 12 23' in [x.get('starred') for x in ret['title']] , "Missing starred. %s" % ret['title']
+        assert '12 12 23' in [x.get('starred') for x in ret['title']
+                              ], "Missing starred. %s" % ret['title']
         print "ret: %s" % ret
 
 #
 # Test DB
 #
+
 
 class TestIposonicDB:
     dbhandler = IposonicDB
@@ -205,7 +207,6 @@ class TestIposonicDB:
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
             assert 'path' in info, "error processing eid: %s" % eid
-            
 
     def test_search_songs_by_title(self):
         harn_load_fs2(self)
@@ -231,7 +232,7 @@ class TestIposonicDB:
         ret = self.db.get_highest()
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret
-        
+
 
 class TestPlaylistIposonicDB:
     dbhandler = SqliteIposonicDB

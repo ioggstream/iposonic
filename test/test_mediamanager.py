@@ -50,6 +50,7 @@ class TestMediaManager:
             'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
+
     def get_info_test_mp3_2(self):
         file_name = "./test/data/Aretha Franklin/20 Greatest hits/Angel.mp3"
         parent = dirname(file_name)

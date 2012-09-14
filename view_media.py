@@ -26,7 +26,7 @@ def stream_view():
     """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-        
+
     (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
 
     print("request.headers: %s" % request.headers)
@@ -43,29 +43,31 @@ def stream_view():
         except:
             print "sending unchanged"
             return False
-            
-    print "actual - bitRate: " , info.get('bitRate')
+
+    print "actual - bitRate: ", info.get('bitRate')
     assert os.path.isfile(path), "Missing file: %s" % path
     if is_transcode(maxBitRate, info):
-        return Response(_transcode_mp3(path, maxBitRate), direct_passthrough = True)
+        return Response(_transcode_mp3(path, maxBitRate), direct_passthrough=True)
     print "sending static file: %s" % path
     return send_file(path)
     raise IposonicException("why here?")
 
+
 def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
-    cmd = ["/usr/bin/lame" , "-B",  maxBitRate, srcfile, "-"]
+    cmd = ["/usr/bin/lame", "-B", maxBitRate, srcfile, "-"]
     print "generate(): %s" % cmd
-    srcfile = subprocess.Popen(cmd, stdout = subprocess.PIPE) 
+    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
         data = srcfile.stdout.read(4096)
         if not data:
             break
         yield data
 
+
 @app.route("/rest/download.view", methods=['GET', 'POST'])
 def download_view():
-    """@params 
+    """@params
         id=1409097050
         maxBitRate=0
 
@@ -103,8 +105,10 @@ def set_rating_view():
     rating = int(rating)
     iposonic.update_entry(eid, {'userRating': rating})
     if rating == 5:
-        iposonic.update_entry(eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
+        iposonic.update_entry(
+            eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
     return request.formatter({})
+
 
 @app.route("/rest/star.view", methods=['GET', 'POST'])
 def star_view():
@@ -116,7 +120,8 @@ def star_view():
             'id', sys._getframe().f_code.co_name)
     iposonic.update_entry(eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
     return request.formatter({})
-    
+
+
 @app.route("/rest/unstar.view", methods=['GET', 'POST'])
 def unstar_view():
     (u, p, v, c, f, callback) = map(
@@ -126,8 +131,9 @@ def unstar_view():
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
     iposonic.update_entry(eid, {'starred': None})
-    return request.formatter({})    
-    
+    return request.formatter({})
+
+
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
 def get_lyrics_view():
     raise NotImplementedError("WriteMe")

@@ -98,7 +98,7 @@ def get_playlist_view():
         entries = randomize2_list(songs, 5)
     elif eid in [x.get('id') for x in iposonic.get_playlists_static()]:
         j_playlist = iposonic.get_playlists_static(eid=eid)
-        entries = randomize2_list(iposonic.get_songs(), 5)
+        entries = randomize2_list(iposonic.get_songs())
     else:
         playlist = iposonic.get_playlists(eid=eid)
         assert playlist, "Playlists: %s" % iposonic.db.playlists
