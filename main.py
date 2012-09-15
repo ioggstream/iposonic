@@ -10,6 +10,7 @@ from webapp import tmp_dir, cache_dir, music_folders
 
 from webapp import app
 
+import view_browse
 import view_playlist
 import view_user
 import view_media
