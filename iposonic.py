@@ -19,16 +19,14 @@
 
 # standard libs
 import os
-#import sys
 import re
 from os.path import join, basename, dirname
-from binascii import crc32
 
 #
 # manage media files
 #
 # tags
-from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
+from mediamanager import MediaManager, UnsupportedMediaError
 
 # logging and json
 #import simplejson
@@ -136,7 +134,7 @@ class IposonicDB(object):
         __fields__ = ['id', 'name', 'path', 'parent',
                       'title', 'artist', 'isDir', 'album',
                       'genre', 'track', 'tracknumber', 'date', 'suffix',
-                      'isvideo', 'duration', 'size', 'bitrate',
+                      'isvideo', 'duration', 'size', 'bitRate',
                       'userRating', 'averageRating', 'coverArt'
                       ]
 
@@ -520,23 +518,15 @@ class Iposonic:
                 album: [{}, .. ,{}]
                 song: [{}, .. ,{}]
             }
-
+            TODO return song instead of title
         """
-        # create an empty result set
-        tags = ['artist', 'album', 'title']
-        ret = dict(zip(tags, [[], [], []]))
-
-        # add fields from directories
-        ret['artist'].extend(self.db.get_artists(query={'name': query}))
-        ret['album'].extend(self.db.get_albums(query={'title': query}))
-
-        songs = self.db.get_songs(query={'title': query})
-        ret['title'].extend(songs)
-
-        self.log.info("search2 result: %s" % ret)
-
         # TODO merge them or use sets
-        return ret
+        return {
+            'artist': self.db.get_artists(query={'name': query}),
+            'album': self.db.get_albums(query={'title': query}),
+            'title': self.db.get_songs(query={'title': query})
+        }
+
 
     def get_starred(self, artistCount=10, albumCount=10, songCount=10):
         """Return items matching the query in their principal name.

@@ -300,7 +300,7 @@ def get_starred_view():
     (artistCount, albumCount, songCount) = map(
         request.args.get, ["artistCount", "albumCount", "songCount"])
 
-    ret = iposonic.search2(query, artistCount, albumCount, songCount)
+    ret = iposonic.get_starred(query, artistCount, albumCount, songCount)
     print "ret: %s" % ret
     return request.formatter(
         {

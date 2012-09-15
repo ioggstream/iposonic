@@ -164,18 +164,15 @@ def hex_decode(s):
         return ""
     ret = ""
     if s.startswith("enc:"):
-        print "s: ", s
+        #print "s: ", s
         s = s[4:]
         i = 0
-        while i < len(s):
+        for i in range(0,len(s),2):
             l = int(s[i:i + 2], 16)
-            print "l:", l
-            l = chr(l)
-            ret += l
-            i += 2
+            ret += chr(l)
     else:
         ret = s
-
+    print "decoded password: %s" % ret
     return ret
 
 
