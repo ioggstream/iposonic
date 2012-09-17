@@ -1,4 +1,17 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+#
+# The Flask part of iposonic
+#
+# author: Roberto Polli robipolli@gmail.com (c) 2012
+#
+# License AGPLv3
+#
+# TODO manage argv for:
+#   * music_folders
+#   * authentication backend
+#   * reset db
+#
 import sys
 import os
 import thread

@@ -29,7 +29,6 @@ from os.path import join, basename, dirname
 from mediamanager import MediaManager, UnsupportedMediaError
 
 # logging and json
-#import simplejson
 import logging
 log = logging.getLogger('iposonic')
 
@@ -59,6 +58,9 @@ class IposonicDB(object):
     """An abstract in-memory data store based on dictionaries.
 
         Implement your own backend.
+        
+        FIXME update this class with all the features
+            supported by SqliteIposonicDB
     """
     log = logging.getLogger('IposonicDB')
 
@@ -401,7 +403,6 @@ class Iposonic:
             'get_artists',
             'get_music_folders',
             'get_albums',
-            #    'get_songs',
             'get_highest',
             'get_playlists',
             'get_song_list',

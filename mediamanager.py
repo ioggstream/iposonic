@@ -32,7 +32,11 @@ class MediaManager:
         """Return the ascii part of a album name."""
         # normalize artist name
         re_notascii = re.compile("[^A-Za-z0-9]")
-        artist = x.get('artist').lower()
+        try:
+            artist = x.get('artist').lower()
+        except:
+            print "Can't find artist: %s" % x
+            raise
         ret = re_notascii.sub("", artist)
         print "normalize_album(%s): %s" % (x, ret)
         return ret
@@ -109,7 +113,7 @@ class MediaManager:
             extension = ""  # if no extension found
 
         ret = {}
-        # strip notes (eg. cdno, year) from filename
+        # strip notes enclosed by () - eg. (cdno), (year) from filename
         m_notes = MediaManager.re_notes.search(filename)
         if m_notes:
             try:
@@ -147,7 +151,7 @@ class MediaManager:
         except:
             size = -1
 
-        if not 'track' in ret:
+        if not 'track' in ret and not os.path.isdir(path_u):
             try:
                 t, n = title.split(" ", 1)
                 track = int(t)

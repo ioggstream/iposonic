@@ -11,8 +11,6 @@ from webapp import randomize2_list
 from iposonic import IposonicException, SubsonicProtocolException
 from mediamanager import MediaManager, StringUtils
 
-from art_downloader import CoverSource
-from urllib import urlopen
 
 log = logging.getLogger("iposonic-browse")
 
@@ -413,44 +411,4 @@ def get_random_songs_view():
     songs = [x.update({'coverArt': x.get('parent')}) or x for x in songs]
     randomSongs = {'randomSongs': {'song': songs}}
     return request.formatter(randomSongs)
-
-
-@app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
-def get_cover_art_view():
-
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    (eid, size) = map(request.args.get, ['id', 'size'])
-
-    # Return file if present
-    cover_art_path = join("/", cache_dir, "%s" % eid)
-    try:
-        return send_file(cover_art_path)
-    except IOError:
-        pass
-
-    # ...then if song, try with parent...
-    info = iposonic.get_entry_by_id(eid)
-    try:
-        if info.get('isDir') in [False, 'false', 'False']:
-            cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
-            return send_file(cover_art_path)
-    except IOError:
-        pass
-
-    # ..finally download missing cover_art in cache_dir
-    c = CoverSource()
-    for cover in c.search(info.get('album')):
-        print "confronting info: %s with: %s" % (info, cover)
-        if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
-            print "Saving image %s -> %s" % (cover.get('cover_small'), eid)
-            fd = open(cover_art_path, "w")
-            fd.write(urlopen(cover.get('cover_small')).read())
-            fd.close()
-
-            return send_file(cover_art_path)
-        else:
-            print "Artist mismatch: %s, %s" % tuple(
-                [x.get('artist') for x in [info, cover]])
-    raise IposonicException("Can't find CoverArt")
 

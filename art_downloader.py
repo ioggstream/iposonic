@@ -3,16 +3,15 @@
 # Code imported from coverart
 #    https://github.com/jmcantrell/coverart/blob/master/coverart/sources/lastfmcovers.py
 #
-import sys
-from coverart.sources import CoverSourceBase
+import sys, re
 from urllib import urlopen, quote_plus
 from xml.etree.ElementTree import parse
 
 
-class CoverSource(CoverSourceBase):
-
+class CoverSource(object):
+    """Download cover art from url_base."""
     def __init__(self):
-        CoverSourceBase.__init__(self)
+        self.max_results = 10
         self.source_name = 'Last.FM'
         self.api_key = '2f63459bcb2578a277c5cf5ec4ca62f7'
         self.url_base = 'http://ws.audioscrobbler.com/2.0/?method=album.search&api_key=%s' % self.api_key
@@ -41,10 +40,10 @@ class CoverSource(CoverSourceBase):
                 break
 
 
-class CoverSource_old(CoverSourceBase):  # {{{1
+class CoverSource_old(object):  # {{{1
 
     def __init__(self):
-        CoverSourceBase.__init__(self)
+        self.max_results = 10
         self.source_name = 'AllCDCovers'
         self.url_base = 'http://www.allcdcovers.com'
 
@@ -76,5 +75,5 @@ class CoverSource_old(CoverSourceBase):  # {{{1
 
 if __name__ == '__main__':
     c = CoverSource()
-    for result in c.search(sys.argv[1]):
-        print result
+    for res in c.search(sys.argv[1]):
+        print res

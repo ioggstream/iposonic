@@ -7,11 +7,7 @@
 #
 # License AGPLv3
 #
-# TODO manage argv for:
-#   * music_folders
-#   * authentication backend
-#   * reset db
-#
+
 #from __future__ import unicode_literals
 
 from flask import Flask
@@ -105,9 +101,8 @@ def get_license_view():
     return request.formatter({'license': {'valid': 'true', 'email': 'robipolli@gmail.com', 'key': 'ABC123DEF', 'date': '2009-09-03T14:46:43'}})
 
 #
-# Helpers
+# Pre/Post processing
 #
-
 
 @app.before_request
 def authorize():
@@ -145,6 +140,7 @@ def set_formatter():
 
 @app.after_request
 def set_content_type(response):
+    """Set json response content-type."""
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     print "response is streamed: %s" % response.is_streamed
@@ -158,6 +154,10 @@ def set_content_type(response):
     return response
 
 
+#
+# Helpers
+#
+
 def hex_decode(s):
     """Decode an eventually hex-encoded password."""
     if not s:
@@ -167,7 +167,7 @@ def hex_decode(s):
         #print "s: ", s
         s = s[4:]
         i = 0
-        for i in range(0,len(s),2):
+        for i in range(0, len(s), 2):
             l = int(s[i:i + 2], 16)
             ret += chr(l)
     else:

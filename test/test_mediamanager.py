@@ -14,7 +14,7 @@ import sys
 import re
 from os.path import join, basename, dirname
 
-from iposonic import MediaManager, StringUtils
+from mediamanager import MediaManager, StringUtils
 
 import logging
 log = logging.getLogger("test")
@@ -81,6 +81,16 @@ class TestMediaManager:
                 pass
             ret = MediaManager.get_info_from_filename2(path_u)
             assert ret['title'] == 'mock_album', "ret: %s" % ret
+            os.rmdir(path_u)
+    def test_get_album_name2(self):
+        for name in ['20 mock_album - 2004', '20 mock_album (2004)', '20 mock_album (Disk1)']:
+            path_u = join("/", os.getcwd(), "test/data/mock_artist/", name)
+            try:
+                os.mkdir(path_u)
+            except:
+                pass
+            ret = MediaManager.get_info_from_filename2(path_u)
+            assert ret['title'] == '20 mock_album', "ret: %s" % ret
             os.rmdir(path_u)
 
     def test_get_info_from_name2(self):
