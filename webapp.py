@@ -91,7 +91,7 @@ def ping_view():
     print "indexes: %s" % iposonic.db.get_indexes()
     print "indexes: %s" % iposonic.db.get_playlists()
 
-    return request.formatter({})
+    return request.formatter({}, version='1.8.0')
 
 
 @app.route("/rest/getLicense.view", methods=['GET', 'POST'])
@@ -103,6 +103,7 @@ def get_license_view():
 #
 # Pre/Post processing
 #
+
 
 @app.before_request
 def authorize():
@@ -157,7 +158,6 @@ def set_content_type(response):
 #
 # Helpers
 #
-
 def hex_decode(s):
     """Decode an eventually hex-encoded password."""
     if not s:
@@ -234,8 +234,11 @@ class ResponseHelper:
         if not callback:
             raise SubsonicProtocolException()
         # add headers to response
-        ret.update({'status': 'ok', 'version': '19.9.9',
-                   "xmlns": "http://subsonic.org/restapi"})
+        ret.update({
+            'status': 'ok',
+            'version': version,
+            'xmlns': "http://subsonic.org/restapi"
+        })
         return "%s(%s)" % (
             callback,
             simplejson.dumps({'subsonic-response': ret},
@@ -244,10 +247,13 @@ class ResponseHelper:
         )
 
     @staticmethod
-    def responsize_xml(ret):
+    def responsize_xml(ret, status="ok", version="9.0.0"):
         """Return an xml response from json and replace unsupported characters."""
-        ret.update({'status': 'ok', 'version': '19.9.9',
-                   "xmlns": "http://subsonic.org/restapi"})
+        ret.update({
+            'status': 'ok',
+            'version': version,
+            'xmlns': "http://subsonic.org/restapi"
+        })
         return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace("&", "\\&amp;")
 
     @staticmethod

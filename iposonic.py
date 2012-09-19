@@ -58,7 +58,7 @@ class IposonicDB(object):
     """An abstract in-memory data store based on dictionaries.
 
         Implement your own backend.
-        
+
         FIXME update this class with all the features
             supported by SqliteIposonicDB
     """
@@ -472,7 +472,7 @@ class Iposonic:
     #
 
     def add_entry(self, path, album=False):
-        """TODO move do db"""
+        """Add imageart related stuff here."""
         return self.db.add_entry(path, album)
 
     def update_entry(self, eid, new):
@@ -492,17 +492,20 @@ class Iposonic:
             if query, return a list of dict
 
             Parsing (eg. to add coverArt) should check the returned type.
+
+            TODO: to fasten getCoverArt.view we should avoid in getting
+                always different path for all the files in the same album
         """
         songs = self.db.get_songs(eid=eid, query=query)
         #print "songs: %s (%s) " % (songs, songs.__class__)
 
         # add album coverArt to each song
         if songs.__class__.__name__ == 'dict':
-            songs.update({'coverArt': songs.get('parent')})
+            songs.update({'coverArt': songs.get('id')})
             #print "songs2: %s " % songs
             return songs
 
-        return [x.update({'coverArt': x.get('parent')}) or x for x in songs]
+        return [x.update({'coverArt': x.get('id')}) or x for x in songs]
 
     def get_genre_songs(self, query):
         songs = []
@@ -527,7 +530,6 @@ class Iposonic:
             'album': self.db.get_albums(query={'title': query}),
             'title': self.db.get_songs(query={'title': query})
         }
-
 
     def get_starred(self, artistCount=10, albumCount=10, songCount=10):
         """Return items matching the query in their principal name.

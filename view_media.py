@@ -7,7 +7,7 @@ import sys
 import time
 import subprocess
 from os.path import join
-from flask import request, send_file, Response
+from flask import request, send_file, Response, abort
 from webapp import iposonic, app, cache_dir
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
@@ -135,18 +135,30 @@ def unstar_view():
     iposonic.update_entry(eid, {'starred': None})
     return request.formatter({})
 
+cache_coverart = dict()
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
 def get_cover_art_view():
+    """Get coverart.
 
+        For albums/directories it uses directory id, and have not
+        access to the real artist name.
+
+        For songs we can tweak a bit.
+    """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (eid, size) = map(request.args.get, ['id', 'size'])
 
+    # Don't abuse album search
+    if cache_coverart.get(eid, 0) + 60 > time.time():
+        abort(404)
+
     # Return file if present
     cover_art_path = join("/", cache_dir, "%s" % eid)
     try:
+        print "coverart: returning file"
         return send_file(cover_art_path)
     except IOError:
         pass
@@ -156,18 +168,27 @@ def get_cover_art_view():
     try:
         if info.get('isDir') in [False, 'false', 'False']:
             cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
+            print "coverart %s: returning parent: %s" % (
+                eid, info.get('parent'))
             return send_file(cover_art_path)
     except IOError:
+        print "info: %s" % info
         pass
 
     # ...then with artist+album...
     try:
-        cover_art_path = MediaManager.get_entry_id("%s/%s" % (info.get('artist'), info.get('album')))
+        cover_art_path = MediaManager.get_entry_id(
+            "%s/%s" % (info.get('artist'), info.get('album')))
         return send_file(cover_art_path)
     except IOError:
         pass
 
     # ..finally download missing cover_art in cache_dir
+    if not info.get('album'):
+        print "info: ", info
+        abort(404)
+
+    print "coverart %s: searching album: %s " % (eid, info.get('album'))
     c = CoverSource()
     for cover in c.search(info.get('album')):
         print "confronting info: %s with: %s" % (info, cover)
@@ -180,9 +201,10 @@ def get_cover_art_view():
             return send_file(cover_art_path)
         else:
             print "Artist mismatch: %s, %s" % tuple(
-                [x.get('artist') for x in [info, cover]])
-    raise IposonicException("Can't find CoverArt")
+                [x.get('artist', x.get('name')) for x in [info, cover]])
 
+    cache_coverart.setdefault(eid, int(time.time()))
+    raise IposonicException("Can't find CoverArt")
 
 
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])

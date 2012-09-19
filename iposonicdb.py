@@ -91,7 +91,10 @@ Base = declarative_base(metaclass=LazyDeveloperMeta)
 class IposonicDBTables:
     """DAO classes and Serializing methods."""
     class SerializerMixin(object):
-        """Methods for serializing DAO and expose a dict-like behavior."""
+        """Methods for serializing DAO and expose a dict-like behavior.
+
+            TODO __fields__ and __tablename__ should be in the Abstract IposonicDB
+        """
         __fields__ = []
 
         def json(self):
@@ -137,7 +140,8 @@ class IposonicDBTables:
                       'title', 'artist', 'isDir', 'album',
                       'genre', 'track', 'tracknumber', 'date', 'suffix',
                       'isvideo', 'duration', 'size', 'bitRate',
-                      'userRating', 'averageRating', 'coverArt', 'starred', 'created'
+                      'userRating', 'averageRating', 'coverArt', 'starred', 'created',
+                      'albumId'
                       ]
 
         def __init__(self, path):
@@ -154,11 +158,12 @@ class IposonicDBTables:
     class Album(Base, SerializerMixin):
         __fields__ = ['id', 'name', 'isDir', 'path', 'title',
                       'parent', 'album', 'artist',
-                      'userRating', 'averageRating', 'coverArt', 'starred', 'created'
+                      'userRating', 'averageRating', 'coverArt',
+                      'starred', 'created'
                       ]
         __tablename__ = "album"
 
-        def __init__(self, path):
+        def __init__(self, path, name=None):
             Base.__init__(self)
             eid = MediaManager.get_entry_id(path)
             path_u = StringUtils.to_unicode(path)
@@ -301,9 +306,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 field_o = table_o.__getattribute__(table_o, k)
                 assert field_o, "Field must not be null"
                 if v == 'isNull':
-                    rs = qmodel.filter(field_o == None).all()
+                    rs = qmodel.filter(field_o is None).all()
                 elif v == 'notNull':
-                    rs = qmodel.filter(field_o != None).all()
+                    rs = qmodel.filter(field_o is not None).all()
                 else:
                     rs = qmodel.filter(field_o.like("%%%s%%" % v)).all()
         else:
@@ -419,6 +424,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         assert session
         eid = None
         record = None
+        record_a = None
         if os.path.isdir(path):
             eid = MediaManager.get_entry_id(path)
             if album:
@@ -430,6 +436,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
         elif MediaManager.is_allowed_extension(path):
             try:
                 record = self.Media(path)
+                # TODO: create a virtual album
+                if record.album != basename(path) and record.artist:
+                    vpath = join("/", record.artist, record.album)
+                    record_a = self.Album(vpath)
+                    record.albumId = MediaManager.get_entry_id(vpath)
                 eid = record.id
                 self.log.info("adding file: %s, %s " % (
                     eid, StringUtils.to_unicode(path)))
@@ -439,6 +450,8 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if record and id:
             print "Adding entry: %s " % record
             session.merge(record)
+            if record_a:
+                session.merge(record_a)
             return eid
 
         raise IposonicException("Path not found or bad extension: %s " % path)

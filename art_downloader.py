@@ -3,7 +3,8 @@
 # Code imported from coverart
 #    https://github.com/jmcantrell/coverart/blob/master/coverart/sources/lastfmcovers.py
 #
-import sys, re
+import sys
+import re
 from urllib import urlopen, quote_plus
 from xml.etree.ElementTree import parse
 

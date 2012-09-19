@@ -2,7 +2,7 @@
 # Views for managing playlists
 #
 #
-from flask import request
+from flask import request, abort
 from webapp import iposonic, app
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 #
@@ -56,5 +56,5 @@ def get_now_playing_view():
         """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-
+    abort(404)
     raise NotImplementedError()

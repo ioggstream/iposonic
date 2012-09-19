@@ -25,15 +25,14 @@ def get_music_folders_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     return request.formatter(
-        {
-            'musicFolders': {
-                'musicFolder': [{
-                    'id': MediaManager.get_entry_id(d),
-                    'name': d
-                } for d in iposonic.get_music_folders() if os.path.isdir(d)
-                ]
-            }
-        }
+        {'musicFolders': {'musicFolder':
+                          [
+                          {
+                          'id': MediaManager.get_entry_id(d),
+                          'name': d
+                          } for d in iposonic.get_music_folders() if os.path.isdir(d)
+                          ]
+                          }}
     )
 
 
@@ -89,6 +88,53 @@ def get_indexes_view():
     #     data to format
     #
     return request.formatter({'indexes': iposonic.get_indexes()})
+
+
+@app.route("/rest/getArtists.view")
+def get_artists_view():
+    """
+    json response:
+    {   artists:
+        {  index: [
+            {   name: A,
+                    artist: [
+                        {   id:,
+                            name:,
+                            coverArt:,
+                            albumCount
+                        },
+                        {   id: ....}
+                    ]
+            },
+            {   name: B, artist: [{},{}]}
+
+        ]
+        }
+    }
+    xml response:
+    <artists>
+        <index name="A">
+            <artist id="5449" name="A-Ha" coverArt="ar-5449" albumCount="4"/>
+            <artist id="5421" name="ABBA" coverArt="ar-5421" albumCount="6"/>
+            <artist id="5432" name="AC/DC" coverArt="ar-5432" albumCount="15"/>
+            <artist id="6633" name="Aaron Neville" coverArt="ar-6633" albumCount="1"/>
+        </index>
+        <index name="B">
+            <artist id="5950" name="Bob Marley" coverArt="ar-5950" albumCount="8"/>
+            <artist id="5957" name="Bruce Dickinson" coverArt="ar-5957" albumCount="2"/>
+        </index>
+    </artists>
+    """
+    raise NotImplementedError()
+
+
+@app.route("/rest/getArtists.view")
+def get_artist_view():
+    """
+    <artist id="5432" name="AC/DC" coverArt="ar-5432" albumCount="15">
+        <album id="11047" name="Back In Black" coverArt="al-11047" songCount="10" created="2004-11-08T23:33:11" duration="2534" artist="AC/DC" artistId="5432"/>
+    """
+    raise NotImplementedError()
 
 
 @app.route("/rest/getMusicDirectory.view", methods=['GET', 'POST'])
@@ -155,15 +201,22 @@ def get_music_directory_view():
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in getMusicDirectory.view")
     (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
+    children = []
+    artist = iposonic.db.Artist(path)
     #
     # if nothing changed before our last visit
+    #    or is a virtual path (eg. uniexistent)
     #    don't rescan
     #
-    last_modified = os.stat(dir_path).st_ctime
-    artist = iposonic.db.Artist(path)
-    children = []
+    try:
+        last_modified = os.stat(dir_path).st_ctime
+    except:
+        last_modified = -1
 
-    if fs_cache.get(dir_id, 0) == last_modified:
+    if last_modified == -1:
+        print "Getting items from valbum."
+        children = iposonic.get_songs(query={'albumId': dir_id})
+    elif fs_cache.get(dir_id, 0) == last_modified:
         print "Getting items from cache."
         children = iposonic.get_songs(query={'parent': dir_id})
         children.extend(iposonic.get_albums(query={'parent': dir_id}))
@@ -199,7 +252,13 @@ def get_music_directory_view():
     # Sort songs by track id, if possible
     children = sorted(children, key=_track_or_die)
 
-    return request.formatter({'directory': {'id': dir_id, 'name': artist.get('name'), 'child': children}})
+    return request.formatter(
+        {'directory': {
+            'id': dir_id,
+            'name': artist.get('name'),
+            'child': children
+        }
+        })
 
 
 #
@@ -408,7 +467,5 @@ def get_random_songs_view():
         songs = randomize2_list(all_songs)
     assert songs
     # add cover art
-    songs = [x.update({'coverArt': x.get('parent')}) or x for x in songs]
-    randomSongs = {'randomSongs': {'song': songs}}
-    return request.formatter(randomSongs)
-
+    songs = [x.update({'coverArt': x.get('id')}) or x for x in songs]
+    return request.formatter({'randomSongs': {'song': songs}})

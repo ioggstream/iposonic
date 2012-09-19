@@ -1,6 +1,7 @@
 """mediamanager module"""
+from mutagen import File
 from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3NoHeaderError  # ID3,
+from mutagen.id3 import ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
 import mutagen.oggvorbis
 import mutagen.asf
@@ -15,6 +16,19 @@ from os.path import dirname, basename, join
 
 class UnsupportedMediaError(Exception):
     pass
+
+
+def get_cover_art_from_file(path):
+    if not os.path.isfile(path):
+        return None
+
+    f = mutagen.File(path)
+    img_file = MediaManager.get_entry_id(dirname(path))
+    if f and 'APIC:' in f:
+        assert False, "Trovata!"
+        artwork = f.tags['APIC:'].data
+        with open('/tmp/iposonic/_cache/test_%s' % img_file, 'wb') as img:
+            img.write(artwork)
 
 
 class MediaManager:
@@ -33,7 +47,7 @@ class MediaManager:
         # normalize artist name
         re_notascii = re.compile("[^A-Za-z0-9]")
         try:
-            artist = x.get('artist').lower()
+            artist = x.get('artist', x.get('name')).lower()
         except:
             print "Can't find artist: %s" % x
             raise
@@ -178,8 +192,8 @@ class MediaManager:
             then rules out the year by parentheses.
 
         """
-        if not os.path.isdir(path_u):
-            raise UnsupportedMediaError("Path is not an Album: %s" % path_u)
+        #if not os.path.isdir(path_u):
+        #    raise UnsupportedMediaError("Path is not an Album: %s" % path_u)
         return MediaManager.get_info_from_filename2(path_u).get('title')
 
         MediaManager.log.info("parsing album path: %s" % path_u)
@@ -204,7 +218,7 @@ class MediaManager:
            "isDir": false,
            "isVideo": false,
            "size": 6342112,
-
+            "created": 12345
            TODO all strings should be unicode
         """
         if os.path.isfile(path):
@@ -225,6 +239,12 @@ class MediaManager:
                 ret['isDir'] = 'false'
                 ret['isVideo'] = 'false'
                 ret['parent'] = MediaManager.get_entry_id(dirname(path))
+
+                try:
+                    ret['created'] = os.stat(path).s_ctime
+                except:
+                    pass
+
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000
                     ret['duration'] = int(audio.info.length)
