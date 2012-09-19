@@ -26,7 +26,7 @@ from os.path import join, basename, dirname
 # manage media files
 #
 # tags
-from mediamanager import MediaManager, UnsupportedMediaError
+from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
 
 # logging and json
 import logging
@@ -54,7 +54,114 @@ class SubsonicMissingParameterException(SubsonicProtocolException):
 ##
 ## The app ;)
 ##
-class IposonicDB(object):
+
+class ArtistDAO:
+    __tablename__ = "artist"
+    __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
+                  'averageRating', 'coverArt', 'starred', 'created']
+
+    def get_info(self, path_u):
+        return {
+            'id': MediaManager.get_entry_id(path_u),
+            'name': basename(path_u),
+            'path': path_u,
+            'isDir': 'true'
+        }
+
+
+class MediaDAO:
+    __tablename__ = "song"
+    __fields__ = ['id', 'name', 'path', 'parent',
+                  'title', 'artist', 'isDir', 'album',
+                  'genre', 'track', 'tracknumber', 'date', 'suffix',
+                  'isvideo', 'duration', 'size', 'bitRate',
+                  'userRating', 'averageRating', 'coverArt',
+                  'starred', 'created', 'albumId'
+                  ]
+
+
+class AlbumDAO:
+    __tablename__ = "album"
+    __fields__ = ['id', 'name', 'isDir', 'path', 'title',
+                      'parent', 'album', 'artist',
+                      'userRating', 'averageRating', 'coverArt',
+                      'starred', 'created'
+                      ]
+
+    def get_info(self, path):
+        """TODO use path_u directly."""
+        eid = MediaManager.get_entry_id(path)
+        path_u = StringUtils.to_unicode(path)
+        parent = dirname(path)
+        dirname_u = MediaManager.get_album_name(path_u)
+        return {
+            'id': eid,
+            'name': dirname_u,
+            'isDir': 'true',
+            'path': path_u,
+            'title': dirname_u,
+            'parent': MediaManager.get_entry_id(parent),
+            'album': dirname_u,
+            'artist': basename(parent),
+            'coverArt': eid
+        }
+
+
+class PlaylistDAO:
+    __tablename__ = "playlist"
+    __fields__ = ['id', 'name', 'comment', 'owner', 'public',
+                      'songCount', 'duration', 'created', 'entry'
+                      ]
+
+    def get_info(self, name):
+        return {
+            'id': MediaManager.get_entry_id(name),
+            'name': name
+        }
+
+
+class IposonicDBTables:
+    """Class defining base & tables.
+
+        For sqlalchemy usage I should only override
+        the Base class...
+
+    """
+
+    class BaseB(dict):
+        def json(self):
+            return self
+
+    class Artist(BaseB, ArtistDAO):
+        __fields__ = ArtistDAO.__fields__
+
+        def __init__(self, path):
+            IposonicDBTables.BaseB.__init__(self)
+            self.update(self.get_info(path))
+
+    class Album(BaseB, AlbumDAO):
+        __fields__ = AlbumDAO.__fields__
+
+        def __init__(self, path):
+            IposonicDBTables.BaseB.__init__(self)
+            self.update(self.get_info(path))
+
+    class Media(BaseB, MediaDAO):
+        __fields__ = MediaDAO.__fields__
+
+        def __init__(self, path):
+            IposonicDBTables.BaseB.__init__(self)
+            self.update(MediaManager.get_info(path))
+
+    class Playlist(BaseB, PlaylistDAO):
+        __fields__ = PlaylistDAO.__fields__
+
+        def __init__(self, name):
+            IposonicDBTables.BaseB.__init__(self)
+            self.update(self.get_info(name))
+
+
+class IposonicDB(object, IposonicDBTables):
     """An abstract in-memory data store based on dictionaries.
 
         Implement your own backend.
@@ -86,75 +193,6 @@ class IposonicDB(object):
         #
         # playlists = { id: {name: .., entry: [], ...}
         self.playlists = dict()
-
-    class Entry(dict):
-        required_fields = ['name', 'id']
-
-        def json(self):
-            return self
-
-        def validate(self):
-            for x in required_fields:
-                assert self[x]
-
-    class Artist(Entry):
-        __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
-                      'averageRating', 'coverArt']
-
-        def __init__(self, path):
-            IposonicDB.Entry.__init__(self)
-            self.update({
-                'path': path,
-                'name': basename(path),
-                'id': MediaManager.get_entry_id(path),
-                'isDir': 'true'
-
-            })
-
-    class Album(Artist):
-        __fields__ = ['id', 'name', 'isDir', 'path', 'title',
-                      'parent', 'album', 'artist',
-                      'userRating', 'averageRating', 'coverArt'
-                      ]
-
-        def __init__(self, path):
-            IposonicDB.Artist.__init__(self, path)
-            parent = dirname(path)
-
-            if self['name'].find("-") > 0:
-                self['name'] = re.split("\s*-\s*", self['name'], 1)[1]
-            self.update({
-                'title': self['name'],
-                'album': self['name'],
-                'parent': MediaManager.get_entry_id(parent),
-                'artist': basename(parent),
-                'isDir': True,
-                'coverArt': self['id']
-            })
-
-    class Media(Entry):
-        __fields__ = ['id', 'name', 'path', 'parent',
-                      'title', 'artist', 'isDir', 'album',
-                      'genre', 'track', 'tracknumber', 'date', 'suffix',
-                      'isvideo', 'duration', 'size', 'bitRate',
-                      'userRating', 'averageRating', 'coverArt'
-                      ]
-
-        def __init__(self, path):
-            IposonicDB.Entry.__init__(self)
-            self.update(MediaManager.get_info(path))
-
-    class Playlist(Entry):
-        required_fields = ['id', 'name', 'comment', 'owner', 'public',
-                           'songCount', 'duration', 'created', 'entry'
-                           ]
-
-        def __init__(self, name):
-            IposonicDB.Entry.__init__(self)
-            self.update({
-                'id': MediaManager.get_entry_id(name),
-                'name': name
-            })
 
     def init_db(self):
         pass

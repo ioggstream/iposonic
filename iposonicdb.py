@@ -15,7 +15,12 @@ from binascii import crc32
 # logging
 import logging
 
-from iposonic import IposonicException, Iposonic, IposonicDB
+from iposonic import (
+    IposonicException,
+    Iposonic,
+    IposonicDB,
+    ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO
+)
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 
 
@@ -89,7 +94,12 @@ Base = declarative_base(metaclass=LazyDeveloperMeta)
 
 
 class IposonicDBTables:
-    """DAO classes and Serializing methods."""
+    """DAO classes and Serializing methods.
+
+        Table definition and data gathering is moved
+        to iposonic.*DAO, so that it's shared with
+        MemoryIposonicDB
+    """
     class SerializerMixin(object):
         """Methods for serializing DAO and expose a dict-like behavior.
 
@@ -120,29 +130,15 @@ class IposonicDBTables:
         def __repr__(self):
             return "<%s: %s>" % (self.__class__.__name__, self.json().__repr__())
 
-    class Artist(Base, SerializerMixin):
-        __fields__ = ['id', 'name', 'isDir', 'path', 'userRating',
-                      'averageRating', 'coverArt', 'starred', 'created']
-        __tablename__ = "artist"
+    class Artist(ArtistDAO, Base, SerializerMixin):
+        __fields__ = ArtistDAO.__fields__
 
         def __init__(self, path_u):
             Base.__init__(self)
-            self.__dict__.update({
-                'id': MediaManager.get_entry_id(path_u),
-                'name': basename(path_u),
-                'path': path_u,
-                'isDir': 'true'
-            })
+            self.update(self.get_info(path_u))
 
-    class Media(Base, SerializerMixin):
-        __tablename__ = "song"
-        __fields__ = ['id', 'name', 'path', 'parent',
-                      'title', 'artist', 'isDir', 'album',
-                      'genre', 'track', 'tracknumber', 'date', 'suffix',
-                      'isvideo', 'duration', 'size', 'bitRate',
-                      'userRating', 'averageRating', 'coverArt', 'starred', 'created',
-                      'albumId'
-                      ]
+    class Media(Base, SerializerMixin, MediaDAO):
+        __fields__ = MediaDAO.__fields__
 
         def __init__(self, path):
             """Fill entry using MediaManager.get_info.
@@ -153,47 +149,21 @@ class IposonicDBTables:
             #self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
             #    k, v) in MediaManager.get_info(path).iteritems()]))
 
-            self.__dict__.update(MediaManager.get_info(path))
+            self.update(MediaManager.get_info(path))
 
-    class Album(Base, SerializerMixin):
-        __fields__ = ['id', 'name', 'isDir', 'path', 'title',
-                      'parent', 'album', 'artist',
-                      'userRating', 'averageRating', 'coverArt',
-                      'starred', 'created'
-                      ]
-        __tablename__ = "album"
+    class Album(Base, SerializerMixin, AlbumDAO):
+        __fields__ = AlbumDAO.__fields__
 
         def __init__(self, path, name=None):
             Base.__init__(self)
-            eid = MediaManager.get_entry_id(path)
-            path_u = StringUtils.to_unicode(path)
-            parent = dirname(path)
-            dirname_u = MediaManager.get_album_name(path_u)
-            print "Album name is: %s" % dirname_u
-            self.__dict__.update({
-                'id': eid,
-                'name': dirname_u,
-                'isDir': 'true',
-                'path': path_u,
-                'title': dirname_u,
-                'parent': MediaManager.get_entry_id(parent),
-                'album': dirname_u,
-                'artist': basename(parent),
-                'coverArt': eid
-            })
+            self.update(self.get_info(path))
 
-    class Playlist(Base, SerializerMixin):
-        __fields__ = ['id', 'name', 'comment', 'owner', 'public',
-                      'songCount', 'duration', 'created', 'entry'
-                      ]
-        __tablename__ = "playlist"
+    class Playlist(Base, SerializerMixin, PlaylistDAO):
+        __fields__ = PlaylistDAO.__fields__
 
         def __init__(self, name):
             Base.__init__(self)
-            self.__dict__.update({
-                'id': MediaManager.get_entry_id(name),
-                'name': name
-            })
+            self.update(self.get_info(name))
 
 
 class SqliteIposonicDB(object, IposonicDBTables):
