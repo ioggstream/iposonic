@@ -263,7 +263,7 @@ class TestPlaylistIposonicDB:
         assert item.get('name') == 'mock_playlist', "No playlists: %s" % item
 
     def test_get_playlist(self):
-        eid = MediaManager.get_entry_id('mock_playlist')
+        eid = MediaManager.uuid('mock_playlist')
         ret = self.db.get_playlists(eid=eid)
         assert ret, "Can't find playlist %s" % eid
         assert ret.get('name') == 'mock_playlist', "No playlists: %s" % ret

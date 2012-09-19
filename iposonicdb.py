@@ -396,7 +396,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         record = None
         record_a = None
         if os.path.isdir(path):
-            eid = MediaManager.get_entry_id(path)
+            eid = MediaManager.uuid(path)
             if album:
                 record = self.Album(path)
             else:
@@ -410,7 +410,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 if record.album != basename(path) and record.artist:
                     vpath = join("/", record.artist, record.album)
                     record_a = self.Album(vpath)
-                    record.albumId = MediaManager.get_entry_id(vpath)
+                    record.albumId = MediaManager.uuid(vpath)
                 eid = record.id
                 self.log.info("adding file: %s, %s " % (
                     eid, StringUtils.to_unicode(path)))

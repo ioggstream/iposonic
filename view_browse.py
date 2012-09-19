@@ -28,7 +28,7 @@ def get_music_folders_view():
         {'musicFolders': {'musicFolder':
                           [
                           {
-                          'id': MediaManager.get_entry_id(d),
+                          'id': MediaManager.uuid(d),
                           'name': d
                           } for d in iposonic.get_music_folders() if os.path.isdir(d)
                           ]
@@ -232,7 +232,7 @@ def get_music_directory_view():
                 # This is a Lazy Indexing. It should not be there
                 #   unless a cache is set
                 # XXX
-                eid = MediaManager.get_entry_id(path)
+                eid = MediaManager.uuid(path)
                 try:
                     child_j = iposonic.get_entry_by_id(eid)
                 except IposonicException:

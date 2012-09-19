@@ -92,7 +92,7 @@ def get_playlist_view():
 
     entries = []
     # use default playlists
-    if eid == MediaManager.get_entry_id('starred'):
+    if eid == MediaManager.uuid('starred'):
         j_playlist = iposonic.get_playlists_static(eid=eid)
         songs = iposonic.get_starred().get('title')
         entries = randomize2_list(songs, 5)
@@ -142,7 +142,7 @@ def create_playlist_view():
 
     # create a new playlist
     if not playlistId:
-        eid = MediaManager.get_entry_id(name)
+        eid = MediaManager.uuid(name)
         try:
             playlist = iposonic.get_playlists(eid=eid)
             raise IposonicException("Playlist esistente")

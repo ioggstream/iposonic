@@ -43,7 +43,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         path = join(self.test_dir, "mock_artist/mock_album/sample.ogg")
         self.db.add_entry(path)
 
-        parent = MediaManager.get_entry_id(dirname(path))
+        parent = MediaManager.uuid(dirname(path))
         l_session = self.db.Session()
         ret = l_session.execute("select * from song;").fetchall()
         print "ret_execute: %s" % ret

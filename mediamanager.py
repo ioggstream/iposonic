@@ -23,7 +23,7 @@ def get_cover_art_from_file(path):
         return None
 
     f = mutagen.File(path)
-    img_file = MediaManager.get_entry_id(dirname(path))
+    img_file = MediaManager.uuid(dirname(path))
     if f and 'APIC:' in f:
         assert False, "Trovata!"
         artwork = f.tags['APIC:'].data
@@ -56,7 +56,7 @@ class MediaManager:
         return ret
 
     @staticmethod
-    def get_entry_id(path):
+    def uuid(path):
         # path should be byte[], so convert it
         #   if it's unicode
         data = path
@@ -235,10 +235,10 @@ class MediaManager:
                     if isinstance(v, list) and v and v[0]:
                         ret[k] = v[0]
 
-                ret['id'] = MediaManager.get_entry_id(path)
+                ret['id'] = MediaManager.uuid(path)
                 ret['isDir'] = 'false'
                 ret['isVideo'] = 'false'
-                ret['parent'] = MediaManager.get_entry_id(dirname(path))
+                ret['parent'] = MediaManager.uuid(dirname(path))
 
                 try:
                     ret['created'] = os.stat(path).s_ctime

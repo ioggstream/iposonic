@@ -62,7 +62,7 @@ class ArtistDAO:
 
     def get_info(self, path_u):
         return {
-            'id': MediaManager.get_entry_id(path_u),
+            'id': MediaManager.uuid(path_u),
             'name': basename(path_u),
             'path': path_u,
             'isDir': 'true'
@@ -90,7 +90,7 @@ class AlbumDAO:
 
     def get_info(self, path):
         """TODO use path_u directly."""
-        eid = MediaManager.get_entry_id(path)
+        eid = MediaManager.uuid(path)
         path_u = StringUtils.to_unicode(path)
         parent = dirname(path)
         dirname_u = MediaManager.get_album_name(path_u)
@@ -100,7 +100,7 @@ class AlbumDAO:
             'isDir': 'true',
             'path': path_u,
             'title': dirname_u,
-            'parent': MediaManager.get_entry_id(parent),
+            'parent': MediaManager.uuid(parent),
             'album': dirname_u,
             'artist': basename(parent),
             'coverArt': eid
@@ -115,7 +115,7 @@ class PlaylistDAO:
 
     def get_info(self, name):
         return {
-            'id': MediaManager.get_entry_id(name),
+            'id': MediaManager.uuid(name),
             'name': name
         }
 
@@ -347,7 +347,7 @@ class IposonicDB(object, IposonicDBTables):
     def add_entry(self, path, album=False):
         if os.path.isdir(path):
             print "Adding entry %s" % path
-            eid = MediaManager.get_entry_id(path)
+            eid = MediaManager.uuid(path)
             if album:
                 self.albums[eid] = IposonicDB.Album(path)
             else:
@@ -389,10 +389,10 @@ class IposonicDB(object, IposonicDBTables):
                     path = join("/", music_folder, a)
                     try:
                         self.add_entry(path)
-                        self.artists[MediaManager.get_entry_id(
+                        self.artists[MediaManager.uuid(
                             path)] = IposonicDB.Artist(path)
                         artist_j = {'artist': {
-                            'id': MediaManager.get_entry_id(path), 'name': a}}
+                            'id': MediaManager.uuid(path), 'name': a}}
 
                         #
                         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
@@ -453,7 +453,7 @@ class Iposonic:
     def get_folder_by_id(self, folder_id):
         """It's ok just because self.db.get_music_folders() are few"""
         for folder in self.db.get_music_folders():
-            if MediaManager.get_entry_id(folder) == folder_id:
+            if MediaManager.uuid(folder) == folder_id:
                 return folder
         raise IposonicException("Missing music folder with id: %s" % folder_id)
 

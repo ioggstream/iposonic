@@ -35,7 +35,7 @@ class TestMediaManager:
             'title': 'mock_title',
             'artist': 'mock_artist',
             'year': 'mock_year',
-            'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
+            'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
 
@@ -47,7 +47,7 @@ class TestMediaManager:
             'title': 'BWV 1041 : I. Allegro (PREVIEW: buy it at www.magnatune.com)',
             'artist': 'Lara St John (PREVIEW: buy it at www.magnatune.com)',
             'bitRate': 128,
-            'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
+            'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
 
@@ -59,7 +59,7 @@ class TestMediaManager:
             'title': 'Angel',
             'artist': 'Aretha Franklin',
             'bitRate': 128,
-            'parent': MediaManager.get_entry_id(join("/", os.getcwd(), parent))
+            'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
 

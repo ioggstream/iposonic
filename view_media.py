@@ -177,7 +177,7 @@ def get_cover_art_view():
 
     # ...then with artist+album...
     try:
-        cover_art_path = MediaManager.get_entry_id(
+        cover_art_path = MediaManager.uuid(
             "%s/%s" % (info.get('artist'), info.get('album')))
         return send_file(cover_art_path)
     except IOError:
