@@ -158,7 +158,7 @@ def get_cover_art_view():
     # Return file if present
     cover_art_path = join("/", cache_dir, "%s" % eid)
     try:
-        print "coverart: returning file"
+        print "coverart: try to return file ", cover_art_path
         return send_file(cover_art_path)
     except IOError:
         pass
@@ -177,8 +177,13 @@ def get_cover_art_view():
 
     # ...then with artist+album...
     try:
-        cover_art_path = MediaManager.uuid(
-            "%s/%s" % (info.get('artist'), info.get('album')))
+        cover_art_path = join("/", 
+            cache_dir, 
+            MediaManager.uuid("%s/%s" % (
+                info.get('artist'), 
+                info.get('album'))
+            )
+        )
         return send_file(cover_art_path)
     except IOError:
         pass
@@ -193,7 +198,7 @@ def get_cover_art_view():
     for cover in c.search(info.get('album')):
         print "confronting info: %s with: %s" % (info, cover)
         if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
-            print "Saving image %s -> %s" % (cover.get('cover_small'), eid)
+            print "Saving image %s -> %s" % (cover.get('cover_small'), cover_art_path)
             fd = open(cover_art_path, "w")
             fd.write(urlopen(cover.get('cover_small')).read())
             fd.close()

@@ -7,18 +7,14 @@
 
 import os
 import sys
-import re
 import time
-from os.path import join, basename, dirname
-from binascii import crc32
+from os.path import join, basename
 
 # logging
 import logging
 
 from iposonic import (
     IposonicException,
-    Iposonic,
-    IposonicDB,
     ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO
 )
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError

@@ -50,7 +50,7 @@ app = Flask(__name__)
 # Configuration
 #
 tmp_dir = "/tmp/iposonic"
-cache_dir = join(tmp_dir, "_cache/")
+cache_dir = join("/", tmp_dir, "_cache/")
 music_folders = [
     #"/home/rpolli/workspace-py/iposonic/test/data/"
     "/opt/music/"
