@@ -207,7 +207,7 @@ class TestIposonicDB:
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
             assert 'path' in info, "error processing eid: %s" % eid
-
+            assert 'created' in info, "missing created in %s"% info
     def test_search_songs_by_title(self):
         harn_load_fs2(self)
         ret = self.db.get_songs(query={'title': 'mock_title'})
@@ -230,6 +230,12 @@ class TestIposonicDB:
 
     def test_highest(self):
         ret = self.db.get_highest()
+        assert ret, "Missing ret. %s" % ret
+        print "ret: %s" % ret
+
+    def test_latest(self):
+        album = self.db.add_entry('/home/rpolli/workspace-py/iposonic/test/data/mock_artist/mock_album/', album=True) 
+        ret = self.db.get_albums()
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret
 

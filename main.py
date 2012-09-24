@@ -14,7 +14,7 @@
 #
 
 import logging
-logging.basicConfig(level=logging.INFO)
+#logging.basicConfig(level=logging.INFO)
 
 import sys
 import os
@@ -34,7 +34,7 @@ import view_media
 
 try:
     # profiling
-    import yappi
+#    import yappi
     import signal
     import sys
     def signal_handler(signal, frame):

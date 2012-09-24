@@ -252,7 +252,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
         # sql alchemy db connector
         self.engine = create_engine(
-            self.create_uri(), echo=False, convert_unicode=True)
+            self.create_uri(), echo=True, convert_unicode=True)
 
         #self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
@@ -279,6 +279,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     def _query(self, table_o, query, eid=None, order=None, session=None):
         assert table_o, "Table must not be null"
+        order_f = None
         qmodel = session.query(table_o)
         if eid:
             rs = qmodel.filter_by(id=eid).one()
@@ -291,7 +292,6 @@ class SqliteIposonicDB(object, IposonicDBTables):
             print "order: ", order
             if is_desc:
                 order_f = order_f.desc()
-            qmodel.order_by(order_f)
 
     
         if query:
@@ -301,7 +301,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 if v == 'isNull':
                     rs = qmodel.filter(field_o == None)
                 elif v == 'notNull':
-                    rs = qmodel.filter(field_o != None)
+                    rs = qmodel.filter(field_o != None).order_by(order_f)
                 else:
                     rs = qmodel.filter(field_o.like("%%%s%%" % v))
         else:
@@ -416,6 +416,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     @transactional
     def add_entry(self, path, album=False, session=None):
+        self.log.info("add_entry: %s, album=%s" % (path,album))
         assert session
         eid = None
         record = None
@@ -432,7 +433,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             try:
                 record = self.Media(path)
                 # TODO: create a virtual album
-                if record.album != basename(path) and record.artist:
+                if record.album != basename(path) and record.artist and record.album:
                     vpath = join("/", record.artist, record.album)
                     record_a = self.Album(vpath)
                     record.albumId = MediaManager.uuid(vpath)
@@ -443,6 +444,8 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 raise IposonicException(e)
 
         if record and id:
+            record.update({'created': int(os.stat(path).st_ctime)})
+
             print "Adding entry: %s " % record
             session.merge(record)
             if record_a:

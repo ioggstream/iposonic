@@ -2,9 +2,13 @@
 # Views for downloading songs
 #
 #
+import logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("iposonic-browse")
+
 import os
 from os.path import join
-import logging
+
 from flask import request, send_file
 from webapp import iposonic, app, fs_cache, cache_dir
 from webapp import randomize2_list
@@ -12,7 +16,6 @@ from iposonic import IposonicException, SubsonicProtocolException
 from mediamanager import MediaManager, StringUtils
 
 
-log = logging.getLogger("iposonic-browse")
 
 #
 # List music collections
@@ -409,12 +412,18 @@ def get_album_list_view():
         size = 20
 
     if type_a == 'random':
-        albums = randomize2_list(iposonic.get_albums(), size)
+        albums = iposonic.get_albums()
+        albums = randomize2_list(albums, size)
     elif type_a == 'highest':
-        albums = iposonic.get_albums()[:size]
+        # TODO
+        albums = iposonic.get_albums()
+        albums = albums[:size]
     elif type_a == 'newest':
+        log.info("getting newest")
         albums = iposonic.get_albums(query={'created': 'notNull'}, order=('created', 1))
+        albums = albums[:3]
     else:
+        # get all albums...hey, they may be a lot!
         albums = [a for a in iposonic.get_albums()]
 
     return request.formatter({'albumList': {'album': albums}})
