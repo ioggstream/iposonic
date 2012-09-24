@@ -19,9 +19,7 @@ class UnsupportedMediaError(Exception):
 
 
 def get_cover_art_from_file(path):
-    if not os.path.isfile(path):
-        return None
-
+    """Don't check existence, just raise."""
     f = mutagen.File(path)
     img_file = MediaManager.uuid(dirname(path))
     if f and 'APIC:' in f:
@@ -40,18 +38,18 @@ class MediaManager:
     re_track_2 = re.compile("^(.*)([0-9]+)?$")
     re_split_s = "\s*-\s*"
     re_notes = re.compile('\((.+)\)')
+    re_notascii = re.compile("[^A-Za-z0-9]")
 
     @staticmethod
     def normalize_album(x):
         """Return the ascii part of a album name."""
         # normalize artist name
-        re_notascii = re.compile("[^A-Za-z0-9]")
         try:
             artist = x.get('artist', x.get('name')).lower()
         except:
             print "Can't find artist: %s" % x
             raise
-        ret = re_notascii.sub("", artist)
+        ret = MediaManager.re_notascii.sub("", artist)
         print "normalize_album(%s): %s" % (x, ret)
         return ret
 
@@ -140,7 +138,7 @@ class MediaManager:
             except:
                 print "notes: %s" % notes
 
-        info_l = [x.strip(" -") for x in re.split("-", filename)]
+        info_l = [x.strip(" -") for x in filename.split("-")]
         title, album, artist, track = (None, None, None, None)
         for x in info_l:
             try:
@@ -219,9 +217,9 @@ class MediaManager:
            "isVideo": false,
            "size": 6342112,
             "created": 12345
-           TODO all strings should be unicode
+           TODO all strings should still be unicode
         """
-        if os.path.isfile(path):
+        if True: #os.path.isfile(path):
             try:
                 path = StringUtils.to_unicode(path)
                 # get basic info
@@ -240,10 +238,8 @@ class MediaManager:
                 ret['isVideo'] = 'false'
                 ret['parent'] = MediaManager.uuid(dirname(path))
 
-                try:
-                    ret['created'] = os.stat(path).s_ctime
-                except:
-                    pass
+                ret['created'] = int(os.stat(path).st_ctime)
+
 
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000

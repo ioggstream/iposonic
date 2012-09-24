@@ -412,6 +412,8 @@ def get_album_list_view():
         albums = randomize2_list(iposonic.get_albums(), size)
     elif type_a == 'highest':
         albums = iposonic.get_albums()[:size]
+    elif type_a == 'newest':
+        albums = iposonic.get_albums(query={'created': 'notNull'}, order=('created', 1))
     else:
         albums = [a for a in iposonic.get_albums()]
 

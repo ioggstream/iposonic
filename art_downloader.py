@@ -18,7 +18,7 @@ class CoverSource(object):
         self.url_base = 'http://ws.audioscrobbler.com/2.0/?method=album.search&api_key=%s' % self.api_key
 
     def search(self, query):
-        url = '%s&album=%s' % (self.url_base, quote_plus('%s' % query))
+        url = '%s&album=%s' % (self.url_base, quote_plus('%s' % query.encode('utf-8')))
         tree = parse(urlopen(url))
         count = 0
         for a in tree.findall('results/albummatches/album'):

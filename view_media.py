@@ -41,7 +41,9 @@ def stream_view():
 
     def is_transcode(maxBitRate, info):
         try:
-            return int(maxBitRate) < info.get('bitRate')
+            maxBitRate = int(maxBitRate)
+            if maxBitRate:
+                return maxBitRate < info.get('bitRate')
         except:
             print "sending unchanged"
             return False
@@ -79,8 +81,10 @@ def download_view():
             "Missing required parameter: 'id' in stream.view")
     info = iposonic.get_entry_by_id(request.args['id'])
     assert 'path' in info, "missing path in song: %s" % info
-    if os.path.isfile(info['path']):
+    try:
         return send_file(info['path'])
+    except:
+        abort(404)
     raise IposonicException("why here?")
 
 
@@ -135,11 +139,121 @@ def unstar_view():
     iposonic.update_entry(eid, {'starred': None})
     return request.formatter({})
 
-cache_coverart = dict()
+class CacheError:
+    pass
+class CacheMixing(dict):
+    timeout = 60
+    empty = {'ts': 0,'item': None}
+    def add_item(self, key, item):
+        self.update({key: { 
+            'item':item, 
+            'ts' : time.time() 
+            }})
+    def get_item(self, key):
+        item = self[key]
+        if item.get('ts') and (item.get('ts') + 60 > time.time()):
+            return item.get('item')
+        raise CacheError("Item expired")
+        
+cache_coverart = CacheMixing()    
 
+cache2 = dict()
+
+def memorize(f):
+    def tmp(eid, nocache=False):
+        try:
+            if not nocache:
+                (item, ts) = cache2[eid]
+                if item:
+                    return item
+                # retry after 60sec in case
+                #    of empty items
+                if ts + 60 < time.time():
+                    return item
+                    
+        except KeyError:
+            pass
+        
+        try:
+            cache2[eid] = (f(eid, nocache=nocache), time.time())
+        except IposonicException:
+            cache2[eid] = (None, time.time())
+            
+        return cache2[eid][0]
+    return tmp
+    
+@memorize
+def get_cover_art_file(eid, nocache=False):
+    """Return coverArt file, eventually downloading it.
+        
+        Successful download requires both Artist and Album, so
+        store the filename as uuid(Artist/Album)
+        1- if parent directory...
+        2- if song, download as Artist/Album
+        3- if album, download as Artist/Album
+        3- if albumId... 
+    """
+    cover_art_path = join("/", cache_dir, "%s" % eid)
+    if os.path.exists(cover_art_path):
+        return cover_art_path
+        
+    # hit database
+    info = iposonic.get_entry_by_id(eid)
+    
+    # search cover_art for file using parent or albumId
+    if info.get('isDir') in [False, 'false', 'False']:
+        cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
+        if os.path.exists(cover_art_path):
+            return cover_art_path
+            
+    # search cover_art using id3 tag
+    if info.get('artist') and info.get('album'):        
+        cover_art_path = join("/", 
+            cache_dir, 
+            MediaManager.uuid("%s/%s" % (
+                info.get('artist'), 
+                info.get('album'))
+            )
+        )
+        if os.path.exists(cover_art_path):
+            return cover_art_path
+    
+    print "coverart %s: searching album: %s " % (eid, info.get('album'))
+    c = CoverSource()
+    for cover in c.search(info.get('album')):
+        print "confronting info: %s with: %s" % (info, cover)
+        if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
+            print "Saving image %s -> %s" % (cover.get('cover_small'), cover_art_path)
+            fd = open(cover_art_path, "w")
+            fd.write(urlopen(cover.get('cover_small')).read())
+            fd.close()
+
+            return cover_art_path
+        else:
+            print "Artist mismatch: %s, %s" % tuple(
+                [x.get('artist', x.get('name')) for x in [info, cover]])
+
+    raise IposonicException("Missing Coverart")
+    
+
+
+    
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
 def get_cover_art_view():
+    """ Get coverart with cache."""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (eid, size) = map(request.args.get, ['id', 'size'])
+
+    cover_art_path = get_cover_art_file(eid)
+    
+    if cover_art_path == None:
+        abort(404)
+        
+    return send_file(cover_art_path)
+    
+def get_cover_art_view_old():
     """Get coverart.
 
         For albums/directories it uses directory id, and have not
@@ -152,8 +266,13 @@ def get_cover_art_view():
     (eid, size) = map(request.args.get, ['id', 'size'])
 
     # Don't abuse album search
-    if cache_coverart.get(eid, 0) + 60 > time.time():
+    try:
+        cache_coverart.get_item(eid)
+    except CacheError:
         abort(404)
+    except KeyError:
+        pass
+
 
     # Return file if present
     cover_art_path = join("/", cache_dir, "%s" % eid)
@@ -189,10 +308,6 @@ def get_cover_art_view():
         pass
 
     # ..finally download missing cover_art in cache_dir
-    if not info.get('album'):
-        print "info: ", info
-        abort(404)
-
     print "coverart %s: searching album: %s " % (eid, info.get('album'))
     c = CoverSource()
     for cover in c.search(info.get('album')):
@@ -208,7 +323,8 @@ def get_cover_art_view():
             print "Artist mismatch: %s, %s" % tuple(
                 [x.get('artist', x.get('name')) for x in [info, cover]])
 
-    cache_coverart.setdefault(eid, int(time.time()))
+    print "add entry to cache: ", eid
+    cache_coverart.add_item(eid, None)
     raise IposonicException("Can't find CoverArt")
 
 

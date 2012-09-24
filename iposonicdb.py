@@ -26,7 +26,7 @@ try:
     import _mysqlembedded
     sys.modules['_mysql'] = _mysqlembedded
 except:
-    """Fall back to mysql server module"""
+    #Fall back to mysql server module
     pass
 
 # SqlAlchemy for ORM
@@ -35,6 +35,7 @@ from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
+from sqlalchemy.orm.query import Query
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 from sqlalchemy.exc import ProgrammingError, OperationalError
 
@@ -99,18 +100,24 @@ class IposonicDBTables:
     class SerializerMixin(object):
         """Methods for serializing DAO and expose a dict-like behavior.
 
-            TODO __fields__ and __tablename__ should be in the Abstract IposonicDB
+            __fields__ and __tablename__  see  iposonic.py
         """
         __fields__ = []
 
         def json(self):
-            """Return a dict/json representation of the public fields of the object."""
+            """Return a dict/json representation of the public fields of
+                the object.
+             
+            """
             ret = []
             for (k, v) in self.__dict__.iteritems():
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
-                    elif k.lower() in ['userrating', 'averagerating', 'duration', 'bitrate']:
+                    elif k.lower() in ['userrating', 
+                                        'averagerating', 
+                                        'duration', 
+                                        'bitrate']:
                         v = int(v) if v is not None else 0
                     ret.append((k, v))
             return dict(ret)
@@ -124,7 +131,9 @@ class IposonicDBTables:
             return self.__dict__.update(dict_)
 
         def __repr__(self):
-            return "<%s: %s>" % (self.__class__.__name__, self.json().__repr__())
+            return "<%s: %s>" % (
+                self.__class__.__name__, 
+                self.json().__repr__())
 
     class Artist(ArtistDAO, Base, SerializerMixin):
         __fields__ = ArtistDAO.__fields__
@@ -223,9 +232,16 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if self.engine_s == 'sqlite':
             return "%s:///%s" % (self.engine_s, self.dbfile)
         elif self.engine_s.startswith('mysql'):
-            return "%s://%s:%s@%s/%s?charset=utf8" % (self.engine_s, self.user, self.passwd, self.host, self.dbfile)
+            return "%s://%s:%s@%s/%s?charset=utf8" % (
+                self.engine_s, 
+                self.user, 
+                self.passwd, 
+                self.host, 
+                self.dbfile)
 
-    def __init__(self, music_folders, dbfile="iposonic1", refresh_interval=60, user="iposonic", passwd="iposonic", host="localhost", recreate_db=False):
+    def __init__(self, music_folders, dbfile="iposonic1", 
+            refresh_interval=60, user="iposonic", passwd="iposonic", 
+            host="localhost", recreate_db=False):
         self.music_folders = music_folders
 
         # database credentials
@@ -236,7 +252,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
         # sql alchemy db connector
         self.engine = create_engine(
-            self.create_uri(), echo=True, convert_unicode=True)
+            self.create_uri(), echo=False, convert_unicode=True)
 
         #self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
@@ -261,26 +277,38 @@ class SqliteIposonicDB(object, IposonicDBTables):
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
 
-    def _query(self, table_o, query, eid=None, session=None):
+    def _query(self, table_o, query, eid=None, order=None, session=None):
         assert table_o, "Table must not be null"
         qmodel = session.query(table_o)
         if eid:
             rs = qmodel.filter_by(id=eid).one()
             return rs.json()
-        elif query:
+            
+        # Multiple results support ordering
+        if order:
+            (order_f, is_desc) = order
+            order_f = table_o.__getattribute__(table_o, order_f)
+            print "order: ", order
+            if is_desc:
+                order_f = order_f.desc()
+            qmodel.order_by(order_f)
+
+    
+        if query:
             for (k, v) in query.items():
                 field_o = table_o.__getattribute__(table_o, k)
                 assert field_o, "Field must not be null"
                 if v == 'isNull':
-                    rs = qmodel.filter(field_o is None).all()
+                    rs = qmodel.filter(field_o == None)
                 elif v == 'notNull':
-                    rs = qmodel.filter(field_o is not None).all()
+                    rs = qmodel.filter(field_o != None)
                 else:
-                    rs = qmodel.filter(field_o.like("%%%s%%" % v)).all()
+                    rs = qmodel.filter(field_o.like("%%%s%%" % v))
         else:
-            rs = qmodel.all()
+            rs = qmodel
         if not rs:
             return []
+        rs = rs.all()
         return [r.json() for r in rs]
 
     def _query_id(self, eid, session=None):
@@ -328,9 +356,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
         return self._query(self.Media, query, eid=eid, session=session)
 
     @connectable
-    def get_albums(self, eid=None, query=None, session=None):
+    def get_albums(self, eid=None, query=None, order=None, session=None):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Album, query, eid=eid, session=session)
+        return self._query(self.Album, query, eid=eid, order=order, session=session)
 
     @connectable
     def get_playlists(self, eid=None, query=None, session=None):
@@ -358,9 +386,10 @@ class SqliteIposonicDB(object, IposonicDBTables):
             if not a:
                 continue
             first = a[0:1].upper()
-            indexes.setdefault(first, [])
-            indexes[first].append({'artist': artist_j})
-        print "indexes: %s" % indexes
+            try:
+                indexes[first].append({'artist': artist_j})
+            except KeyError:
+                indexes[first] = [{'artist': artist_j}]
         return indexes
 
     def get_music_folders(self):

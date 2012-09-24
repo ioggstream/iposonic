@@ -276,7 +276,7 @@ class IposonicDB(object, IposonicDBTables):
         raise IposonicException("No entries returned")
 
     @staticmethod
-    def _get_hash(hash_, eid=None, query=None):
+    def _get_hash(hash_, eid=None, query=None, order=None):
         if eid:
             return hash_.get(eid)
         if query:
@@ -301,8 +301,8 @@ class IposonicDB(object, IposonicDBTables):
         """
         return IposonicDB._get_hash(self.songs, eid, query)
 
-    def get_albums(self, eid=None, query=None):
-        return IposonicDB._get_hash(self.albums, eid, query)
+    def get_albums(self, eid=None, query=None, order=None):
+        return IposonicDB._get_hash(self.albums, eid, query=query, order=order)
 
     def get_artists(self, eid=None, query=None):
         """This method should trigger a filesystem initialization.
