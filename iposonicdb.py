@@ -107,17 +107,17 @@ class IposonicDBTables:
         def json(self):
             """Return a dict/json representation of the public fields of
                 the object.
-             
+
             """
             ret = []
             for (k, v) in self.__dict__.iteritems():
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
-                    elif k.lower() in ['userrating', 
-                                        'averagerating', 
-                                        'duration', 
-                                        'bitrate']:
+                    elif k.lower() in ['userrating',
+                                       'averagerating',
+                                       'duration',
+                                       'bitrate']:
                         v = int(v) if v is not None else 0
                     ret.append((k, v))
             return dict(ret)
@@ -132,7 +132,7 @@ class IposonicDBTables:
 
         def __repr__(self):
             return "<%s: %s>" % (
-                self.__class__.__name__, 
+                self.__class__.__name__,
                 self.json().__repr__())
 
     class Artist(ArtistDAO, Base, SerializerMixin):
@@ -233,15 +233,15 @@ class SqliteIposonicDB(object, IposonicDBTables):
             return "%s:///%s" % (self.engine_s, self.dbfile)
         elif self.engine_s.startswith('mysql'):
             return "%s://%s:%s@%s/%s?charset=utf8" % (
-                self.engine_s, 
-                self.user, 
-                self.passwd, 
-                self.host, 
+                self.engine_s,
+                self.user,
+                self.passwd,
+                self.host,
                 self.dbfile)
 
-    def __init__(self, music_folders, dbfile="iposonic1", 
-            refresh_interval=60, user="iposonic", passwd="iposonic", 
-            host="localhost", recreate_db=False):
+    def __init__(self, music_folders, dbfile="iposonic1",
+                 refresh_interval=60, user="iposonic", passwd="iposonic",
+                 host="localhost", recreate_db=False):
         self.music_folders = music_folders
 
         # database credentials
@@ -284,7 +284,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if eid:
             rs = qmodel.filter_by(id=eid).one()
             return rs.json()
-            
+
         # Multiple results support ordering
         if order:
             (order_f, is_desc) = order
@@ -293,7 +293,6 @@ class SqliteIposonicDB(object, IposonicDBTables):
             if is_desc:
                 order_f = order_f.desc()
 
-    
         if query:
             for (k, v) in query.items():
                 field_o = table_o.__getattribute__(table_o, k)
@@ -301,14 +300,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 if v == 'isNull':
                     rs = qmodel.filter(field_o == None)
                 elif v == 'notNull':
-                    rs = qmodel.filter(field_o != None).order_by(order_f)
+                    rs = qmodel.filter(field_o != None)
                 else:
                     rs = qmodel.filter(field_o.like("%%%s%%" % v))
         else:
             rs = qmodel
         if not rs:
             return []
-        rs = rs.all()
+        rs = rs.order_by(order_f).all()
         return [r.json() for r in rs]
 
     def _query_id(self, eid, session=None):
@@ -416,7 +415,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     @transactional
     def add_entry(self, path, album=False, session=None):
-        self.log.info("add_entry: %s, album=%s" % (path,album))
+        self.log.info("add_entry: %s, album=%s" % (path, album))
         assert session
         eid = None
         record = None

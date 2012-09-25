@@ -16,12 +16,9 @@ from iposonic import IposonicException, SubsonicProtocolException
 from mediamanager import MediaManager, StringUtils
 
 
-
 #
 # List music collections
 #
-
-
 @app.route("/rest/getMusicFolders.view", methods=['GET', 'POST'])
 def get_music_folders_view():
     """Return all music folders."""
@@ -420,7 +417,8 @@ def get_album_list_view():
         albums = albums[:size]
     elif type_a == 'newest':
         log.info("getting newest")
-        albums = iposonic.get_albums(query={'created': 'notNull'}, order=('created', 1))
+        albums = iposonic.get_albums(
+            query={'created': 'notNull'}, order=('created', 1))
         albums = albums[:3]
     else:
         # get all albums...hey, they may be a lot!
