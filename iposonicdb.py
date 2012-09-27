@@ -192,11 +192,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 self.reset()
             except Exception as e:
                 if len(args):
-                    ret = args[0]
+                    ret = StringUtils.to_unicode(args[0])
                 else:
                     ret = ""
-                print "error: string: %s, ex: %s" % (
-                    StringUtils.to_unicode(ret), e)
+                print u"error: string: %s, ex: %s" % (
+                    ret.__class__, e)
                 raise
         connect.__name__ = fn.__name__
         return connect
@@ -252,7 +252,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
         # sql alchemy db connector
         self.engine = create_engine(
-            self.create_uri(), echo=True, convert_unicode=True)
+            self.create_uri(), echo=False, convert_unicode=True)
 
         #self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
@@ -420,7 +420,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
         eid = None
         record = None
         record_a = None
-        if os.path.isdir(path):
+        if not isinstance(path, unicode):
+            path_u = StringUtils.to_unicode(path)
+        else:
+            path_u = path
+        if os.path.isdir(path_u.encode('utf-8')):
             eid = MediaManager.uuid(path)
             if album:
                 record = self.Album(path)

@@ -8,7 +8,8 @@ import time
 import subprocess
 from os.path import join
 from flask import request, send_file, Response, abort
-from webapp import iposonic, app, cache_dir
+from webapp import iposonic, app
+from config import cache_dir
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 from art_downloader import CoverSource
@@ -59,7 +60,7 @@ def stream_view():
 
 def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
-    cmd = ["/usr/bin/lame", "-B", maxBitRate, srcfile, "-"]
+    cmd = ["/usr/bin/lame","-S","-v", "-B", maxBitRate, srcfile, "-"]
     print "generate(): %s" % cmd
     srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
@@ -214,16 +215,18 @@ def get_cover_art_file(eid, nocache=False):
             return cover_art_path
 
     # search cover_art using id3 tag
-    if info.get('artist') and info.get('album'):
-        cover_art_path = join("/",
-                              cache_dir,
-                              MediaManager.uuid("%s/%s" % (
-                                                info.get('artist'),
-                                                info.get('album'))
-                                                )
-                              )
-        if os.path.exists(cover_art_path):
-            return cover_art_path
+    if not info.get('artist') or not info.get('album'):        
+        return None
+
+    cover_art_path = join("/", 
+        cache_dir, 
+        MediaManager.uuid("%s/%s" % (
+            info.get('artist'), 
+            info.get('album'))
+            )
+    )
+    if os.path.exists(cover_art_path):
+        return cover_art_path
 
     print "coverart %s: searching album: %s " % (eid, info.get('album'))
     c = CoverSource()

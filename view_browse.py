@@ -8,13 +8,15 @@ log = logging.getLogger("iposonic-browse")
 
 import os
 from os.path import join
+os.path.supports_unicode_filenames=True
 
 from flask import request, send_file
-from webapp import iposonic, app, fs_cache, cache_dir
+from webapp import iposonic, app, fs_cache
 from webapp import randomize2_list
 from iposonic import IposonicException, SubsonicProtocolException
 from mediamanager import MediaManager, StringUtils
 
+from config import  cache_dir
 
 #
 # List music collections
@@ -228,7 +230,7 @@ def get_music_directory_view():
             path = join("/", dir_path, child)
             try:
                 child_j = {}
-                is_dir = os.path.isdir(path)
+                is_dir = os.path.isdir(path.encode('utf-8'))
                 # This is a Lazy Indexing. It should not be there
                 #   unless a cache is set
                 # XXX

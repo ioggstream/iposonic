@@ -14,16 +14,17 @@
 #
 from __future__ import unicode_literals
 import logging
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 import sys
 import os
+os.path.supports_unicode_filenames=True
 import thread
 from flask import Flask, g
 from iposonic import Iposonic
 
 from webapp import iposonic
-from webapp import tmp_dir, cache_dir, music_folders
+from config import tmp_dir, cache_dir, music_folders
 
 from webapp import app, log
 
@@ -66,6 +67,7 @@ def run(argc, argv):
     print thread.get_ident(), "iposonic main @%s" % id(iposonic)
 
     app.run(host='0.0.0.0', port=5000, debug=True)
+    
 
 
 if __name__ == "__main__":
