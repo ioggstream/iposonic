@@ -33,9 +33,11 @@ prerequisites
 Required
  * pip install flask
  * pip install mutagen
+ * pip install simplejson
 
 Optional
  * pip install sqlalchemy 	# [optional if you want a permanent store]
+ * pip install MySQL-python 	# [optional if you want MySQL support]
  * pip install nose 		# [to test and develop]
  * [apt-get|yum] install lame   # [optional if you want transcoding and down-sampling]
 

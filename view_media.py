@@ -140,25 +140,31 @@ def unstar_view():
     iposonic.update_entry(eid, {'starred': None})
     return request.formatter({})
 
+
 class CacheError:
     pass
+
+
 class CacheMixing(dict):
     timeout = 60
-    empty = {'ts': 0,'item': None}
+    empty = {'ts': 0, 'item': None}
+
     def add_item(self, key, item):
-        self.update({key: { 
-            'item':item, 
-            'ts' : time.time() 
-            }})
+        self.update({key: {
+            'item': item,
+            'ts': time.time()
+        }})
+
     def get_item(self, key):
         item = self[key]
         if item.get('ts') and (item.get('ts') + 60 > time.time()):
             return item.get('item')
         raise CacheError("Item expired")
-        
-cache_coverart = CacheMixing()    
+
+cache_coverart = CacheMixing()
 
 cache2 = dict()
+
 
 def memorize(f):
     def tmp(eid, nocache=False):
@@ -171,42 +177,43 @@ def memorize(f):
                 #    of empty items
                 if ts + 60 < time.time():
                     return item
-                    
+
         except KeyError:
             pass
-        
+
         try:
             cache2[eid] = (f(eid, nocache=nocache), time.time())
         except IposonicException:
             cache2[eid] = (None, time.time())
-            
+
         return cache2[eid][0]
     return tmp
-    
+
+
 @memorize
 def get_cover_art_file(eid, nocache=False):
     """Return coverArt file, eventually downloading it.
-        
+
         Successful download requires both Artist and Album, so
         store the filename as uuid(Artist/Album)
         1- if parent directory...
         2- if song, download as Artist/Album
         3- if album, download as Artist/Album
-        3- if albumId... 
+        3- if albumId...
     """
     cover_art_path = join("/", cache_dir, "%s" % eid)
     if os.path.exists(cover_art_path):
         return cover_art_path
-        
+
     # hit database
     info = iposonic.get_entry_by_id(eid)
-    
+
     # search cover_art for file using parent or albumId
     if info.get('isDir') in [False, 'false', 'False']:
         cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
         if os.path.exists(cover_art_path):
             return cover_art_path
-            
+
     # search cover_art using id3 tag
     if not info.get('artist') or not info.get('album'):        
         return None
@@ -226,7 +233,8 @@ def get_cover_art_file(eid, nocache=False):
     for cover in c.search(info.get('album')):
         print "confronting info: %s with: %s" % (info, cover)
         if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
-            print "Saving image %s -> %s" % (cover.get('cover_small'), cover_art_path)
+            print "Saving image %s -> %s" % (
+                cover.get('cover_small'), cover_art_path)
             fd = open(cover_art_path, "w")
             fd.write(urlopen(cover.get('cover_small')).read())
             fd.close()
@@ -237,10 +245,7 @@ def get_cover_art_file(eid, nocache=False):
                 [x.get('artist', x.get('name')) for x in [info, cover]])
 
     raise IposonicException("Missing Coverart")
-    
 
-
-    
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
 def get_cover_art_view():
@@ -250,12 +255,13 @@ def get_cover_art_view():
     (eid, size) = map(request.args.get, ['id', 'size'])
 
     cover_art_path = get_cover_art_file(eid)
-    
-    if cover_art_path == None:
+
+    if cover_art_path is None:
         abort(404)
-        
+
     return send_file(cover_art_path)
-    
+
+
 def get_cover_art_view_old():
     """Get coverart.
 
@@ -275,7 +281,6 @@ def get_cover_art_view_old():
         abort(404)
     except KeyError:
         pass
-
 
     # Return file if present
     cover_art_path = join("/", cache_dir, "%s" % eid)
@@ -299,13 +304,13 @@ def get_cover_art_view_old():
 
     # ...then with artist+album...
     try:
-        cover_art_path = join("/", 
-            cache_dir, 
-            MediaManager.uuid("%s/%s" % (
-                info.get('artist'), 
-                info.get('album'))
-            )
-        )
+        cover_art_path = join("/",
+                              cache_dir,
+                              MediaManager.uuid("%s/%s" % (
+                                                info.get('artist'),
+                                                info.get('album'))
+                                                )
+                              )
         return send_file(cover_art_path)
     except IOError:
         pass
@@ -316,7 +321,8 @@ def get_cover_art_view_old():
     for cover in c.search(info.get('album')):
         print "confronting info: %s with: %s" % (info, cover)
         if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
-            print "Saving image %s -> %s" % (cover.get('cover_small'), cover_art_path)
+            print "Saving image %s -> %s" % (
+                cover.get('cover_small'), cover_art_path)
             fd = open(cover_art_path, "w")
             fd.write(urlopen(cover.get('cover_small')).read())
             fd.close()

@@ -39,17 +39,17 @@ try:
 #    import yappi
     import signal
     import sys
+
     def signal_handler(signal, frame):
             print 'You pressed Ctrl+C!'
             yappi.stop()
-            yappi.print_stats(open("yappi.out","w"))
+            yappi.print_stats(open("yappi.out", "w"))
             sys.exit(0)
     signal.signal(signal.SIGINT, signal_handler)
 
     yappi.start()
 except:
-    pass     
-    
+    pass
 
 
 def run(argc, argv):
@@ -66,12 +66,11 @@ def run(argc, argv):
 
     iposonic.db.init_db()
     print thread.get_ident(), "iposonic main @%s" % id(iposonic)
+
+    app.run(host='0.0.0.0', port=5000, debug=True)
     
 
-    app.run(host='127.0.0.1', port=5000, debug=True)
-    
-    
+
 if __name__ == "__main__":
     argc, argv = len(sys.argv), sys.argv
     run(argc, argv)
-

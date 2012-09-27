@@ -219,7 +219,7 @@ class MediaManager:
             "created": 12345
            TODO all strings should still be unicode
         """
-        if True: #os.path.isfile(path):
+        if True:  # os.path.isfile(path):
             try:
                 path = StringUtils.to_unicode(path)
                 # get basic info
@@ -239,7 +239,6 @@ class MediaManager:
                 ret['parent'] = MediaManager.uuid(dirname(path))
 
                 ret['created'] = int(os.stat(path).st_ctime)
-
 
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000

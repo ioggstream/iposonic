@@ -69,11 +69,11 @@ def ping_view():
         - callback
     """
     (u, p, v, c) = map(request.args.get, ['u', 'p', 'v', 'c'])
-    log.warn( "songs: %s" % iposonic.db.get_songs())
-    log.warn( "albums: %s" % iposonic.db.get_albums())
-    log.warn( "artists: %s" % iposonic.db.get_artists())
-    log.warn( "indexes: %s" % iposonic.db.get_indexes())
-    log.warn( "indexes: %s" % iposonic.db.get_playlists())
+    log.warn("songs: %s" % iposonic.db.get_songs())
+    log.warn("albums: %s" % iposonic.db.get_albums())
+    log.warn("artists: %s" % iposonic.db.get_artists())
+    log.warn("indexes: %s" % iposonic.db.get_indexes())
+    log.warn("indexes: %s" % iposonic.db.get_playlists())
 
     return request.formatter({}, version='1.8.0')
 
@@ -114,7 +114,7 @@ def set_formatter():
             #   it's not a problem because the getCoverArt should
             #   return a byte stream
             if request.endpoint not in ['get_cover_art_view', 'stream_view', 'download_view']:
-                log.info( "request: %s" % request.data)
+                log.info("request: %s" % request.data)
                 raise SubsonicProtocolException(
                     "Missing callback with jsonp in: %s" % request.endpoint)
         request.formatter = lambda x: ResponseHelper.responsize_jsonp(
@@ -128,7 +128,7 @@ def set_content_type(response):
     """Set json response content-type."""
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    log.warn( "response is streamed: %s" % response.is_streamed)
+    log.warn("response is streamed: %s" % response.is_streamed)
 
     if f == 'jsonp' and not response.is_streamed:
         response.headers['content-type'] = 'application/json'
@@ -155,7 +155,7 @@ def hex_decode(s):
             ret += chr(l)
     else:
         ret = s
-    log.info( "decoded password: %s" % ret)
+    log.info("decoded password: %s" % ret)
     return ret
 
 
@@ -175,7 +175,7 @@ def randomize(dictionary, limit=20):
             ret.append(dictionary[k_rnd])
         return ret
     except:
-        log.info( "a_all:%s" % a_all)
+        log.info("a_all:%s" % a_all)
         raise
 
 
