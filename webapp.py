@@ -30,7 +30,7 @@ from iposonic import (Iposonic,
 
 
 from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
-
+from config import tmp_dir, cache_dir, music_folders, authorizer
 import cgi
 
 #
@@ -45,28 +45,12 @@ except:
 log = logging.getLogger('iposonic-webapp')
 app = Flask(__name__)
 
-
-#
-# Configuration
-#
-tmp_dir = "/tmp/iposonic"
-cache_dir = join("/", tmp_dir, "_cache/")
-music_folders = [
-    #"/home/rpolli/workspace-py/iposonic/test/data/"
-    "/opt/music/"
-]
-fs_cache = dict()
-iposonic = Iposonic(music_folders, dbhandler=Dbh, recreate_db=False)
-
-# While developing don't enforce authentication
-#   otherwise you can use a credential file
-#   or specify your users inline
-authorizer = Authorizer(mock=True, access_file=None)
-authorizer.add_user("user", "password")
 ###
 # The web
 ###
 
+fs_cache = dict()
+iposonic = Iposonic(music_folders, dbhandler=Dbh, recreate_db=False)
 #
 # Test connection
 #

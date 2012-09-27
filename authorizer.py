@@ -37,5 +37,7 @@ class Authorizer:
             return True
         return False
 
-    def add_user(self, user, passwd):
-        self.users.setdefault(user, md5(passwd).hexdigest())
+    def add_user(self, user, passwd, cleartext=True):
+        if cleartext:
+            passwd = md5(passwd).hexdigest()
+        self.users.setdefault(user, passwd)

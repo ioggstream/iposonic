@@ -15,7 +15,7 @@
 from __future__ import unicode_literals
 
 import logging
-logging.basicConfig(level=logging.WARN)
+logging.basicConfig(level=logging.INFO)
 
 import sys
 import os
@@ -25,7 +25,7 @@ from flask import Flask, g
 from iposonic import Iposonic
 
 from webapp import iposonic
-from webapp import tmp_dir, cache_dir, music_folders
+from config import tmp_dir, cache_dir, music_folders
 
 from webapp import app, log
 

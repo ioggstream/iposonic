@@ -234,7 +234,7 @@ class TestIposonicDB:
         print "ret: %s" % ret
 
     def test_latest(self):
-        album = self.db.add_entry('/home/rpolli/workspace-py/iposonic/test/data/mock_artist/mock_album/', album=True) 
+        album = self.db.add_entry(os.getcwd()+'/test/data/mock_artist/mock_album/', album=True) 
         ret = self.db.get_albums()
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret

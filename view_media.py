@@ -8,7 +8,8 @@ import time
 import subprocess
 from os.path import join
 from flask import request, send_file, Response, abort
-from webapp import iposonic, app, cache_dir
+from webapp import iposonic, app
+from config import cache_dir
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
 from art_downloader import CoverSource

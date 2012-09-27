@@ -11,11 +11,12 @@ from os.path import join
 os.path.supports_unicode_filenames=True
 
 from flask import request, send_file
-from webapp import iposonic, app, fs_cache, cache_dir
+from webapp import iposonic, app, fs_cache
 from webapp import randomize2_list
 from iposonic import IposonicException, SubsonicProtocolException
 from mediamanager import MediaManager, StringUtils
 
+from config import  cache_dir
 
 
 #

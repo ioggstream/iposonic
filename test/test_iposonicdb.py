@@ -53,7 +53,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         assert ret, "ret_get_songs: %s" % ret
 
     def test_get_songs_with_select(self):
-        self.db.add_entry(self.test_dir + "mock_artist/mock_album/sample.ogg")
+        self.db.add_entry(self.test_dir + "/mock_artist/mock_album/sample.ogg")
         l_session = self.db.Session()
         ret = l_session.execute("select * from song;").fetchall()
         assert ret, "ret: %s" % ret
@@ -75,6 +75,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
         assert info['title'], "ori: %s, saved: %s" % (info_old, info)
         assert info.get('bitRate'), "ori: %s, saved: %s" % (info_old, info)
+        exit
         print info
 
 
