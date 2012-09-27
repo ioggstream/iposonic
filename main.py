@@ -12,12 +12,14 @@
 #   * authentication backend
 #   * reset db
 #
+from __future__ import unicode_literals
 
 import logging
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 
 import sys
 import os
+os.path.supports_unicode_filenames=True
 import thread
 from flask import Flask, g
 from iposonic import Iposonic
@@ -66,7 +68,7 @@ def run(argc, argv):
     print thread.get_ident(), "iposonic main @%s" % id(iposonic)
     
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
     
     
 if __name__ == "__main__":

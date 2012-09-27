@@ -163,7 +163,7 @@ class MediaManager:
         except:
             size = -1
 
-        if not 'track' in ret and not os.path.isdir(path_u):
+        if not 'track' in ret and not os.path.isdir(path_u.encode('utf-8')):
             try:
                 t, n = title.split(" ", 1)
                 track = int(t)
