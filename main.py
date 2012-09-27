@@ -12,7 +12,7 @@
 #   * authentication backend
 #   * reset db
 #
-
+from __future__ import unicode_literals
 import logging
 #logging.basicConfig(level=logging.INFO)
 
