@@ -1,7 +1,10 @@
-#
+# *-* coding: utf-8 *-*
+# 
 # Views for downloading songs
 #
 #
+from __future__ import unicode_literals
+
 import logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("iposonic-browse")
@@ -11,12 +14,13 @@ from os.path import join
 os.path.supports_unicode_filenames=True
 
 from flask import request, send_file
-from webapp import iposonic, app, fs_cache
+from webapp import  app, fs_cache
 from webapp import randomize2_list
 from iposonic import IposonicException, SubsonicProtocolException
-from mediamanager import MediaManager, StringUtils
+import mediamanager
+from mediamanager import MediaManager
+from mediamanager.stringutils import isdir, to_unicode
 
-from config import  cache_dir
 
 #
 # List music collections
@@ -32,7 +36,7 @@ def get_music_folders_view():
                           {
                           'id': MediaManager.uuid(d),
                           'name': d
-                          } for d in iposonic.get_music_folders() if os.path.isdir(d)
+                          } for d in app.iposonic.get_music_folders() if isdir(d)
                           ]
                           }}
     )
@@ -81,7 +85,7 @@ def get_indexes_view():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
     # refresh indexes
-    iposonic.refresh()
+    app.iposonic.refresh()
 
     #
     # XXX we should think to reimplement the
@@ -89,7 +93,7 @@ def get_indexes_view():
     #     wasting time with unsearchable, dict-based
     #     data to format
     #
-    return request.formatter({'indexes': iposonic.get_indexes()})
+    return request.formatter({'indexes': app.iposonic.get_indexes()})
 
 
 @app.route("/rest/getArtists.view")
@@ -202,9 +206,9 @@ def get_music_directory_view():
     if not dir_id:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in getMusicDirectory.view")
-    (path, dir_path) = iposonic.get_directory_path_by_id(dir_id)
+    (path, dir_path) = app.iposonic.get_directory_path_by_id(dir_id)
     children = []
-    artist = iposonic.db.Artist(path)
+    artist = app.iposonic.db.Artist(path)
     #
     # if nothing changed before our last visit
     #    or is a virtual path (eg. uniexistent)
@@ -217,29 +221,57 @@ def get_music_directory_view():
 
     if last_modified == -1:
         print "Getting items from valbum."
-        children = iposonic.get_songs(query={'albumId': dir_id})
+        children = app.iposonic.get_songs(query={'albumId': dir_id})
     elif fs_cache.get(dir_id, 0) == last_modified:
         print "Getting items from cache."
-        children = iposonic.get_songs(query={'parent': dir_id})
-        children.extend(iposonic.get_albums(query={'parent': dir_id}))
+        children = app.iposonic.get_songs(query={'parent': dir_id})
+        children.extend(app.iposonic.get_albums(query={'parent': dir_id}))
     else:
-        for child in os.listdir(dir_path):
-            child = StringUtils.to_unicode(child)
+        for child in os.listdir(unicode(dir_path)):
+            # TODO find a way to support non-unicode directories and
+            #    folders. The easiest way is to simply RENAME THEM!
+            #    ................
+            print "checking string type: ", type(child)
+            #child = to_unicode(child)
             if child[0] in ['.', '_']:
                 continue
-            path = join("/", dir_path, child)
+
+            #
+            # To manage non-utf8 filenames
+            # the easiest thing is to rename
+            # paths in utf.
+            #
+            # This may cause issues for collections
+            # stored on windows or vfat filesystem.
+            #
+            # This is the KISS-siest approach
+            # that avoids continuously encode
+            # and decode of the filenames.
+            #
+            if not isinstance(child, unicode): 
+                if not app.config.get('rename_non_utf8'):
+                    app.log.warn("skipping non unicode path: %s " % to_unicode(child))
+                    continue
+                child_new = to_unicode(child)
+                os.rename(
+                    b'%s/%s' % (dir_path.encode('utf-8'), child),
+                    u'%s/%s' % (dir_path, child_new)
+                )
+                child = child_new
+
+            path = join(dir_path, child)
             try:
                 child_j = {}
-                is_dir = os.path.isdir(path.encode('utf-8'))
+                is_dir = isdir(path)
                 # This is a Lazy Indexing. It should not be there
                 #   unless a cache is set
                 # XXX
                 eid = MediaManager.uuid(path)
                 try:
-                    child_j = iposonic.get_entry_by_id(eid)
+                    child_j = app.iposonic.get_entry_by_id(eid)
                 except IposonicException:
-                    iposonic.add_entry(path, album=is_dir)
-                    child_j = iposonic.get_entry_by_id(eid)
+                    app.iposonic.add_entry(path, album=is_dir)
+                    child_j = app.iposonic.get_entry_by_id(eid)
 
                 children.append(child_j)
             except IposonicException as e:
@@ -301,7 +333,7 @@ def search2_view():
 
     # ret is
     print "searching"
-    ret = iposonic.search2(query, artistCount, albumCount, songCount)
+    ret = app.iposonic.search2(query, artistCount, albumCount, songCount)
     #songs = [{'song': s} for s in ret['title']]
     #songs.extend([{'album': a} for a in ret['album']])
     #songs.extend([{'artist': a} for a in ret['artist']])
@@ -359,7 +391,7 @@ def get_starred_view():
     (artistCount, albumCount, songCount) = map(
         request.args.get, ["artistCount", "albumCount", "songCount"])
 
-    ret = iposonic.get_starred(query, artistCount, albumCount, songCount)
+    ret = app.iposonic.get_starred(query, artistCount, albumCount, songCount)
     print "ret: %s" % ret
     return request.formatter(
         {
@@ -411,20 +443,20 @@ def get_album_list_view():
         size = 20
 
     if type_a == 'random':
-        albums = iposonic.get_albums()
+        albums = app.iposonic.get_albums()
         albums = randomize2_list(albums, size)
     elif type_a == 'highest':
         # TODO
-        albums = iposonic.get_albums()
+        albums = app.iposonic.get_albums()
         albums = albums[:size]
     elif type_a == 'newest':
         log.info("getting newest")
-        albums = iposonic.get_albums(
+        albums = app.iposonic.get_albums(
             query={'created': 'notNull'}, order=('created', 1))
         albums = albums[:3]
     else:
         # get all albums...hey, they may be a lot!
-        albums = [a for a in iposonic.get_albums()]
+        albums = [a for a in app.iposonic.get_albums()]
 
     return request.formatter({'albumList': {'album': albums}})
 
@@ -471,9 +503,9 @@ def get_random_songs_view():
     songs = []
     if genre:
         print "genre: %s" % genre
-        songs = iposonic.get_genre_songs(genre)
+        songs = app.iposonic.get_genre_songs(genre)
     else:
-        all_songs = iposonic.get_songs()
+        all_songs = app.iposonic.get_songs()
         assert all_songs
         songs = randomize2_list(all_songs)
     assert songs

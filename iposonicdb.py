@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from os.path import join, basename
+import chardet
 
 # logging
 import logging
@@ -17,8 +18,8 @@ from iposonic import (
     IposonicException,
     ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO
 )
-from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
-
+from mediamanager import MediaManager, UnsupportedMediaError
+from mediamanager.stringutils import isdir, to_unicode, stat, detect_encode
 
 # add local path for loading _mysqlembedded
 sys.path.insert(0, './lib')
@@ -151,7 +152,7 @@ class IposonicDBTables:
                 TODO convert get_info to Unicode
             """
             Base.__init__(self)
-            #self.__dict__.update(dict([(k, StringUtils.to_unicode(v)) for (
+            #self.__dict__.update(dict([(k, to_unicode(v)) for (
             #    k, v) in MediaManager.get_info(path).iteritems()]))
 
             self.update(MediaManager.get_info(path))
@@ -192,7 +193,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 self.reset()
             except Exception as e:
                 if len(args):
-                    ret = StringUtils.to_unicode(args[0])
+                    ret = to_unicode(args[0])
                 else:
                     ret = ""
                 print u"error: string: %s, ex: %s" % (
@@ -219,7 +220,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             except Exception as e:
                 session.rollback()
                 if len(args):
-                    ret = StringUtils.to_unicode(args[0])
+                    ret = to_unicode(args[0])
                 else:
                     ret = ""
                 print u"error: string: %s, ex: %s" % (
@@ -421,18 +422,20 @@ class SqliteIposonicDB(object, IposonicDBTables):
         record = None
         record_a = None
         if not isinstance(path, unicode):
-            path_u = StringUtils.to_unicode(path)
+            path_u = to_unicode(path)
         else:
             path_u = path
-        if os.path.isdir(path_u.encode('utf-8')):
+ 
+        # encoding = detect_encode(path)
+
+        if os.path.isdir(path):
             eid = MediaManager.uuid(path)
             if album:
                 record = self.Album(path)
             else:
                 record = self.Artist(path)
-            self.log.info("adding directory: %s, %s " % (eid,
-                          StringUtils.to_unicode(path)))
-        elif MediaManager.is_allowed_extension(path):
+            self.log.info("adding directory: %s, %s " % (eid, path_u))
+        elif MediaManager.is_allowed_extension(path_u):
             try:
                 record = self.Media(path)
                 # TODO: create a virtual album
@@ -442,7 +445,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                     record.albumId = MediaManager.uuid(vpath)
                 eid = record.id
                 self.log.info("adding file: %s, %s " % (
-                    eid, StringUtils.to_unicode(path)))
+                    eid, path_u))
             except UnsupportedMediaError, e:
                 raise IposonicException(e)
 

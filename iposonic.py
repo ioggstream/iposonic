@@ -26,8 +26,8 @@ from os.path import join, basename, dirname
 # manage media files
 #
 # tags
-from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
-
+from mediamanager import MediaManager, UnsupportedMediaError
+from mediamanager import stringutils
 # logging and json
 import logging
 log = logging.getLogger('iposonic')
@@ -91,7 +91,7 @@ class AlbumDAO:
     def get_info(self, path):
         """TODO use path_u directly."""
         eid = MediaManager.uuid(path)
-        path_u = StringUtils.to_unicode(path)
+        path_u = stringutils.to_unicode(path)
         parent = dirname(path)
         dirname_u = MediaManager.get_album_name(path_u)
         return {
@@ -429,9 +429,21 @@ class Iposonic:
         """
     log = logging.getLogger('Iposonic')
 
-    def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False):
+    def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False, tmp_dir="/tmp/iposonic"):
         print("Creating Iposonic with music folders: %s, dbhandler: %s" %
               (music_folders, dbhandler))
+
+        # set directory
+        self.tmp_dir = tmp_dir
+        self.cache_dir = join("/", tmp_dir, "_cache")
+
+        # eventually create missing directories
+        #   or die
+        if not os.path.isdir(tmp_dir):
+            os.mkdir(tmp_dir)
+        if not os.path.isdir(self.cache_dir):
+            os.mkdir(self.cache_dir)
+
         self.db = dbhandler(music_folders, recreate_db=recreate_db)
         self.log.setLevel(logging.INFO)
 
@@ -448,7 +460,11 @@ class Iposonic:
         ]:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
-        raise NotImplementedError("Method not found: %s" % method)
+
+        
+        return object.__getattr__(self, method)    
+        
+        #    raise NotImplementedError("Method not found: %s" % method, e)
 
     def get_folder_by_id(self, folder_id):
         """It's ok just because self.db.get_music_folders() are few"""

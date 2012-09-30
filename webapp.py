@@ -10,7 +10,7 @@
 
 #from __future__ import unicode_literals
 
-from flask import Flask
+from flask import Flask, current_app
 from flask import request
 
 import random
@@ -20,7 +20,6 @@ from os.path import join
 import simplejson
 import logging
 
-from authorizer import Authorizer
 
 from iposonic import (Iposonic,
                       IposonicException,
@@ -29,8 +28,7 @@ from iposonic import (Iposonic,
                       )
 
 
-from mediamanager import MediaManager, UnsupportedMediaError, StringUtils
-from config import tmp_dir, cache_dir, music_folders, authorizer
+from mediamanager import MediaManager, UnsupportedMediaError, stringutils
 import cgi
 
 #
@@ -50,7 +48,6 @@ app = Flask(__name__)
 ###
 
 fs_cache = dict()
-iposonic = Iposonic(music_folders, dbhandler=Dbh, recreate_db=False)
 #
 # Test connection
 #
@@ -69,13 +66,15 @@ def ping_view():
         - callback
     """
     (u, p, v, c) = map(request.args.get, ['u', 'p', 'v', 'c'])
+    iposonic = app.iposonic
+    log.warn("config: %s" % app.config)
     log.warn("songs: %s" % iposonic.db.get_songs())
     log.warn("albums: %s" % iposonic.db.get_albums())
     log.warn("artists: %s" % iposonic.db.get_artists())
     log.warn("indexes: %s" % iposonic.db.get_indexes())
-    log.warn("indexes: %s" % iposonic.db.get_playlists())
+    log.warn("playlists: %s" % iposonic.db.get_playlists())
 
-    return request.formatter({}, version='1.8.0')
+    return request.formatter({})
 
 
 @app.route("/rest/getLicense.view", methods=['GET', 'POST'])
@@ -89,14 +88,30 @@ def get_license_view():
 #
 
 
+def endpoint_requires_authentication(request, app):
+    """The following endpoints don't strinctly require authentication."""
+    if request.endpoint in ['get_cover_art_view']:
+        # cover_art requires only the right params
+        if app.config.get('free_coverart'):
+            (v,c) = map(request.args.get, ['v','c'])
+            if v and c:
+                return False
+            log.warn("Missing required params: v, c")        
+    return True
+
 @app.before_request
 def authorize():
     """Authenticate users"""
+
+    # skip authentication on given endpoints
+    if not endpoint_requires_authentication(request, app):
+        return  
+
     (u, p, v, c) = map(
         request.args.get, ['u', 'p', 'v', 'c'])
 
     p_clear = hex_decode(p)
-    if not authorizer.authorize(u, p_clear):
+    if not app.authorizer.authorize(u, p_clear):
         return "401 Unauthorized", 401
 
     pass
@@ -284,7 +299,7 @@ class ResponseHelper:
                                 attributes,
                                 attr,
                                 cgi.escape(
-                                    StringUtils.to_unicode(value), quote=None)
+                                    stringutils.to_unicode(value), quote=None)
                             )
                         elif value.__class__.__name__ in ['int', 'unicode', 'bool', 'long']:
                             attributes = """%s %s="%s" """ % (

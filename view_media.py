@@ -8,12 +8,13 @@ import time
 import subprocess
 from os.path import join
 from flask import request, send_file, Response, abort
-from webapp import iposonic, app
-from config import cache_dir
+from webapp import  app
+
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
-from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
+from mediamanager import MediaManager,  UnsupportedMediaError
 from art_downloader import CoverSource
 from urllib import urlopen
+from mediamanager.stringutils import isdir
 
 #
 # download and stream
@@ -36,7 +37,7 @@ def stream_view():
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
-    info = iposonic.get_entry_by_id(eid)
+    info = app.iposonic.get_entry_by_id(eid)
     path = info.get('path', None)
     assert path, "missing path in song: %s" % info
 
@@ -80,7 +81,7 @@ def download_view():
     if not 'id' in request.args:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
-    info = iposonic.get_entry_by_id(request.args['id'])
+    info = app.iposonic.get_entry_by_id(request.args['id'])
     assert 'path' in info, "missing path in song: %s" % info
     try:
         return send_file(info['path'])
@@ -110,9 +111,9 @@ def set_rating_view():
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
     rating = int(rating)
-    iposonic.update_entry(eid, {'userRating': rating})
+    app.iposonic.update_entry(eid, {'userRating': rating})
     if rating == 5:
-        iposonic.update_entry(
+        app.iposonic.update_entry(
             eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
     return request.formatter({})
 
@@ -125,7 +126,7 @@ def star_view():
     if not eid:
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
-    iposonic.update_entry(eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
+    app.iposonic.update_entry(eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
     return request.formatter({})
 
 
@@ -137,7 +138,7 @@ def unstar_view():
     if not eid:
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
-    iposonic.update_entry(eid, {'starred': None})
+    app.iposonic.update_entry(eid, {'starred': None})
     return request.formatter({})
 
 
@@ -167,6 +168,11 @@ cache2 = dict()
 
 
 def memorize(f):
+    """The memorize pattern is a simple cache implementation.
+
+        It requires that te underlying function takes two
+        parameters: f(eid, nocache=False).
+    """
     def tmp(eid, nocache=False):
         try:
             if not nocache:
@@ -201,16 +207,16 @@ def get_cover_art_file(eid, nocache=False):
         3- if album, download as Artist/Album
         3- if albumId...
     """
-    cover_art_path = join("/", cache_dir, "%s" % eid)
+    cover_art_path = os.path.join("/", app.iposonic.cache_dir, "%s" % eid)
     if os.path.exists(cover_art_path):
         return cover_art_path
 
     # hit database
-    info = iposonic.get_entry_by_id(eid)
+    info = app.iposonic.get_entry_by_id(eid)
 
     # search cover_art for file using parent or albumId
     if info.get('isDir') in [False, 'false', 'False']:
-        cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
+        cover_art_path = join("/", app.iposonic.cache_dir, "%s" % info.get('parent'))
         if os.path.exists(cover_art_path):
             return cover_art_path
 
@@ -219,7 +225,7 @@ def get_cover_art_file(eid, nocache=False):
         return None
 
     cover_art_path = join("/", 
-        cache_dir, 
+        app.iposonic.cache_dir, 
         MediaManager.uuid("%s/%s" % (
             info.get('artist'), 
             info.get('album'))
@@ -229,8 +235,12 @@ def get_cover_art_file(eid, nocache=False):
         return cover_art_path
 
     print "coverart %s: searching album: %s " % (eid, info.get('album'))
-    c = CoverSource()
-    for cover in c.search(info.get('album')):
+    covers = cover_search(info.get('album'))
+    for cover in covers:
+        # TODO consider multiple authors in info
+        #  ex. Actually "U2 & Frank Sinatra" != "U2"
+        #      leads to a false negative
+        # TODO con 
         print "confronting info: %s with: %s" % (info, cover)
         if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
             print "Saving image %s -> %s" % (
@@ -245,6 +255,20 @@ def get_cover_art_file(eid, nocache=False):
                 [x.get('artist', x.get('name')) for x in [info, cover]])
 
     raise IposonicException("Missing Coverart")
+
+@memorize
+def cover_search(album, nocache=False):
+    """Download album info from the web.
+
+        This class implements the @memorize pattern 
+        to reduce web access.
+    """
+    if album:
+        c = CoverSource()
+        ret = c.search(album)
+        if ret: 
+            return ret
+    return None
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
@@ -291,7 +315,7 @@ def get_cover_art_view_old():
         pass
 
     # ...then if song, try with parent...
-    info = iposonic.get_entry_by_id(eid)
+    info = app.iposonic.get_entry_by_id(eid)
     try:
         if info.get('isDir') in [False, 'false', 'False']:
             cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))

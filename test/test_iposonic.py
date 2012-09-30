@@ -7,6 +7,10 @@ from os.path import join
 from iposonic import Iposonic, MediaManager, IposonicDB
 from iposonicdb import SqliteIposonicDB
 
+#
+# Test configuration
+#
+tmp_dir = "/tmp/iposonic/"
 
 def harn_setup(klass, test_dir):
         klass.test_dir = os.getcwd() + test_dir

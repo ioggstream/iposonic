@@ -1,4 +1,6 @@
 """mediamanager module"""
+from __future__ import unicode_literals
+
 from mutagen import File
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
@@ -9,10 +11,13 @@ import re
 import os
 import sys
 import logging
+import chardet
 from binascii import crc32
 
 from os.path import dirname, basename, join
 
+#local import
+from stringutils import isdir, stat
 
 class UnsupportedMediaError(Exception):
     pass
@@ -59,7 +64,7 @@ class MediaManager:
         #   if it's unicode
         data = path
         if isinstance(path, unicode):
-            data = path.encode('utf8')
+            data = path.encode('utf-8')
         return str(crc32(data))
 
     @staticmethod
@@ -163,7 +168,7 @@ class MediaManager:
         except:
             size = -1
 
-        if not 'track' in ret and not os.path.isdir(path_u.encode('utf-8')):
+        if not 'track' in ret and not isdir(path_u):
             try:
                 t, n = title.split(" ", 1)
                 track = int(t)
@@ -221,12 +226,12 @@ class MediaManager:
         """
         if True:  # os.path.isfile(path):
             try:
-                path = StringUtils.to_unicode(path)
+                path_u = stringutils.to_unicode(path)
                 # get basic info
                 ret = MediaManager.get_info_from_filename2(path)
 
                 manager = MediaManager.get_tag_manager(path)
-                audio = manager(path)
+                audio = manager(path.encode('utf-8'))
 
                 MediaManager.log.info("Original id3: %s" % audio)
                 for (k, v) in audio.iteritems():
@@ -237,8 +242,8 @@ class MediaManager:
                 ret['isDir'] = 'false'
                 ret['isVideo'] = 'false'
                 ret['parent'] = MediaManager.uuid(dirname(path))
-
                 ret['created'] = int(os.stat(path).st_ctime)
+                
 
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000
@@ -299,27 +304,3 @@ class MediaManager:
             if ret:
                 return ret
         return 0
-
-
-class StringUtils:
-    encodings = ['utf-8', 'ascii', 'latin_1', 'iso8859_15', 'cp850',
-                 'cp037', 'cp1252']
-
-    @staticmethod
-    def to_unicode(s):
-        """Return the unicode representation of a string.
-
-            Try every possible encoding of a string, returning
-            the first one that doesn't except.
-
-            If s is not a string, return the unchanged object.
-        """
-        if not isinstance(s, str):
-            print "returning unchanged object: %s" % s.__class__
-            return s
-        for e in StringUtils.encodings:
-            try:
-                return s.decode(e)
-            except UnicodeDecodeError:
-                pass
-        raise UnicodeDecodeError("Cannot decode object: %s" % s.__class__)

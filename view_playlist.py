@@ -3,11 +3,10 @@
 #
 #
 from flask import request
-from webapp import iposonic, app, randomize2_list
+from webapp import app, randomize2_list
 from iposonic import SubsonicMissingParameterException, SubsonicProtocolException, IposonicException
-from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
+from mediamanager import MediaManager, stringutils, UnsupportedMediaError
 import thread
-print thread.get_ident(), "iposonic view_playlist @%s" % id(iposonic)
 
 #
 #
@@ -46,9 +45,9 @@ def get_playlists_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
-    playlists = iposonic.get_playlists_static()
+    playlists = app.iposonic.get_playlists_static()
 
-    playlists.extend(iposonic.get_playlists())
+    playlists.extend(app.iposonic.get_playlists())
     return request.formatter({'playlists': {'playlist': playlists}})
 
 
@@ -80,7 +79,7 @@ def get_playlist_view():
                 ]
                 }}
 
-        TODO move database objects to iposonicdb. They  shouldn't be
+        TODO move database objects to app.iposonicdb. They  shouldn't be
                 exposed outside.
     """
     (u, p, v, c, f, callback) = map(
@@ -93,19 +92,19 @@ def get_playlist_view():
     entries = []
     # use default playlists
     if eid == MediaManager.uuid('starred'):
-        j_playlist = iposonic.get_playlists_static(eid=eid)
-        songs = iposonic.get_starred().get('title')
+        j_playlist = app.iposonic.get_playlists_static(eid=eid)
+        songs = app.iposonic.get_starred().get('title')
         entries = randomize2_list(songs, 5)
-    elif eid in [x.get('id') for x in iposonic.get_playlists_static()]:
-        j_playlist = iposonic.get_playlists_static(eid=eid)
-        entries = randomize2_list(iposonic.get_songs())
+    elif eid in [x.get('id') for x in app.iposonic.get_playlists_static()]:
+        j_playlist = app.iposonic.get_playlists_static(eid=eid)
+        entries = randomize2_list(app.iposonic.get_songs())
     else:
-        playlist = iposonic.get_playlists(eid=eid)
-        assert playlist, "Playlists: %s" % iposonic.db.playlists
+        playlist = app.iposonic.get_playlists(eid=eid)
+        assert playlist, "Playlists: %s" % app.iposonic.db.playlists
         print "found playlist: %s" % playlist
         entry_ids = playlist.get('entry')
         if entry_ids:
-            entries = [x for x in iposonic.get_song_list(entry_ids.split(","))]
+            entries = [x for x in app.iposonic.get_song_list(entry_ids.split(","))]
         j_playlist = playlist
     # format output
     assert entries, "Missing entries: %s" % entries
@@ -120,7 +119,7 @@ def get_playlist_view():
 
 @app.route("/rest/createPlaylist.view", methods=['GET', 'POST'])
 def create_playlist_view():
-    """TODO move to iposonic
+    """TODO move to app.iposonic
 
         request body:
             name=2012-09-08&
@@ -144,28 +143,28 @@ def create_playlist_view():
     if not playlistId:
         eid = MediaManager.uuid(name)
         try:
-            playlist = iposonic.get_playlists(eid=eid)
+            playlist = app.iposonic.get_playlists(eid=eid)
             raise IposonicException("Playlist esistente")
         except:
             pass
         # TODO DAO should not be exposed
-        playlist = iposonic.db.Playlist(name)
+        playlist = app.iposonic.db.Playlist(name)
         playlist.update({'entry': ",".join(songId_l)})
-        iposonic.create_entry(playlist)
+        app.iposonic.create_entry(playlist)
 
     # update
     else:
-        playlist = iposonic.get_playlists(eid=playlistId)
+        playlist = app.iposonic.get_playlists(eid=playlistId)
         assert playlist
         songs = playlist.get('entry')
         songs += ",".join(songId_l)
-        iposonic.update_entry(eid=playlistId, new={'entry': songs})
+        app.iposonic.update_entry(eid=playlistId, new={'entry': songs})
     return request.formatter({})
 
 
 @app.route("/rest/deletePlaylist.view", methods=['GET', 'POST'])
 def delete_playlist_view():
-    """TODO move to iposonic
+    """TODO move to app.iposonic
 
         request body:
             name=2012-09-08&
@@ -182,5 +181,5 @@ def delete_playlist_view():
     if not eid:
         raise SubsonicMissingParameterException('id', 'delete_playlist_view')
 
-    iposonic.delete_entry(eid=eid)
+    app.iposonic.delete_entry(eid=eid)
     return request.formatter({})

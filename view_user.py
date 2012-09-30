@@ -3,8 +3,8 @@
 #
 #
 from flask import request, abort
-from webapp import iposonic, app
-from mediamanager import MediaManager, StringUtils, UnsupportedMediaError
+from webapp import app
+from mediamanager import MediaManager, stringutils, UnsupportedMediaError
 #
 # TO BE DONE
 #

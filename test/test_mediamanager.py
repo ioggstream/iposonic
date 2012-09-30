@@ -14,7 +14,7 @@ import sys
 import re
 from os.path import join, basename, dirname
 
-from mediamanager import MediaManager, StringUtils
+from mediamanager import MediaManager, stringutils
 
 import logging
 log = logging.getLogger("test")
@@ -121,5 +121,5 @@ class TestMediaManager:
             # f is a byte sequence returned by the
             #    filesystem and should be converted
             #    to a unicode object
-            f_u = StringUtils.to_unicode(f)
+            f_u = stringutils.to_unicode(f)
             print f.__class__, "%s" % f_u
