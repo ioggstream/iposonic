@@ -5,8 +5,7 @@
 from flask import request
 from webapp import app, randomize2_list
 from iposonic import SubsonicMissingParameterException, SubsonicProtocolException, IposonicException
-from mediamanager import MediaManager, stringutils, UnsupportedMediaError
-import thread
+from mediamanager import MediaManager, UnsupportedMediaError
 
 #
 #
@@ -104,7 +103,8 @@ def get_playlist_view():
         print "found playlist: %s" % playlist
         entry_ids = playlist.get('entry')
         if entry_ids:
-            entries = [x for x in app.iposonic.get_song_list(entry_ids.split(","))]
+            entries = [x for x in app.iposonic.get_song_list(
+                entry_ids.split(","))]
         j_playlist = playlist
     # format output
     assert entries, "Missing entries: %s" % entries

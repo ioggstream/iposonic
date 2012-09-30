@@ -1,5 +1,5 @@
 # *-* coding: utf-8 *-*
-# 
+#
 # Views for downloading songs
 #
 #
@@ -11,10 +11,10 @@ log = logging.getLogger("iposonic-browse")
 
 import os
 from os.path import join
-os.path.supports_unicode_filenames=True
+os.path.supports_unicode_filenames = True
 
 from flask import request, send_file
-from webapp import  app, fs_cache
+from webapp import app, fs_cache
 from webapp import randomize2_list
 from iposonic import IposonicException, SubsonicProtocolException
 import mediamanager
@@ -248,9 +248,10 @@ def get_music_directory_view():
             # that avoids continuously encode
             # and decode of the filenames.
             #
-            if not isinstance(child, unicode): 
+            if not isinstance(child, unicode):
                 if not app.config.get('rename_non_utf8'):
-                    app.log.warn("skipping non unicode path: %s " % to_unicode(child))
+                    app.log.warn(
+                        "skipping non unicode path: %s " % to_unicode(child))
                     continue
                 child_new = to_unicode(child)
                 os.rename(

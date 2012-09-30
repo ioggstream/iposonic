@@ -4,7 +4,7 @@
 #
 from flask import request, abort
 from webapp import app
-from mediamanager import MediaManager, stringutils, UnsupportedMediaError
+from mediamanager import MediaManager, UnsupportedMediaError
 #
 # TO BE DONE
 #

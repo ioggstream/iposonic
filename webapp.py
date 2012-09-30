@@ -10,12 +10,11 @@
 
 #from __future__ import unicode_literals
 
-from flask import Flask, current_app
+from flask import Flask
 from flask import request
 
 import random
 
-from os.path import join
 
 import simplejson
 import logging
@@ -93,11 +92,12 @@ def endpoint_requires_authentication(request, app):
     if request.endpoint in ['get_cover_art_view']:
         # cover_art requires only the right params
         if app.config.get('free_coverart'):
-            (v,c) = map(request.args.get, ['v','c'])
+            (v, c) = map(request.args.get, ['v', 'c'])
             if v and c:
                 return False
-            log.warn("Missing required params: v, c")        
+            log.warn("Missing required params: v, c")
     return True
+
 
 @app.before_request
 def authorize():
@@ -105,7 +105,7 @@ def authorize():
 
     # skip authentication on given endpoints
     if not endpoint_requires_authentication(request, app):
-        return  
+        return
 
     (u, p, v, c) = map(
         request.args.get, ['u', 'p', 'v', 'c'])

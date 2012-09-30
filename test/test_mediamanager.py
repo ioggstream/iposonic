@@ -82,6 +82,7 @@ class TestMediaManager:
             ret = MediaManager.get_info_from_filename2(path_u)
             assert ret['title'] == 'mock_album', "ret: %s" % ret
             os.rmdir(path_u)
+
     def test_get_album_name2(self):
         for name in ['20 mock_album - 2004', '20 mock_album (2004)', '20 mock_album (Disk1)']:
             path_u = join("/", os.getcwd(), "test/data/mock_artist/", name)

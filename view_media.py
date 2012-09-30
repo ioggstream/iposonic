@@ -8,13 +8,12 @@ import time
 import subprocess
 from os.path import join
 from flask import request, send_file, Response, abort
-from webapp import  app
+from webapp import app
 
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
-from mediamanager import MediaManager,  UnsupportedMediaError
+from mediamanager import MediaManager, UnsupportedMediaError
 from art_downloader import CoverSource
 from urllib import urlopen
-from mediamanager.stringutils import isdir
 
 #
 # download and stream
@@ -61,7 +60,7 @@ def stream_view():
 
 def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
-    cmd = ["/usr/bin/lame","-S","-v", "-B", maxBitRate, srcfile, "-"]
+    cmd = ["/usr/bin/lame", "-S", "-v", "-B", maxBitRate, srcfile, "-"]
     print "generate(): %s" % cmd
     srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
@@ -126,7 +125,8 @@ def star_view():
     if not eid:
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
-    app.iposonic.update_entry(eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
+    app.iposonic.update_entry(
+        eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
     return request.formatter({})
 
 
@@ -216,21 +216,22 @@ def get_cover_art_file(eid, nocache=False):
 
     # search cover_art for file using parent or albumId
     if info.get('isDir') in [False, 'false', 'False']:
-        cover_art_path = join("/", app.iposonic.cache_dir, "%s" % info.get('parent'))
+        cover_art_path = join(
+            "/", app.iposonic.cache_dir, "%s" % info.get('parent'))
         if os.path.exists(cover_art_path):
             return cover_art_path
 
     # search cover_art using id3 tag
-    if not info.get('artist') or not info.get('album'):        
+    if not info.get('artist') or not info.get('album'):
         return None
 
-    cover_art_path = join("/", 
-        app.iposonic.cache_dir, 
-        MediaManager.uuid("%s/%s" % (
-            info.get('artist'), 
-            info.get('album'))
-            )
-    )
+    cover_art_path = join("/",
+                          app.iposonic.cache_dir,
+                          MediaManager.uuid("%s/%s" % (
+                                            info.get('artist'),
+                                            info.get('album'))
+                                            )
+                          )
     if os.path.exists(cover_art_path):
         return cover_art_path
 
@@ -240,7 +241,7 @@ def get_cover_art_file(eid, nocache=False):
         # TODO consider multiple authors in info
         #  ex. Actually "U2 & Frank Sinatra" != "U2"
         #      leads to a false negative
-        # TODO con 
+        # TODO con
         print "confronting info: %s with: %s" % (info, cover)
         if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
             print "Saving image %s -> %s" % (
@@ -256,19 +257,22 @@ def get_cover_art_file(eid, nocache=False):
 
     raise IposonicException("Missing Coverart")
 
+
 @memorize
 def cover_search(album, nocache=False):
     """Download album info from the web.
 
-        This class implements the @memorize pattern 
+        This class implements the @memorize pattern
         to reduce web access.
     """
+    ret = None
     if album:
         c = CoverSource()
         ret = c.search(album)
-        if ret: 
+        # don't return empty arrays
+        if ret:
             return ret
-    return None
+    return ret
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
@@ -284,81 +288,6 @@ def get_cover_art_view():
         abort(404)
 
     return send_file(cover_art_path)
-
-
-def get_cover_art_view_old():
-    """Get coverart.
-
-        For albums/directories it uses directory id, and have not
-        access to the real artist name.
-
-        For songs we can tweak a bit.
-    """
-    (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    (eid, size) = map(request.args.get, ['id', 'size'])
-
-    # Don't abuse album search
-    try:
-        cache_coverart.get_item(eid)
-    except CacheError:
-        abort(404)
-    except KeyError:
-        pass
-
-    # Return file if present
-    cover_art_path = join("/", cache_dir, "%s" % eid)
-    try:
-        print "coverart: try to return file ", cover_art_path
-        return send_file(cover_art_path)
-    except IOError:
-        pass
-
-    # ...then if song, try with parent...
-    info = app.iposonic.get_entry_by_id(eid)
-    try:
-        if info.get('isDir') in [False, 'false', 'False']:
-            cover_art_path = join("/", cache_dir, "%s" % info.get('parent'))
-            print "coverart %s: returning parent: %s" % (
-                eid, info.get('parent'))
-            return send_file(cover_art_path)
-    except IOError:
-        print "info: %s" % info
-        pass
-
-    # ...then with artist+album...
-    try:
-        cover_art_path = join("/",
-                              cache_dir,
-                              MediaManager.uuid("%s/%s" % (
-                                                info.get('artist'),
-                                                info.get('album'))
-                                                )
-                              )
-        return send_file(cover_art_path)
-    except IOError:
-        pass
-
-    # ..finally download missing cover_art in cache_dir
-    print "coverart %s: searching album: %s " % (eid, info.get('album'))
-    c = CoverSource()
-    for cover in c.search(info.get('album')):
-        print "confronting info: %s with: %s" % (info, cover)
-        if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
-            print "Saving image %s -> %s" % (
-                cover.get('cover_small'), cover_art_path)
-            fd = open(cover_art_path, "w")
-            fd.write(urlopen(cover.get('cover_small')).read())
-            fd.close()
-
-            return send_file(cover_art_path)
-        else:
-            print "Artist mismatch: %s, %s" % tuple(
-                [x.get('artist', x.get('name')) for x in [info, cover]])
-
-    print "add entry to cache: ", eid
-    cache_coverart.add_item(eid, None)
-    raise IposonicException("Can't find CoverArt")
 
 
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])

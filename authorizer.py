@@ -4,13 +4,15 @@ import logging
 from hashlib import md5
 
 log = logging.getLogger('iposonic-authorizer')
+
+
 class Authorizer:
     """A simple authorizer."""
     users = dict()
 
     def __init__(self, access_file=None, mock=False):
         self.mock = mock
-        
+
         if self.mock:
             return
         if not access_file:
@@ -23,10 +25,10 @@ class Authorizer:
                     if not line:
                         continue
                     if line.startswith("#"):
-                        continue;    
+                        continue
                     user, passwd = line.split("=")
                     if user and passwd:
-                        log.info("Adding user: %s" % user )
+                        log.info("Adding user: %s" % user)
                         self.add_user(user, passwd, cleartext=False)
                 except:
                     log.info("Malformed line: [%s]" % line)

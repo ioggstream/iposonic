@@ -12,6 +12,7 @@ from iposonicdb import SqliteIposonicDB
 #
 tmp_dir = "/tmp/iposonic/"
 
+
 def harn_setup(klass, test_dir):
         klass.test_dir = os.getcwd() + test_dir
         klass.db = klass.dbhandler([klass.test_dir], dbfile="mock_iposonic")
@@ -211,7 +212,8 @@ class TestIposonicDB:
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
             assert 'path' in info, "error processing eid: %s" % eid
-            assert 'created' in info, "missing created in %s"% info
+            assert 'created' in info, "missing created in %s" % info
+
     def test_search_songs_by_title(self):
         harn_load_fs2(self)
         ret = self.db.get_songs(query={'title': 'mock_title'})
@@ -238,7 +240,8 @@ class TestIposonicDB:
         print "ret: %s" % ret
 
     def test_latest(self):
-        album = self.db.add_entry(os.getcwd()+'/test/data/mock_artist/mock_album/', album=True) 
+        album = self.db.add_entry(os.getcwd(
+        ) + '/test/data/mock_artist/mock_album/', album=True)
         ret = self.db.get_albums()
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret

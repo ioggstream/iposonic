@@ -16,6 +16,7 @@ from os.path import dirname, basename, join
 encodings = ['utf-8', 'ascii', 'latin_1', 'iso8859_15', 'cp850',
              'cp037', 'cp1252']
 
+
 def encode_safe(f):
     def t(path):
         for e in encodings:
@@ -26,13 +27,16 @@ def encode_safe(f):
         return UnicodeEncodeError("Cannot find encoding for type: %s" % type(path))
     return t
 
+
 @encode_safe
 def isdir(path):
     return os.path.isdir(path)
 
+
 @encode_safe
 def stat(path):
     return os.stat(path)
+
 
 def detect_encode(s):
     for e in encodings:
@@ -42,6 +46,7 @@ def detect_encode(s):
         except UnicodeDecodeError, UnicodeEncodeError:
             pass
     raise UnicodeEncodeError("Cannot decode object: %s" % s.__class__)
+
 
 def to_unicode(s, getencoding=False):
     """Return the unicode representation of a string.
@@ -58,7 +63,7 @@ def to_unicode(s, getencoding=False):
         try:
             ret = s.decode(e)
             if getencoding:
-                return (ret,e)
+                return (ret, e)
             return ret
         except UnicodeDecodeError:
             pass

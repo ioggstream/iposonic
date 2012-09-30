@@ -14,7 +14,7 @@
 # IpoSonic does not have a web interface, like of the original subsonic server
 #   and does not support transcoding (but it could in the future)
 #
-#from __future__ import unicode_literals
+from __future__ import unicode_literals
 
 
 # standard libs
@@ -34,11 +34,15 @@ log = logging.getLogger('iposonic')
 
 
 class IposonicException(Exception):
+    """Generic Iposonic Exception"""
     pass
 
 
 class SubsonicProtocolException(IposonicException):
-    """Request doesn't respect Subsonic API http://www.subsonic.org/pages/api.jsp"""
+    """Request doesn't respect Subsonic API .
+
+        see: http://www.subsonic.org/pages/api.jsp
+    """
     def __init__(self, request=None):
         if request:
             print "request: %s" % request.data
@@ -46,6 +50,7 @@ class SubsonicProtocolException(IposonicException):
 
 
 class SubsonicMissingParameterException(SubsonicProtocolException):
+    """The request doesn't conform due to a missing parameter."""
     def __init__(self, param, method, request=None):
         SubsonicProtocolException.__init__(
             self, "Missing required parameter: %s in %s", param, method)
@@ -461,9 +466,8 @@ class Iposonic:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
 
-        
-        return object.__getattr__(self, method)    
-        
+        return object.__getattr__(self, method)
+
         #    raise NotImplementedError("Method not found: %s" % method, e)
 
     def get_folder_by_id(self, folder_id):

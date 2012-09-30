@@ -9,7 +9,6 @@ import os
 import sys
 import time
 from os.path import join, basename
-import chardet
 
 # logging
 import logging
@@ -19,7 +18,7 @@ from iposonic import (
     ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO
 )
 from mediamanager import MediaManager, UnsupportedMediaError
-from mediamanager.stringutils import isdir, to_unicode, stat, detect_encode
+from mediamanager.stringutils import to_unicode
 
 # add local path for loading _mysqlembedded
 sys.path.insert(0, './lib')
@@ -425,7 +424,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             path_u = to_unicode(path)
         else:
             path_u = path
- 
+
         # encoding = detect_encode(path)
 
         if os.path.isdir(path):
@@ -508,13 +507,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
 
 class MySQLIposonicDB(SqliteIposonicDB):
-    # mysql embedded
-    import _mysqlembedded as _mysql
     """MySQL standard and embedded version.
 
         Classic version requires uri, otherwise
         you need to play with embedded.
     """
+    # mysql embedded
+    import _mysqlembedded as _mysql
+
     log = logging.getLogger('SqliteIposonicDB')
     engine_s = "mysql+mysqldb"
     driver = _mysql

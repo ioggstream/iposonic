@@ -19,6 +19,7 @@ from os.path import dirname, basename, join
 #local import
 from stringutils import isdir, stat
 
+
 class UnsupportedMediaError(Exception):
     pass
 
@@ -243,7 +244,6 @@ class MediaManager:
                 ret['isVideo'] = 'false'
                 ret['parent'] = MediaManager.uuid(dirname(path))
                 ret['created'] = int(os.stat(path).st_ctime)
-                
 
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000
