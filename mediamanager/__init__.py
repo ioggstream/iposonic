@@ -11,7 +11,6 @@ import re
 import os
 import sys
 import logging
-import chardet
 from binascii import crc32
 
 from os.path import dirname, basename, join

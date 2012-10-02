@@ -34,6 +34,7 @@ Required
  * pip install flask
  * pip install mutagen
  * pip install simplejson
+ * pip install argparse
 
 Optional
  * pip install sqlalchemy 	# [optional if you want a permanent store]
