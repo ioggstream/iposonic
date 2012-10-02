@@ -257,7 +257,7 @@ class ResponseHelper:
             raise SubsonicProtocolException()
         # add headers to response
         ret.update({
-            'status': status,
+        #    'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
@@ -272,7 +272,7 @@ class ResponseHelper:
     def responsize_xml(ret, status="ok", version="9.0.0"):
         """Return an xml response from json and replace unsupported characters."""
         ret.update({
-#            'status': status,
+        #    'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })

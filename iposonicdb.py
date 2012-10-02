@@ -111,6 +111,8 @@ class IposonicDBTables:
             """
             ret = []
             for (k, v) in self.__dict__.iteritems():
+                if not v:
+                    continue
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
