@@ -64,7 +64,7 @@ def ping_view():
         - f
         - callback
     """
-    (u, p, v, c) = map(request.args.get, ['u', 'p', 'v', 'c'])
+    (u, p, v, c) = map(request.values.get, ['u', 'p', 'v', 'c'])
     iposonic = app.iposonic
     log.warn("config: %s" % app.config)
     log.warn("songs: %s" % iposonic.db.get_songs())
@@ -121,8 +121,11 @@ def authorize():
 def set_formatter():
     """Return a function to create the response."""
     (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    if f == 'jsonp':
+        request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+        
+    if f == 'json':
+        request.formatter = ResponseHelper.responsize_json
+    elif f == 'jsonp':
         if not callback:
             # MiniSub has a bug, trying to retrieve jsonp without
             #   callback in case of getCoverArt.view
@@ -142,7 +145,7 @@ def set_formatter():
 def set_content_type(response):
     """Set json response content-type."""
     (u, p, v, c, f, callback) = map(
-        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+        request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     log.warn("response is streamed: %s" % response.is_streamed)
 
     if f == 'jsonp' and not response.is_streamed:
@@ -225,6 +228,18 @@ class ResponseHelper:
       TODO: we could @annotate this ;)
     """
     log = logging.getLogger('ResponseHelper')
+
+    @staticmethod
+    def responsize_json(ret, status="ok", version="9.0.0"):
+        ret.update({
+            'status': 'ok',
+            'version': version,
+            'xmlns': "http://subsonic.org/restapi"
+        })
+        return simplejson.dumps({'subsonic-response': ret},
+                         indent=True,
+                         encoding='latin_1')
+
 
     @staticmethod
     def responsize_jsonp(ret, callback, status="ok", version="9.0.0"):

@@ -35,7 +35,7 @@ def get_user_view():
     return request.formatter({'user': user})
 
 
-@app.route("/rest/getNowPlaying.view")
+@app.route("/rest/getNowPlaying.view", methods=['GET', 'POST'])
 def get_now_playing_view():
     """TODO: save timestamp and song duration of every stream.view request
 

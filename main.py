@@ -30,6 +30,7 @@ from webapp import app, log
 from authorizer import Authorizer
 
 # Import all app views
+#  TODO move to a view module
 import view_browse
 import view_playlist
 import view_user

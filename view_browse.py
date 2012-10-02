@@ -96,7 +96,7 @@ def get_indexes_view():
     return request.formatter({'indexes': app.iposonic.get_indexes()})
 
 
-@app.route("/rest/getArtists.view")
+@app.route("/rest/getArtists.view", methods=['GET', 'POST'])
 def get_artists_view():
     """
     json response:
@@ -134,7 +134,7 @@ def get_artists_view():
     raise NotImplementedError()
 
 
-@app.route("/rest/getArtists.view")
+@app.route("/rest/getArtists.view", methods=['GET', 'POST'])
 def get_artist_view():
     """
     <artist id="5432" name="AC/DC" coverArt="ar-5432" albumCount="15">

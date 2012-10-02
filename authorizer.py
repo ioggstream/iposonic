@@ -1,5 +1,5 @@
 """A simple authorizer class"""
-
+from __future__ import with_statement
 import logging
 from hashlib import md5
 
@@ -17,8 +17,8 @@ class Authorizer:
             return
         if not access_file:
             return
-        try:
-            f = open(access_file)
+
+        with open(access_file) as f:
             for line in f.readlines():
                 try:
                     line = line.strip()
@@ -32,8 +32,6 @@ class Authorizer:
                         self.add_user(user, passwd, cleartext=False)
                 except:
                     log.info("Malformed line: [%s]" % line)
-        except:
-            raise
 
     def authorize(self, user, passwd):
         """Validate a password using the stored value."""
@@ -48,6 +46,7 @@ class Authorizer:
         return False
 
     def add_user(self, user, passwd, cleartext=True):
+        """Add an user to the authorizer."""
         if cleartext:
             passwd = md5(passwd).hexdigest()
         self.users.setdefault(user, passwd)
