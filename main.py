@@ -35,7 +35,7 @@ import view_browse
 import view_playlist
 import view_user
 import view_media
-
+import view_list
 
 def yappize():
     try:

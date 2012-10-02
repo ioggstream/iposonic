@@ -8,7 +8,7 @@
 # License AGPLv3
 #
 
-#from __future__ import unicode_literals
+from __future__ import unicode_literals
 
 from flask import Flask
 from flask import request, abort
@@ -73,7 +73,7 @@ def ping_view():
     log.warn("indexes: %s" % iposonic.db.get_indexes())
     log.warn("playlists: %s" % iposonic.db.get_playlists())
 
-    return request.formatter({'status': 'ok'})
+    return request.formatter({})
 
 
 @app.route("/rest/getLicense.view", methods=['GET', 'POST'])
@@ -158,13 +158,13 @@ def set_content_type(response):
 
 @app.errorhandler(401)
 def not_authenticated(e):
-    ret={'status': 'failed',
-        'error': [{
+    ret = {'error': 
+        [{
              'code': 40, 
              'message': 'Wrong username or password'
         }]
     } 
-    return request.formatter(ret), 404
+    return request.formatter(ret, status='failed'), 404
 
 #
 # Helpers
@@ -241,7 +241,7 @@ class ResponseHelper:
     @staticmethod
     def responsize_json(ret, status="ok", version="9.0.0"):
         ret.update({
-           # 'status': status,
+            'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
@@ -257,7 +257,7 @@ class ResponseHelper:
             raise SubsonicProtocolException()
         # add headers to response
         ret.update({
-        #    'status': status,
+            'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
@@ -272,7 +272,7 @@ class ResponseHelper:
     def responsize_xml(ret, status="ok", version="9.0.0"):
         """Return an xml response from json and replace unsupported characters."""
         ret.update({
-        #    'status': status,
+            'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })

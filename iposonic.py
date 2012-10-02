@@ -124,6 +124,19 @@ class PlaylistDAO:
             'name': name
         }
 
+class UserDAO:
+    __tablename__ = "user"
+    __fields__ = ['id', 'username', 'email' ]
+
+class UserMediaDAO:
+    """TODO use this table for storing per-user metadata.
+    
+        Each user should have his own media rating.
+        Queries should get a list of uids from here, then 
+        fetch playlist content by mid.
+    """
+    __tablename__ = "usermedia"
+    __fields__ = ['eid', 'uid', 'mid', 'userRating', 'starred' ]
 
 class IposonicDBTables:
     """Class defining base & tables.

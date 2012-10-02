@@ -95,7 +95,7 @@ def scrobble_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
-    return request.formatter({'status':'ok'})
+    return request.formatter({})
 
 
 @app.route("/rest/setRating.view", methods=['GET', 'POST'])
@@ -114,7 +114,7 @@ def set_rating_view():
     if rating == 5:
         app.iposonic.update_entry(
             eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
-    return request.formatter({'status':'ok'})
+    return request.formatter({})
 
 
 @app.route("/rest/star.view", methods=['GET', 'POST'])
@@ -127,7 +127,22 @@ def star_view():
             'id', sys._getframe().f_code.co_name)
     app.iposonic.update_entry(
         eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
-    return request.formatter({'status':'ok'})
+    
+    # XXX example code to be added to Iposonic
+    # for managing user-based media tagging
+    # like starred.
+    # Going this way may need to really choiche ONE db
+    # because we'll multiply data (eg. #items x #users)
+    #usermedia = app.iposonic.db.UserMedia('mock_user', eid)
+    #usermedia.update( {
+    #    'starred': time.strftime("%Y-%m-%dT%H:%M:%S"), 
+    #    'eid': "%s:%s" % ('mock',eid),
+    #    'mid' : eid,
+    #    'uid' : 'mock'
+    #    } )
+    app.iposonic.create_entry(usermedia)
+    
+    return request.formatter({})
 
 
 @app.route("/rest/unstar.view", methods=['GET', 'POST'])
@@ -139,7 +154,7 @@ def unstar_view():
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
     app.iposonic.update_entry(eid, {'starred': None})
-    return request.formatter({'status':'ok'})
+    return request.formatter({})
 
 
 class CacheError:

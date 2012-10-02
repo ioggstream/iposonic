@@ -15,7 +15,8 @@ import logging
 
 from iposonic import (
     IposonicException,
-    ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO
+    ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO, 
+    UserDAO, UserMediaDAO
 )
 from mediamanager import MediaManager, UnsupportedMediaError
 from mediamanager.stringutils import to_unicode
@@ -30,7 +31,6 @@ except:
     pass
 
 # SqlAlchemy for ORM
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
@@ -111,8 +111,13 @@ class IposonicDBTables:
             """
             ret = []
             for (k, v) in self.__dict__.iteritems():
-                if not v:
+                # None entries will be serialized to null
+                #   so skip them
+                if v is None: 
                     continue
+                # TODO we could just cycle for
+                # k in self.__fields__ or intersect
+                # directly in the first part
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
@@ -153,9 +158,6 @@ class IposonicDBTables:
                 TODO convert get_info to Unicode
             """
             Base.__init__(self)
-            #self.__dict__.update(dict([(k, to_unicode(v)) for (
-            #    k, v) in MediaManager.get_info(path).iteritems()]))
-
             self.update(MediaManager.get_info(path))
 
     class Album(Base, SerializerMixin, AlbumDAO):
@@ -171,6 +173,21 @@ class IposonicDBTables:
         def __init__(self, name):
             Base.__init__(self)
             self.update(self.get_info(name))
+
+    class User(Base, SerializerMixin, UserDAO):
+        __fields__ = UserDAO.__fields__
+
+        def __init__(self, name):
+            Base.__init__(self)
+
+    class UserMedia(Base, SerializerMixin, UserMediaDAO):
+        __fields__ = UserMediaDAO.__fields__
+
+        def __init__(self, email, mid):
+            Base.__init__(self)
+            self.update({'email':email, 'mid':mid})
+
+
 
 
 class SqliteIposonicDB(object, IposonicDBTables):
