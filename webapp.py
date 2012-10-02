@@ -11,7 +11,7 @@
 #from __future__ import unicode_literals
 
 from flask import Flask
-from flask import request
+from flask import request, abort
 
 import random
 
@@ -73,7 +73,7 @@ def ping_view():
     log.warn("indexes: %s" % iposonic.db.get_indexes())
     log.warn("playlists: %s" % iposonic.db.get_playlists())
 
-    return request.formatter({})
+    return request.formatter({'status': 'ok'})
 
 
 @app.route("/rest/getLicense.view", methods=['GET', 'POST'])
@@ -99,22 +99,6 @@ def endpoint_requires_authentication(request, app):
     return True
 
 
-@app.before_request
-def authorize():
-    """Authenticate users"""
-
-    # skip authentication on given endpoints
-    if not endpoint_requires_authentication(request, app):
-        return
-
-    (u, p, v, c) = map(
-        request.args.get, ['u', 'p', 'v', 'c'])
-
-    p_clear = hex_decode(p)
-    if not app.authorizer.authorize(u, p_clear):
-        return "401 Unauthorized", 401
-
-    pass
 
 
 @app.before_request
@@ -140,6 +124,22 @@ def set_formatter():
     else:
         request.formatter = ResponseHelper.responsize_xml
 
+@app.before_request
+def authorize():
+    """Authenticate users"""
+
+    # skip authentication on given endpoints
+    if not endpoint_requires_authentication(request, app):
+        return
+
+    (u, p, v, c) = map(
+        request.args.get, ['u', 'p', 'v', 'c'])
+
+    p_clear = hex_decode(p)
+    if not app.authorizer.authorize(u, p_clear):
+        abort(401)
+
+    pass
 
 @app.after_request
 def set_content_type(response):
@@ -156,6 +156,15 @@ def set_content_type(response):
 
     return response
 
+@app.errorhandler(401)
+def not_authenticated(e):
+    ret={'status': 'failed',
+        'error': [{
+             'code': 40, 
+             'message': 'Wrong username or password'
+        }]
+    } 
+    return request.formatter(ret), 404
 
 #
 # Helpers
@@ -232,7 +241,7 @@ class ResponseHelper:
     @staticmethod
     def responsize_json(ret, status="ok", version="9.0.0"):
         ret.update({
-            'status': 'ok',
+           # 'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
@@ -248,7 +257,7 @@ class ResponseHelper:
             raise SubsonicProtocolException()
         # add headers to response
         ret.update({
-            'status': 'ok',
+            'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
@@ -263,7 +272,7 @@ class ResponseHelper:
     def responsize_xml(ret, status="ok", version="9.0.0"):
         """Return an xml response from json and replace unsupported characters."""
         ret.update({
-            'status': 'ok',
+#            'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })

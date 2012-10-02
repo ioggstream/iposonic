@@ -95,7 +95,7 @@ def scrobble_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
-    return request.formatter({})
+    return request.formatter({'status':'ok'})
 
 
 @app.route("/rest/setRating.view", methods=['GET', 'POST'])
@@ -114,7 +114,7 @@ def set_rating_view():
     if rating == 5:
         app.iposonic.update_entry(
             eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
-    return request.formatter({})
+    return request.formatter({'status':'ok'})
 
 
 @app.route("/rest/star.view", methods=['GET', 'POST'])
@@ -127,7 +127,7 @@ def star_view():
             'id', sys._getframe().f_code.co_name)
     app.iposonic.update_entry(
         eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
-    return request.formatter({})
+    return request.formatter({'status':'ok'})
 
 
 @app.route("/rest/unstar.view", methods=['GET', 'POST'])
@@ -139,7 +139,7 @@ def unstar_view():
         raise SubsonicMissingParameterException(
             'id', sys._getframe().f_code.co_name)
     app.iposonic.update_entry(eid, {'starred': None})
-    return request.formatter({})
+    return request.formatter({'status':'ok'})
 
 
 class CacheError:

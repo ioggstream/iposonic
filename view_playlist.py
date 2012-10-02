@@ -47,7 +47,7 @@ def get_playlists_view():
     playlists = app.iposonic.get_playlists_static()
 
     playlists.extend(app.iposonic.get_playlists())
-    return request.formatter({'playlists': {'playlist': playlists}})
+    return request.formatter({'status':'ok', 'playlists': {'playlist': playlists}})
 
 
 @app.route("/rest/getPlaylist.view", methods=['GET', 'POST'])
@@ -114,7 +114,7 @@ def get_playlist_view():
         'songCount': len(entries),
         'duration': sum([x.get('duration', 0) for x in entries])
     })
-    return request.formatter({'playlist': j_playlist})
+    return request.formatter({'status':'ok', 'playlist': j_playlist})
 
 
 @app.route("/rest/createPlaylist.view", methods=['GET', 'POST'])
@@ -159,7 +159,7 @@ def create_playlist_view():
         songs = playlist.get('entry')
         songs += ",".join(songId_l)
         app.iposonic.update_entry(eid=playlistId, new={'entry': songs})
-    return request.formatter({})
+    return request.formatter({'status':'ok'})
 
 
 @app.route("/rest/deletePlaylist.view", methods=['GET', 'POST'])
@@ -182,4 +182,4 @@ def delete_playlist_view():
         raise SubsonicMissingParameterException('id', 'delete_playlist_view')
 
     app.iposonic.delete_entry(eid=eid)
-    return request.formatter({})
+    return request.formatter({'status':'ok'})
