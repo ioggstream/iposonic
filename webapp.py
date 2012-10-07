@@ -119,8 +119,8 @@ def set_formatter():
                 log.info("request: %s" % request.data)
                 raise SubsonicProtocolException(
                     "Missing callback with jsonp in: %s" % request.endpoint)
-        request.formatter = lambda x: ResponseHelper.responsize_jsonp(
-            x, callback)
+        request.formatter = lambda x,status='ok': ResponseHelper.responsize_jsonp(
+            x, callback, status=status)
     else:
         request.formatter = ResponseHelper.responsize_xml
 
@@ -148,14 +148,24 @@ def set_content_type(response):
         request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     log.warn("response is streamed: %s" % response.is_streamed)
 
-    if f == 'jsonp' and not response.is_streamed:
+    if f in ['jsonp','json'] and not response.is_streamed:
         response.headers['content-type'] = 'application/json'
+     
+    # Flask sets it by default
+    #if request.endpoint in ['get_cover_art_view']:
+    #    response.headers['content-type'] = 'application/octet-stream'
 
     if not response.is_streamed and not request.endpoint in ['stream_view', 'download_view']:
-        log.info("response: %s" % response.data)
+        # response.data is byte, so before printing we need to
+        #   decode it as a unicode string
+        log.info("response: %s" % response.data.decode('utf-8'))
 
     return response
 
+
+#
+# Error handling
+#
 @app.errorhandler(401)
 def not_authenticated(e):
     ret = {'error': 
@@ -164,8 +174,28 @@ def not_authenticated(e):
              'message': 'Wrong username or password'
         }]
     } 
-    return request.formatter(ret, status='failed'), 404
+    return request.formatter(ret, status='failed'), 401
 
+@app.errorhandler(IposonicException)
+def iposonic_error(e):
+    ret = {'error':
+        [{
+            'code': 0,
+            'message': "%s" % e
+        }]   
+    }
+    return request.formatter(ret, status='failed'), 500 
+
+#@app.errorhandler(Exception)
+def iposonic_error(e):
+    ret = {'error':
+        [{
+            'code': 70,
+            'message': "%s" % e
+        }]   
+    }
+    log.warn(e)
+    return request.formatter(ret, status='failed'), 404 
 #
 # Helpers
 #
@@ -253,8 +283,8 @@ class ResponseHelper:
     @staticmethod
     def responsize_jsonp(ret, callback, status="ok", version="9.0.0"):
         assert status and version  # TODO
-        if not callback:
-            raise SubsonicProtocolException()
+        #if not callback:
+        #    raise SubsonicProtocolException()
         # add headers to response
         ret.update({
             'status': status,
@@ -276,7 +306,7 @@ class ResponseHelper:
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
-        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace("&", "\\&amp;")
+        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&','').encode('utf-8', 'xmlcharrefreplace')
 
     @staticmethod
     def jsonp2xml(json):
@@ -354,6 +384,8 @@ class ResponseHelper:
                 else:
                     ret += "<%s%s/>" % (tag, attributes)
 
+        # Log the source and destination of the response
+        ResponseHelper.log.info("ret object is  %s" % ret.__class__)
         ResponseHelper.log.info(
             "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))
 

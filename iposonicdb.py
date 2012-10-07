@@ -385,7 +385,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         return self._query(self.Playlist, query, eid=eid, session=session)
 
     @connectable
-    def get_artists(self, eid=None, query=None, session=None):
+    def get_artists(self, eid=None, query=None, order=None, session=None):
         """This method should trigger a filesystem initialization.
 
             returns a dict-array [{'id': .., 'name': .., 'path': .. }]
@@ -393,14 +393,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
         """
         if not self.initialized:
             self.walk_music_directory()
-        return self._query(self.Artist, query, eid=eid, session=session)
+        return self._query(self.Artist, query, eid=eid, order=order, session=session)
 
     def get_indexes(self):
         #
         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
         #
         indexes = dict()
-        for artist_j in self.get_artists():
+        for artist_j in self.get_artists(order=('name', 1)):
             a = artist_j.get('name')
             if not a:
                 continue
@@ -409,7 +409,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 indexes[first].append({'artist': artist_j})
             except KeyError:
                 indexes[first] = [{'artist': artist_j}]
-        return indexes
+        return indexes 
 
     def get_music_folders(self):
         return self.music_folders

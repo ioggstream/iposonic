@@ -341,7 +341,7 @@ class IposonicDB(object, IposonicDBTables):
 
     def get_indexes(self):
         return self.indexes
-
+        
     def get_music_folders(self):
         return self.music_folders
 
@@ -364,19 +364,20 @@ class IposonicDB(object, IposonicDBTables):
 
     def add_entry(self, path, album=False):
         if os.path.isdir(path):
-            print "Adding entry %s" % path
+            u_path = path.decode('utf-8')
+            self.log.warn( "Adding entry %s" % u_path)
             eid = MediaManager.uuid(path)
             if album:
                 self.albums[eid] = IposonicDB.Album(path)
             else:
                 self.artists[eid] = IposonicDB.Artist(path)
-            self.log.info("adding directory: %s, %s " % (eid, path))
+            self.log.info("adding directory: %s, %s " % (eid, u_path))
             return eid
         elif MediaManager.is_allowed_extension(path):
             try:
                 info = MediaManager.get_info(path)
                 info.update({
-                    'coverArt': MediaManager.get_cover_art_uuid(info)
+                    'coverArt': MediaManager.cover_art_uuid(info)
                 })
                 self.songs[info['id']] = info
                 self.log.info("adding file: %s, %s " % (info['id'], path))

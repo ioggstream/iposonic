@@ -61,7 +61,7 @@ def stream_view():
 
 def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
-    cmd = ["/usr/bin/lame", "-S", "-v", "-b", 32, "-B", maxBitRate, srcfile, "-"]
+    cmd = ["/usr/bin/lame", "-S", "-v", "-b", "32", "-B", maxBitRate, srcfile, "-"]
     print "generate(): %s" % cmd
     srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
@@ -220,6 +220,10 @@ def get_cover_art_file(eid, nocache=False):
     info = app.iposonic.get_entry_by_id(eid)
     log.info("entry from db: %s" % info)
     
+    # search cover_art using id3 tag
+    if not info.get('artist') or not info.get('album'):
+        return None
+        
     # if we're a CD collection, use parent
     if info.get('isDir') and info.get('album').lower().startswith("cd"):
         info = app.iposonic.get_entry_by_id(info.get('parent'))
@@ -236,11 +240,6 @@ def get_cover_art_file(eid, nocache=False):
             "/", app.iposonic.cache_dir, "%s" % info.get('parent'))
         if os.path.exists(cover_art_path):
             return cover_art_path
-
-    # search cover_art using id3 tag
-    if not info.get('artist') or not info.get('album'):
-        return None
-
     
     cover_art_path = join("/", app.iposonic.cache_dir, 
         MediaManager.cover_art_uuid(info))
@@ -274,7 +273,8 @@ def get_cover_art_file(eid, nocache=False):
 
     raise IposonicException("Missing Coverart")
 
-
+from threading import Lock
+lock_cover_art = Lock() 
 @memorize
 def cover_search(album, nocache=False):
     """Download album info from the web.
@@ -283,12 +283,22 @@ def cover_search(album, nocache=False):
         to reduce web access.
     """
     ret = None
-    log.info("Searching the web for album: %s" % album)
     if album:
+        log.info("Searching the web for album: %s" % album)
+
         c = CoverSource()
+
+        if not lock_cover_art.acquire(False):
+            # Try a non blocking lock and
+            # if another thread is looking for
+            # the album_art, raise a 503
+            log.warn("Album downloader is locked. Failing fast!")
+            abort(503)
+            
         # search lowercase to increase
         # cache hits
         ret = c.search(album.lower())
+        lock_cover_art.release()
         # don't return empty arrays
         if ret:
             return ret

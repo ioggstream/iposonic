@@ -85,10 +85,13 @@ class MediaManager:
         
     @staticmethod
     def cover_art_uuid(info):        
-        return MediaManager.uuid("%s/%s" % (
-                            MediaManager.normalize_artist(info),
-                            MediaManager.normalize_album(info))
-                            )
+        try:
+            return MediaManager.uuid("%s/%s" % (
+                                MediaManager.normalize_artist(info),
+                                MediaManager.normalize_album(info))
+                                )
+        except:
+            return None
 
     @staticmethod
     def uuid(path):
