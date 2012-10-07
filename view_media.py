@@ -21,6 +21,7 @@ from urllib import urlopen
 #
 log = logging.getLogger('view_media')
 
+
 @app.route("/rest/stream.view", methods=['GET', 'POST'])
 def stream_view():
     """@params
@@ -61,7 +62,8 @@ def stream_view():
 
 def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
-    cmd = ["/usr/bin/lame", "-S", "-v", "-b", "32", "-B", maxBitRate, srcfile, "-"]
+    cmd = ["/usr/bin/lame", "-S", "-v", "-b", "32", "-B", maxBitRate,
+           srcfile, "-"]
     print "generate(): %s" % cmd
     srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
@@ -128,7 +130,7 @@ def star_view():
             'id', sys._getframe().f_code.co_name)
     app.iposonic.update_entry(
         eid, {'starred': time.strftime("%Y-%m-%dT%H:%M:%S")})
-    
+
     # XXX example code to be added to Iposonic
     # for managing user-based media tagging
     # like starred.
@@ -136,13 +138,13 @@ def star_view():
     # because we'll multiply data (eg. #items x #users)
     #usermedia = app.iposonic.db.UserMedia('mock_user', eid)
     #usermedia.update( {
-    #    'starred': time.strftime("%Y-%m-%dT%H:%M:%S"), 
+    #    'starred': time.strftime("%Y-%m-%dT%H:%M:%S"),
     #    'eid': "%s:%s" % ('mock',eid),
     #    'mid' : eid,
     #    'uid' : 'mock'
     #    } )
     app.iposonic.create_entry(usermedia)
-    
+
     return request.formatter({})
 
 
@@ -162,8 +164,9 @@ class CacheError:
     pass
 
 
-
 cache2 = dict()
+
+
 def memorize(f):
     """The memorize pattern is a simple cache implementation.
 
@@ -203,7 +206,7 @@ def get_cover_art_file(eid, nocache=False):
         2- if song, download as Artist/Album
         3- if album, download as Artist/Album
         3- if albumId...
-        
+
         We should manage some border cases:
         a- featured artists
             ex. album: Antonella Ruggiero
@@ -219,18 +222,19 @@ def get_cover_art_file(eid, nocache=False):
     # and hit the database
     info = app.iposonic.get_entry_by_id(eid)
     log.info("entry from db: %s" % info)
-    
+
     # search cover_art using id3 tag
     if not info.get('artist') or not info.get('album'):
         return None
-        
+
     # if we're a CD collection, use parent
     if info.get('isDir') and info.get('album').lower().startswith("cd"):
         info = app.iposonic.get_entry_by_id(info.get('parent'))
-        log.info ("album is a cd, getting parent info: %s" % info)
-        
-    cover_art_path = os.path.join("/", app.iposonic.cache_dir, MediaManager.cover_art_uuid(info))
-    log.info( "checking cover_art_uuid: %s" % cover_art_path)
+        log.info("album is a cd, getting parent info: %s" % info)
+
+    cover_art_path = os.path.join(
+        "/", app.iposonic.cache_dir, MediaManager.cover_art_uuid(info))
+    log.info("checking cover_art_uuid: %s" % cover_art_path)
     if os.path.exists(cover_art_path):
         return cover_art_path
 
@@ -240,9 +244,9 @@ def get_cover_art_file(eid, nocache=False):
             "/", app.iposonic.cache_dir, "%s" % info.get('parent'))
         if os.path.exists(cover_art_path):
             return cover_art_path
-    
-    cover_art_path = join("/", app.iposonic.cache_dir, 
-        MediaManager.cover_art_uuid(info))
+
+    cover_art_path = join("/", app.iposonic.cache_dir,
+                          MediaManager.cover_art_uuid(info))
     if os.path.exists(cover_art_path):
         return cover_art_path
 
@@ -254,11 +258,14 @@ def get_cover_art_file(eid, nocache=False):
         #      leads to a false negative
         # TODO con
         print "confronting info: %s with: %s" % (info, cover)
-        normalize_info, normalize_cover = map(MediaManager.normalize_artist, [info, cover])
+        normalize_info, normalize_cover = map(
+            MediaManager.normalize_artist, [info, cover])
         full_match = len(set([normalize_info, normalize_cover])) == 1
-        stopwords_match = len(set([MediaManager.normalize_artist(x, stopwords=True) for x in [info, cover]])) == 1
-        
-        partial_match = len([x for x in normalize_info if x not in normalize_cover]) == 0
+        stopwords_match = len(set([MediaManager.normalize_artist(
+            x, stopwords=True) for x in [info, cover]])) == 1
+
+        partial_match = len(
+            [x for x in normalize_info if x not in normalize_cover]) == 0
         if full_match or stopwords_match or partial_match:
             print "Saving image %s -> %s" % (
                 cover.get('cover_small'), cover_art_path)
@@ -274,7 +281,9 @@ def get_cover_art_file(eid, nocache=False):
     raise IposonicException("Missing Coverart")
 
 from threading import Lock
-lock_cover_art = Lock() 
+lock_cover_art = Lock()
+
+
 @memorize
 def cover_search(album, nocache=False):
     """Download album info from the web.
@@ -294,7 +303,7 @@ def cover_search(album, nocache=False):
             # the album_art, raise a 503
             log.warn("Album downloader is locked. Failing fast!")
             abort(503)
-            
+
         # search lowercase to increase
         # cache hits
         ret = c.search(album.lower())

@@ -124,19 +124,22 @@ class PlaylistDAO:
             'name': name
         }
 
+
 class UserDAO:
     __tablename__ = "user"
-    __fields__ = ['id', 'username', 'email' ]
+    __fields__ = ['id', 'username', 'email']
+
 
 class UserMediaDAO:
     """TODO use this table for storing per-user metadata.
-    
+
         Each user should have his own media rating.
-        Queries should get a list of uids from here, then 
+        Queries should get a list of uids from here, then
         fetch playlist content by mid.
     """
     __tablename__ = "usermedia"
-    __fields__ = ['eid', 'uid', 'mid', 'userRating', 'starred' ]
+    __fields__ = ['eid', 'uid', 'mid', 'userRating', 'starred']
+
 
 class IposonicDBTables:
     """Class defining base & tables.
@@ -341,7 +344,7 @@ class IposonicDB(object, IposonicDBTables):
 
     def get_indexes(self):
         return self.indexes
-        
+
     def get_music_folders(self):
         return self.music_folders
 
@@ -365,7 +368,7 @@ class IposonicDB(object, IposonicDBTables):
     def add_entry(self, path, album=False):
         if os.path.isdir(path):
             u_path = path.decode('utf-8')
-            self.log.warn( "Adding entry %s" % u_path)
+            self.log.warn("Adding entry %s" % u_path)
             eid = MediaManager.uuid(path)
             if album:
                 self.albums[eid] = IposonicDB.Album(path)
@@ -463,7 +466,8 @@ class Iposonic:
         if not os.path.isdir(self.cache_dir):
             os.mkdir(self.cache_dir)
 
-        self.db = dbhandler(music_folders, recreate_db=recreate_db, datadir=tmp_dir)
+        self.db = dbhandler(
+            music_folders, recreate_db=recreate_db, datadir=tmp_dir)
         self.log.setLevel(logging.INFO)
 
     def __getattr__(self, method):

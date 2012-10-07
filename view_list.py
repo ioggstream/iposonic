@@ -10,6 +10,7 @@ from mediamanager import MediaManager, UnsupportedMediaError
 
 log = logging.getLogger('list-view')
 
+
 @app.route("/rest/getStarred.view", methods=['GET', 'POST'])
 def get_starred_view():
     """
@@ -66,7 +67,6 @@ def get_starred_view():
     raise NotImplementedError()
 
 
-
 @app.route("/rest/getAlbumList.view", methods=['GET', 'POST'])
 def get_album_list_view():
     """Get albums
@@ -100,7 +100,7 @@ def get_album_list_view():
         size = 20
     if not offset:
         offset = 0
-        
+
     if type_a == 'random':
         log.info("getting ", type_a)
         albums = app.iposonic.get_albums()
@@ -120,7 +120,7 @@ def get_album_list_view():
         # get all albums...hey, they may be a lot!
         albums = [a for a in app.iposonic.get_albums()]
 
-    return request.formatter({'albumList': {'album': albums[offset:offset+size]}})
+    return request.formatter({'albumList': {'album': albums[offset:offset + size]}})
 
 
 @app.route("/rest/getRandomSongs.view", methods=['GET', 'POST'])

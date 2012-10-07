@@ -117,6 +117,7 @@ class TestMediaManager:
         for info in info_l:
             ret = MediaManager.normalize_artist(info)
             assert ret == 'fiorellamannoia'
+
     def test_normalize_stopwords(self):
         info_l = [
             {'album': 'pippo', 'artist': u'The Beatles'},
@@ -125,7 +126,7 @@ class TestMediaManager:
         for info in info_l:
             ret = MediaManager.normalize_artist(info, stopwords=True)
             assert ret == 'beatles'
-          
+
     def test_normalize_album(self):
         info_l = [
             {'artist': 'pippo', 'album': u'Evanescence'},
@@ -136,12 +137,13 @@ class TestMediaManager:
         expected = 'evanescence'
         for info in info_l:
             ret = MediaManager.normalize_album(info)
-            assert ret == expected, "Expecting: [%s], got [%s]" % (expected, ret)
-       
+            assert ret == expected, "Expecting: [%s], got [%s]" % (
+                expected, ret)
+
     def test_coverart_uuid(self):
         info_l = [
-        {'artist': 'Antony & the Johnsons', 'album': 'The crying light'},
-        {'artist': 'Antony and the Johnsons', 'album': 'The crying light'},
+            {'artist': 'Antony & the Johnsons', 'album': 'The crying light'},
+            {'artist': 'Antony and the Johnsons', 'album': 'The crying light'},
         ]
         for info in info_l:
             ret = MediaManager.cover_art_uuid(info)

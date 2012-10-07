@@ -15,7 +15,7 @@ import logging
 
 from iposonic import (
     IposonicException,
-    ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO, 
+    ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO,
     UserDAO, UserMediaDAO
 )
 from mediamanager import MediaManager, UnsupportedMediaError
@@ -113,7 +113,7 @@ class IposonicDBTables:
             for (k, v) in self.__dict__.iteritems():
                 # None entries will be serialized to null
                 #   so skip them
-                if v is None: 
+                if v is None:
                     continue
                 # TODO we could just cycle for
                 # k in self.__fields__ or intersect
@@ -185,9 +185,7 @@ class IposonicDBTables:
 
         def __init__(self, email, mid):
             Base.__init__(self)
-            self.update({'email':email, 'mid':mid})
-
-
+            self.update({'email': email, 'mid': mid})
 
 
 class SqliteIposonicDB(object, IposonicDBTables):
@@ -409,7 +407,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 indexes[first].append({'artist': artist_j})
             except KeyError:
                 indexes[first] = [{'artist': artist_j}]
-        return indexes 
+        return indexes
 
     def get_music_folders(self):
         return self.music_folders

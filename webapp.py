@@ -99,14 +99,12 @@ def endpoint_requires_authentication(request, app):
     return True
 
 
-
-
 @app.before_request
 def set_formatter():
     """Return a function to create the response."""
     (u, p, v, c, f, callback) = map(
         request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-        
+
     if f == 'json':
         request.formatter = ResponseHelper.responsize_json
     elif f == 'jsonp':
@@ -119,10 +117,11 @@ def set_formatter():
                 log.info("request: %s" % request.data)
                 raise SubsonicProtocolException(
                     "Missing callback with jsonp in: %s" % request.endpoint)
-        request.formatter = lambda x,status='ok': ResponseHelper.responsize_jsonp(
+        request.formatter = lambda x, status='ok': ResponseHelper.responsize_jsonp(
             x, callback, status=status)
     else:
         request.formatter = ResponseHelper.responsize_xml
+
 
 @app.before_request
 def authorize():
@@ -141,6 +140,7 @@ def authorize():
 
     pass
 
+
 @app.after_request
 def set_content_type(response):
     """Set json response content-type."""
@@ -148,9 +148,9 @@ def set_content_type(response):
         request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     log.warn("response is streamed: %s" % response.is_streamed)
 
-    if f in ['jsonp','json'] and not response.is_streamed:
+    if f in ['jsonp', 'json'] and not response.is_streamed:
         response.headers['content-type'] = 'application/json'
-     
+
     # Flask sets it by default
     #if request.endpoint in ['get_cover_art_view']:
     #    response.headers['content-type'] = 'application/octet-stream'
@@ -168,37 +168,42 @@ def set_content_type(response):
 #
 @app.errorhandler(401)
 def not_authenticated(e):
-    ret = {'error': 
-        [{
-             'code': 40, 
-             'message': 'Wrong username or password'
-        }]
-    } 
+    ret = {'error':
+           [{
+            'code': 40,
+            'message': 'Wrong username or password'
+            }]
+           }
     return request.formatter(ret, status='failed'), 401
+
 
 @app.errorhandler(IposonicException)
 def iposonic_error(e):
     ret = {'error':
-        [{
+           [{
             'code': 0,
             'message': "%s" % e
-        }]   
-    }
-    return request.formatter(ret, status='failed'), 500 
+            }]
+           }
+    return request.formatter(ret, status='failed'), 500
 
 #@app.errorhandler(Exception)
+
+
 def iposonic_error(e):
     ret = {'error':
-        [{
+           [{
             'code': 70,
             'message': "%s" % e
-        }]   
-    }
+            }]
+           }
     log.warn(e)
-    return request.formatter(ret, status='failed'), 404 
+    return request.formatter(ret, status='failed'), 404
 #
 # Helpers
 #
+
+
 def hex_decode(s):
     """Decode an eventually hex-encoded password."""
     if not s:
@@ -276,9 +281,8 @@ class ResponseHelper:
             'xmlns': "http://subsonic.org/restapi"
         })
         return simplejson.dumps({'subsonic-response': ret},
-                         indent=True,
-                         encoding='latin_1')
-
+                                indent=True,
+                                encoding='latin_1')
 
     @staticmethod
     def responsize_jsonp(ret, callback, status="ok", version="9.0.0"):
@@ -306,7 +310,7 @@ class ResponseHelper:
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
-        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&','').encode('utf-8', 'xmlcharrefreplace')
+        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&', '').encode('utf-8', 'xmlcharrefreplace')
 
     @staticmethod
     def jsonp2xml(json):

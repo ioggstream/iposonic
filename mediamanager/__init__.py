@@ -55,19 +55,20 @@ class MediaManager:
         try:
             artist = x.get('artist', x.get('name')).lower()
         except:
-            MediaManager.log.warn( "Can't find artist: %s" % x)
+            MediaManager.log.warn("Can't find artist: %s" % x)
             raise
         artist = artist.replace('&', ' and ')
         if stopwords:
-            artist = "".join([x for x in artist.split(" ") if x not in MediaManager.stopwords])
+            artist = "".join([x for x in artist.split(
+                " ") if x not in MediaManager.stopwords])
         ret = MediaManager.re_notascii.sub("", artist)
-        MediaManager.log.info( "normalize_artist(%s): %s" % (x, ret))
+        MediaManager.log.info("normalize_artist(%s): %s" % (x, ret))
         return ret
 
     @staticmethod
     def normalize_album(x):
         """Return the normalized album name.
-        
+
             - lowercase
             - replace & with and
             - remove parentheses and their content
@@ -79,17 +80,16 @@ class MediaManager:
         album = album.replace('&', ' and ')
         album = MediaManager.re_notes.sub("", album)
         album = MediaManager.re_notes_2.sub("", album)
-        MediaManager.log.info( "normalize_artist(%s): %s" % (x, album))
+        MediaManager.log.info("normalize_artist(%s): %s" % (x, album))
         return album.strip()
-        
-        
+
     @staticmethod
-    def cover_art_uuid(info):        
+    def cover_art_uuid(info):
         try:
             return MediaManager.uuid("%s/%s" % (
-                                MediaManager.normalize_artist(info),
-                                MediaManager.normalize_album(info))
-                                )
+                                     MediaManager.normalize_artist(info),
+                                     MediaManager.normalize_album(info))
+                                     )
         except:
             return None
 
