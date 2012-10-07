@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import subprocess
+import logging
 from os.path import join
 from flask import request, send_file, Response, abort
 from webapp import app
@@ -18,7 +19,7 @@ from urllib import urlopen
 #
 # download and stream
 #
-
+log = logging.getLogger('view_media')
 
 @app.route("/rest/stream.view", methods=['GET', 'POST'])
 def stream_view():
@@ -60,7 +61,7 @@ def stream_view():
 
 def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
-    cmd = ["/usr/bin/lame", "-S", "-v", "-B", maxBitRate, srcfile, "-"]
+    cmd = ["/usr/bin/lame", "-S", "-v", "-b", 32, "-B", maxBitRate, srcfile, "-"]
     print "generate(): %s" % cmd
     srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
@@ -161,27 +162,8 @@ class CacheError:
     pass
 
 
-class CacheMixing(dict):
-    timeout = 60
-    empty = {'ts': 0, 'item': None}
-
-    def add_item(self, key, item):
-        self.update({key: {
-            'item': item,
-            'ts': time.time()
-        }})
-
-    def get_item(self, key):
-        item = self[key]
-        if item.get('ts') and (item.get('ts') + 60 > time.time()):
-            return item.get('item')
-        raise CacheError("Item expired")
-
-cache_coverart = CacheMixing()
 
 cache2 = dict()
-
-
 def memorize(f):
     """The memorize pattern is a simple cache implementation.
 
@@ -221,15 +203,34 @@ def get_cover_art_file(eid, nocache=False):
         2- if song, download as Artist/Album
         3- if album, download as Artist/Album
         3- if albumId...
+        
+        We should manage some border cases:
+        a- featured artists
+            ex. album: Antonella Ruggiero
+                song: Antonella Ruggiero & Subsonica
     """
+
+    # if everything is fine, just get the file
     cover_art_path = os.path.join("/", app.iposonic.cache_dir, "%s" % eid)
     if os.path.exists(cover_art_path):
         return cover_art_path
 
-    # hit database
+    # otherwise we need to guess from item info,
+    # and hit the database
     info = app.iposonic.get_entry_by_id(eid)
+    log.info("entry from db: %s" % info)
+    
+    # if we're a CD collection, use parent
+    if info.get('isDir') and info.get('album').lower().startswith("cd"):
+        info = app.iposonic.get_entry_by_id(info.get('parent'))
+        log.info ("album is a cd, getting parent info: %s" % info)
+        
+    cover_art_path = os.path.join("/", app.iposonic.cache_dir, MediaManager.cover_art_uuid(info))
+    log.info( "checking cover_art_uuid: %s" % cover_art_path)
+    if os.path.exists(cover_art_path):
+        return cover_art_path
 
-    # search cover_art for file using parent or albumId
+    # if we're a file, let's use parent or albumId
     if info.get('isDir') in [False, 'false', 'False']:
         cover_art_path = join(
             "/", app.iposonic.cache_dir, "%s" % info.get('parent'))
@@ -240,13 +241,9 @@ def get_cover_art_file(eid, nocache=False):
     if not info.get('artist') or not info.get('album'):
         return None
 
-    cover_art_path = join("/",
-                          app.iposonic.cache_dir,
-                          MediaManager.uuid("%s/%s" % (
-                                            info.get('artist'),
-                                            info.get('album'))
-                                            )
-                          )
+    
+    cover_art_path = join("/", app.iposonic.cache_dir, 
+        MediaManager.cover_art_uuid(info))
     if os.path.exists(cover_art_path):
         return cover_art_path
 
@@ -258,7 +255,12 @@ def get_cover_art_file(eid, nocache=False):
         #      leads to a false negative
         # TODO con
         print "confronting info: %s with: %s" % (info, cover)
-        if len(set([MediaManager.normalize_album(x) for x in [info, cover]])) == 1:
+        normalize_info, normalize_cover = map(MediaManager.normalize_artist, [info, cover])
+        full_match = len(set([normalize_info, normalize_cover])) == 1
+        stopwords_match = len(set([MediaManager.normalize_artist(x, stopwords=True) for x in [info, cover]])) == 1
+        
+        partial_match = len([x for x in normalize_info if x not in normalize_cover]) == 0
+        if full_match or stopwords_match or partial_match:
             print "Saving image %s -> %s" % (
                 cover.get('cover_small'), cover_art_path)
             fd = open(cover_art_path, "w")
@@ -281,9 +283,12 @@ def cover_search(album, nocache=False):
         to reduce web access.
     """
     ret = None
+    log.info("Searching the web for album: %s" % album)
     if album:
         c = CoverSource()
-        ret = c.search(album)
+        # search lowercase to increase
+        # cache hits
+        ret = c.search(album.lower())
         # don't return empty arrays
         if ret:
             return ret

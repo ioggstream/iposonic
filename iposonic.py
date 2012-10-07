@@ -376,7 +376,7 @@ class IposonicDB(object, IposonicDBTables):
             try:
                 info = MediaManager.get_info(path)
                 info.update({
-                    'coverArt': info.get('parent')
+                    'coverArt': MediaManager.get_cover_art_uuid(info)
                 })
                 self.songs[info['id']] = info
                 self.log.info("adding file: %s, %s " % (info['id'], path))
@@ -462,7 +462,7 @@ class Iposonic:
         if not os.path.isdir(self.cache_dir):
             os.mkdir(self.cache_dir)
 
-        self.db = dbhandler(music_folders, recreate_db=recreate_db)
+        self.db = dbhandler(music_folders, recreate_db=recreate_db, datadir=tmp_dir)
         self.log.setLevel(logging.INFO)
 
     def __getattr__(self, method):
@@ -571,6 +571,7 @@ class Iposonic:
         #print "songs: %s (%s) " % (songs, songs.__class__)
 
         # add album coverArt to each song
+        # XXX find a smart way to get coverArt
         if songs.__class__.__name__ == 'dict':
             songs.update({'coverArt': songs.get('id')})
             #print "songs2: %s " % songs

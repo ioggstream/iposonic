@@ -43,20 +43,52 @@ class MediaManager:
     re_track_2 = re.compile("^(.*)([0-9]+)?$")
     re_split_s = "\s*-\s*"
     re_notes = re.compile('\((.+)\)')
+    re_notes_2 = re.compile(b'\[.+\]')
     re_notascii = re.compile("[^A-Za-z0-9]")
 
+    stopwords = set(['i', 'the'])
+
     @staticmethod
-    def normalize_album(x):
+    def normalize_artist(x, stopwords=False):
         """Return the ascii part of a album name."""
         # normalize artist name
         try:
             artist = x.get('artist', x.get('name')).lower()
         except:
-            print "Can't find artist: %s" % x
+            MediaManager.log.warn( "Can't find artist: %s" % x)
             raise
+        artist = artist.replace('&', ' and ')
+        if stopwords:
+            artist = "".join([x for x in artist.split(" ") if x not in MediaManager.stopwords])
         ret = MediaManager.re_notascii.sub("", artist)
-        print "normalize_album(%s): %s" % (x, ret)
+        MediaManager.log.info( "normalize_artist(%s): %s" % (x, ret))
         return ret
+
+    @staticmethod
+    def normalize_album(x):
+        """Return the normalized album name.
+        
+            - lowercase
+            - replace & with and
+            - remove parentheses and their content
+        """
+        try:
+            album = x.get('album').lower()
+        except:
+            raise
+        album = album.replace('&', ' and ')
+        album = MediaManager.re_notes.sub("", album)
+        album = MediaManager.re_notes_2.sub("", album)
+        MediaManager.log.info( "normalize_artist(%s): %s" % (x, album))
+        return album.strip()
+        
+        
+    @staticmethod
+    def cover_art_uuid(info):        
+        return MediaManager.uuid("%s/%s" % (
+                            MediaManager.normalize_artist(info),
+                            MediaManager.normalize_album(info))
+                            )
 
     @staticmethod
     def uuid(path):

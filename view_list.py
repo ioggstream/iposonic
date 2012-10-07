@@ -165,12 +165,12 @@ def get_random_songs_view():
     songs = []
     if genre:
         print "genre: %s" % genre
-        songs = app.iposonic.get_genre_songs(genre)
+        songs = app.iposonic.get_genre_songs(genre.strip().lower())
     else:
         all_songs = app.iposonic.get_songs()
         assert all_songs
         songs = randomize2_list(all_songs)
-    assert songs
+
     # add cover art
     songs = [x.update({'coverArt': x.get('id')}) or x for x in songs]
     return request.formatter({'randomSongs': {'song': songs}})

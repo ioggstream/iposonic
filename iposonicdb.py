@@ -260,7 +260,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     def __init__(self, music_folders, dbfile="iposonic1",
                  refresh_interval=60, user="iposonic", passwd="iposonic",
-                 host="localhost", recreate_db=False):
+                 host="localhost", recreate_db=False, datadir="/tmp/iposonic"):
         self.music_folders = music_folders
 
         # database credentials
@@ -281,6 +281,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         self.log.setLevel(logging.INFO)
         self.initialized = False
         self.recreate_db = recreate_db
+        self.datadir = datadir
         assert self.log.isEnabledFor(logging.INFO)
 
     def init_db(self):
@@ -467,7 +468,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             except UnsupportedMediaError, e:
                 raise IposonicException(e)
 
-        if record and id:
+        if record and eid:
             record.update({'created': int(os.stat(path).st_ctime)})
 
             print "Adding entry: %s " % record
@@ -537,7 +538,6 @@ class MySQLIposonicDB(SqliteIposonicDB):
     log = logging.getLogger('SqliteIposonicDB')
     engine_s = "mysql+mysqldb"
     driver = _mysql
-    datadir = "/tmp/iposonic/"
 
     sql_lock = Lock()
 
