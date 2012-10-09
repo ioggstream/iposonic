@@ -4,10 +4,18 @@
 #    https://github.com/jmcantrell/coverart/blob/master/coverart/sources/lastfmcovers.py
 #
 import sys
-import re
+import re,os
+import time,logging
 from urllib import urlopen, quote_plus
 from xml.etree.ElementTree import parse
+from iposonic import IposonicException
+from mediamanager import MediaManager
+from threading import Thread
+from Queue import Queue
 
+q = Queue()
+
+log = logging.getLogger("art_downloader")
 
 class CoverSource(object):
     """Download cover art from url_base."""
@@ -42,40 +50,108 @@ class CoverSource(object):
                 break
 
 
-class CoverSource_old(object):  # {{{1
+def memorize(f):
+    cache2 = dict()
 
-    def __init__(self):
-        self.max_results = 10
-        self.source_name = 'AllCDCovers'
-        self.url_base = 'http://www.allcdcovers.com'
+    """The memorize pattern is a simple cache implementation.
 
-    def search(self, query):
-        url = '%s/search/music/all/%s' % (self.url_base, quote_plus(query))
-        results_page = urlopen(url).read()
-        seen = set()
-        count = 0
-        for rm in re.finditer(r'<a href="(/show/.*?/.*?/front)">', results_page):
-            if not rm or rm.group(1) in seen:
-                continue
-            cover_page = urlopen(self.url_base + rm.group(1)).read()
-            clm = re.search(r'<a href="(/download/.*?)">', cover_page)
-            csm = re.search(r'<div class="productImage"><img .*?src="(/image_system/.*?)" />', cover_page)
-            am = re.search(r'<dt>Title:</dt><dd>(.*?)</dd>', cover_page)
-            if am and csm and clm:
-                count += 1
-                yield {
-                    'album': am.group(1),
-                    'cover_large': self.url_base + clm.group(1),
-                    'cover_small': self.url_base + clm.group(1),
-                }
-            if count == self.max_results:
-                break
-            seen.add(rm.group(1))
+        It requires that te underlying function takes two
+        parameters: f(eid, nocache=False).
+    """
+    def tmp(eid, nocache=False):
+        try:
+            if not nocache:
+                (item, ts) = cache2[eid]
+                if item:
+                    return item
+                # retry after 60sec in case
+                #    of empty items
+                if ts + 60 < time.time():
+                    return item
 
-#}}}1
+        except KeyError:
+            pass
+
+        try:
+            cache2[eid] = (f(eid, nocache=nocache), time.time())
+        except IposonicException:
+            cache2[eid] = (None, time.time())
+
+        return cache2[eid][0]
+    return tmp
 
 
-if __name__ == '__main__':
-    c = CoverSource()
-    for res in c.search(sys.argv[1]):
-        print res
+
+@memorize
+def cover_search(album, nocache=False):
+    """Download album info from the web.
+
+        This class implements the @memorize pattern
+        to reduce web access.
+    """
+    ret = None
+    if album:
+        log.info("Searching the web for album: %s" % album)
+
+        c = CoverSource()
+        # search lowercase to increase
+        # cache hits
+        ret = c.search(album.lower())
+
+        # don't return empty arrays
+        if ret:
+            return ret
+    return ret
+
+def cover_art_mock(cache_dir, cover_searc=cover_search):
+    while True:
+        log.info("cover_art_mock: %s"%q.get())
+
+
+def cover_art_worker(cache_dir, cover_search=cover_search):
+    log.info("starting downloader thread with tmp_dir: %s" % cache_dir)
+    info = True
+    while info:
+        info = q.get()
+        try:
+            cover_art_path = os.path.join("/",
+                cache_dir,
+                MediaManager.cover_art_uuid(info)
+            )
+            log.info( "coverart %s: searching album: %s " % (info.get('id'), info.get('album')))
+            covers = cover_search(info.get('album'))
+            for cover in covers:
+                # TODO consider multiple authors in info
+                #  ex. Actually "U2 & Frank Sinatra" != "U2"
+                #      leads to a false negative
+                # TODO con
+                print "confronting info: %s with: %s" % (info, cover)
+                normalize_info, normalize_cover = map(
+                    MediaManager.normalize_artist, [info, cover])
+                full_match = len(set([normalize_info, normalize_cover])) == 1
+                stopwords_match = len(set([MediaManager.normalize_artist(
+                    x, stopwords=True) for x in [info, cover]])) == 1
+
+                partial_match = len(
+                    [x for x in normalize_info if x not in normalize_cover]) == 0
+                if full_match or stopwords_match or partial_match:
+                    log.warn( "Saving image %s -> %s" % (
+                        cover.get('cover_small'), cover_art_path)
+                        )
+                    fd = open(cover_art_path, "w")
+                    fd.write(urlopen(cover.get('cover_small')).read())
+                    fd.close()
+
+                else:
+                    log.info( "Artist mismatch: %s, %s" % tuple(
+                        [x.get('artist', x.get('name')) for x in [info, cover]])
+                    )
+        except Exception as e:
+            log.error("Error while downloading albumart.", e)
+                
+        q.task_done()
+    log.warn("finish download thread")
+
+
+
+

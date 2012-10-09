@@ -22,7 +22,9 @@ To run, just
 	# pip install flask
  * configure your mp3 directory in webapp.py
  * run with
-	# python main.py
+	# python main.py -c /music/folder
+ * help yourself
+	# python main.py --help
 
 
 You can test methods adding some audio files in test/data/ and messing with nose
