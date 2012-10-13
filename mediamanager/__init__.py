@@ -53,10 +53,9 @@ class MediaManager:
         """Return the ascii part of a album name."""
         # normalize artist name
         try:
-            artist = x.get('artist', x.get('name')).lower()
-        except:
-            MediaManager.log.warn("Can't find artist: %s" % x)
-            raise
+            artist = x.get('artist', x.get('name', x.get('Author'))).lower()
+        except AttributeError:
+            raise UnsupportedMediaError("Missing artist field (artist,name or Author) in: %s" % x)
         artist = artist.replace('&', ' and ')
         if stopwords:
             artist = "".join([x for x in artist.split(
@@ -74,9 +73,9 @@ class MediaManager:
             - remove parentheses and their content
         """
         try:
-            album = x.get('album').lower()
-        except:
-            raise
+            album = x.get('album',x.get('parent')).lower()
+        except AttributeError:
+            raise UnsupportedMediaError("Missing album field (album,parent) in: %s" % x)
         album = album.replace('&', ' and ')
         album = MediaManager.re_notes.sub("", album)
         album = MediaManager.re_notes_2.sub("", album)
@@ -85,13 +84,11 @@ class MediaManager:
 
     @staticmethod
     def cover_art_uuid(info):
-        try:
+            """Generate an un unique identifier for coverart."""
             return MediaManager.uuid("%s/%s" % (
                                      MediaManager.normalize_artist(info),
                                      MediaManager.normalize_album(info))
                                      )
-        except:
-            return None
 
     @staticmethod
     def uuid(path):
