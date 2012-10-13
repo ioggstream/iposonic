@@ -15,7 +15,7 @@ os.path.supports_unicode_filenames = True
 
 from flask import request, send_file
 from webapp import app, fs_cache
-from webapp import randomize2_list
+from webapp import randomize2_list, randomize_list
 from iposonic import IposonicException, SubsonicProtocolException
 import mediamanager
 from mediamanager import MediaManager

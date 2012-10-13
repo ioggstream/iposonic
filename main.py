@@ -19,8 +19,8 @@ logging.basicConfig(level=logging.INFO)
 import sys
 import os
 os.path.supports_unicode_filenames = True
-import thread
 import argparse
+from threading import Thread
 
 from iposonic import Iposonic
 
@@ -65,7 +65,7 @@ def run(argc, argv):
                         help='Music collection path')
     parser.add_argument('-t', dest='tmp_dir', metavar=None, type=str,
                         nargs=None, default=os.path.expanduser('~/.iposonic'),
-                        help='Temporary directory')
+                        help='Temporary directory, defaults to ~/.iposonic')
     parser.add_argument('--profile', metavar=None, type=bool,
                         nargs='?', const=True, default=False, 
                         help='profile with yappi')
@@ -73,7 +73,12 @@ def run(argc, argv):
     parser.add_argument(
                         '--access-file', dest='access_file', action=None, type=str,
                         default=os.path.expanduser('~/.iposonic_auth'),
-                        help='Access file for user authentication. Use --access-file "no" to disable authentication.')
+                        help='Access file for user authentication, defaults to ~/.iposonic_auth. Use --noauth to disable authentication.')
+    parser.add_argument(
+                        '--noauth', dest='noauth', action=None, type=bool,
+                        nargs='?', const=True, default=False,
+                        help='Disable authentication.')
+
     parser.add_argument(
                         '--free-coverart', dest='free_coverart', action=None, type=bool,
                         const=True, default=False, nargs='?',
@@ -100,15 +105,20 @@ def run(argc, argv):
     app.iposonic = Iposonic(args.collection, dbhandler=Dbh,
                             recreate_db=args.resetdb, tmp_dir=args.tmp_dir)
     app.iposonic.db.init_db()
-    print(thread.get_ident(), "iposonic main @%s" % id(app.iposonic))
 
     # While developing don't enforce authentication
     #   otherwise you can use a credential file
     #   or specify your users inline
-    skip_authentication = (args.access_file == 'no')
+    skip_authentication = args.noauth
     app.authorizer = Authorizer(
         mock=skip_authentication, access_file=args.access_file)
 
+    from art_downloader import cover_art_worker, cover_art_mock, q
+    for i in range(1):
+        t = Thread(target=cover_art_worker, args=[app.iposonic.cache_dir])
+        t.daemon = True
+        t.start()
+        
     app.run(host='127.0.0.1', port=5000, debug=True)
 
 

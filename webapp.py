@@ -13,7 +13,7 @@ from __future__ import unicode_literals
 from flask import Flask
 from flask import request, abort
 
-import random
+import random, time, os
 
 
 import simplejson
@@ -131,6 +131,10 @@ def authorize():
     if not endpoint_requires_authentication(request, app):
         return
 
+    auth = request.authorization
+    if auth:
+        log.info("Client sends basic-auth: %s:%s" % (auth.username, auth.password))
+        
     (u, p, v, c) = map(
         request.args.get, ['u', 'p', 'v', 'c'])
 
@@ -222,6 +226,7 @@ def hex_decode(s):
 
 
 def randomize(dictionary, limit=20):
+    random.seed(os.urandom(10))
     a_all = dictionary.keys()
     a_max = len(a_all)
     ret = []
@@ -242,6 +247,7 @@ def randomize(dictionary, limit=20):
 
 
 def randomize2(dictionary, limit=20):
+    random.seed(os.urandom(10))
     a_max = len(dictionary)
     ret = []
 
@@ -254,6 +260,7 @@ def randomize2(dictionary, limit=20):
 
 
 def randomize2_list(lst, limit=20):
+    random.seed(os.urandom(10))
     a_max = len(lst)
     ret = []
 
@@ -264,6 +271,15 @@ def randomize2_list(lst, limit=20):
         ret.append(k)
     return ret
 
+def randomize_list(lst, limit=20):
+    random.seed(os.urandom(10))
+    a_max = len(lst)
+    ret = []
+
+    for k in range(limit):
+        k_rnd = random.randint(0, a_max-1)
+        ret.append(lst[k_rnd])
+    return ret
 
 class ResponseHelper:
     """Serialize a python dict to an xml object, and embeds it in a subsonic-response

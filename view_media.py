@@ -10,7 +10,6 @@ import logging
 from os.path import join
 from flask import request, send_file, Response, abort
 from webapp import app
-
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, UnsupportedMediaError
 from art_downloader import CoverSource
@@ -164,10 +163,11 @@ class CacheError:
     pass
 
 
+
+
 cache2 = dict()
-
-
 def memorize(f):
+
     """The memorize pattern is a simple cache implementation.
 
         It requires that te underlying function takes two
@@ -198,6 +198,8 @@ def memorize(f):
 
 @memorize
 def get_cover_art_file(eid, nocache=False):
+    from art_downloader import q
+
     """Return coverArt file, eventually downloading it.
 
         Successful download requires both Artist and Album, so
@@ -250,7 +252,14 @@ def get_cover_art_file(eid, nocache=False):
     if os.path.exists(cover_art_path):
         return cover_art_path
 
-    print("coverart %s: searching album: %s " % (eid, info.get('album')))
+    # if it's not present
+    # use the background thread to download
+    # and return 503
+    q.put(info)
+    abort(503)
+    
+    
+    print "coverart %s: searching album: %s " % (eid, info.get('album'))
     covers = cover_search(info.get('album'))
     for cover in covers:
         # TODO consider multiple authors in info
@@ -280,38 +289,7 @@ def get_cover_art_file(eid, nocache=False):
 
     raise IposonicException("Missing Coverart")
 
-from threading import Lock
-lock_cover_art = Lock()
 
-
-@memorize
-def cover_search(album, nocache=False):
-    """Download album info from the web.
-
-        This class implements the @memorize pattern
-        to reduce web access.
-    """
-    ret = None
-    if album:
-        log.info("Searching the web for album: %s" % album)
-
-        c = CoverSource()
-
-        if not lock_cover_art.acquire(False):
-            # Try a non blocking lock and
-            # if another thread is looking for
-            # the album_art, raise a 503
-            log.warn("Album downloader is locked. Failing fast!")
-            abort(503)
-
-        # search lowercase to increase
-        # cache hits
-        ret = c.search(album.lower())
-        lock_cover_art.release()
-        # don't return empty arrays
-        if ret:
-            return ret
-    return ret
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])

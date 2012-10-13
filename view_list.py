@@ -4,7 +4,7 @@
 #
 import logging
 from flask import request
-from webapp import app, randomize2_list
+from webapp import app, randomize2_list, randomize_list
 from iposonic import SubsonicMissingParameterException, SubsonicProtocolException, IposonicException
 from mediamanager import MediaManager, UnsupportedMediaError
 
@@ -120,7 +120,8 @@ def get_album_list_view():
         # get all albums...hey, they may be a lot!
         albums = [a for a in app.iposonic.get_albums()]
 
-    return request.formatter({'albumList': {'album': albums[offset:offset + size]}})
+    last = min(offset+size, len(albums)-1)
+    return request.formatter({'albumList': {'album': albums[offset:last]}})
 
 
 @app.route("/rest/getRandomSongs.view", methods=['GET', 'POST'])
