@@ -45,7 +45,7 @@ app = Flask(__name__)
 ###
 # The web
 ###
-
+dump_response = False
 fs_cache = dict()
 #
 # Test connection
@@ -191,17 +191,25 @@ def iposonic_error(e):
            }
     return request.formatter(ret, status='failed'), 500
 
-#@app.errorhandler(Exception)
+@app.errorhandler(AssertionError)
+def iposonic_error_in_flow(e):
+    ret = {'error':
+           [{
+            'code': 0,
+            'message': "%s" % e
+            }]
+           }
+    return request.formatter(ret, status='failed'), 500
 
-
-def iposonic_error(e):
+@app.errorhandler(Exception)
+def iposonic_generic_error(e):
     ret = {'error':
            [{
             'code': 70,
             'message': "%s" % e
             }]
            }
-    log.warn(e)
+    log.exception(e)
     return request.formatter(ret, status='failed'), 404
 #
 # Helpers
@@ -315,18 +323,23 @@ class ResponseHelper:
             callback,
             simplejson.dumps({'subsonic-response': ret},
                              indent=True,
-                             encoding='latin_1')
+                             encoding='utf-8')
         )
 
     @staticmethod
     def responsize_xml(ret, status="ok", version="9.0.0"):
+        import codecs
         """Return an xml response from json and replace unsupported characters."""
         ret.update({
             'status': status,
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
-        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&', '').encode('utf-8', 'xmlcharrefreplace')
+        # To clear responses we need to mangle some BOM UTF chars doing
+        # 1- unicode-escape to convert utf-8 to ascii bytes
+        # 2- decode that string ignoring BOMs with utf-8-sig
+        # 3- finally re-encode in utf-8 the cleaned string
+        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&', '').encode('unicode_escape').decode('utf-8-sig').encode('utf-8', 'xmlcharrefreplace')
 
     @staticmethod
     def jsonp2xml(json):
@@ -409,7 +422,8 @@ class ResponseHelper:
 
         # Log the source and destination of the response
         ResponseHelper.log.info("ret object is  %s" % ret.__class__)
-        ResponseHelper.log.info(
+        if dump_response:
+            ResponseHelper.log.info(
             "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))
 
         return ret.replace("isDir=\"True\"", "isDir=\"true\"")

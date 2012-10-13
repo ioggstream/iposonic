@@ -312,7 +312,7 @@ def get_lyrics_view():
     request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (artist, title) = map(request.args.get, ['artist', 'title'])
     assert artist and title 
-    assert  'null' not in [artist, title]
+    assert  'null' not in [artist, title], "A required field (artist,title) is empty."
     info = {'artist':artist,'title':title}
     lyrics_id = lyrics_uuid(info)    
     lyrics = get_lyrics(lyrics_id, info=info)

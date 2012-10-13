@@ -13,7 +13,7 @@ import logging
 from binascii import crc32
 
 from os.path import dirname, basename, join
-encodings = ['utf-8', 'ascii', 'latin_1', 'iso8859_15', 'cp850',
+encodings = ['utf-8-sig', 'ascii', 'latin_1', 'iso8859_15', 'cp850',
              'cp037', 'cp1252']
 
 
