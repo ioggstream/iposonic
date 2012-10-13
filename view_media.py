@@ -174,7 +174,7 @@ def memorize(f):
         It requires that te underlying function takes two
         parameters: f(eid, nocache=False).
     """
-    def tmp(eid, nocache=False, *kwds):
+    def tmp(eid, nocache=False, **kwds):
         try:
             if not nocache:
                 (item, ts) = cache2[eid]
@@ -189,7 +189,7 @@ def memorize(f):
             pass
 
         try:
-            cache2[eid] = (f(eid, nocache=nocache, *kwds), time.time())
+            cache2[eid] = (f(eid, nocache=nocache, **kwds), time.time())
         except IposonicException:
             cache2[eid] = (None, time.time())
 
@@ -259,38 +259,6 @@ def get_cover_art_file(eid, nocache=False):
     q.put(info)
     abort(503)
     
-    
-    print "coverart %s: searching album: %s " % (eid, info.get('album'))
-    covers = cover_search(info.get('album'))
-    for cover in covers:
-        # TODO consider multiple authors in info
-        #  ex. Actually "U2 & Frank Sinatra" != "U2"
-        #      leads to a false negative
-        # TODO con
-        print("confronting info: %s with: %s" % (info, cover))
-        normalize_info, normalize_cover = map(
-            MediaManager.normalize_artist, [info, cover])
-        full_match = len(set([normalize_info, normalize_cover])) == 1
-        stopwords_match = len(set([MediaManager.normalize_artist(
-            x, stopwords=True) for x in [info, cover]])) == 1
-
-        partial_match = len(
-            [x for x in normalize_info if x not in normalize_cover]) == 0
-        if full_match or stopwords_match or partial_match:
-            print("Saving image %s -> %s" % (
-                cover.get('cover_small'), cover_art_path))
-            fd = open(cover_art_path, "w")
-            fd.write(urlopen(cover.get('cover_small')).read())
-            fd.close()
-
-            return cover_art_path
-        else:
-            print("Artist mismatch: %s, %s" % tuple(
-                [x.get('artist', x.get('name')) for x in [info, cover]]))
-
-    raise IposonicException("Missing Coverart")
-
-
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
@@ -307,13 +275,26 @@ def get_cover_art_view():
 
     return send_file(cover_art_path)
 
-#@memorize
+
+@memorize
 def get_lyrics(lid, nocache=False, info=None):
-    #lyrics_path = os.path.join("/", app.iposonic.cache_dir, "%s" % lid)
+    lyrics_path = os.path.join("/", app.iposonic.cache_dir, "%s.lyr" % lid)
+    try:
+        with open(lyrics_path, "rb") as f:
+            ret = f.read()
+            if ret:
+                return { 'lyrics': ret}
+    except IOError:
+        pass
+    # if the entry is not in cache, search the web
+    log.warn("cannot find lyrics on cache")
+    assert info, "Bad call of get_lyrics without info argument"
     c = ChartLyrics()
     ret = c.search(info)
+    with open(lyrics_path, "wb") as f:
+        f.write(ret.get('lyrics').encode('utf-8'))
     return ret
-        
+
 
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
 def get_lyrics_view():
