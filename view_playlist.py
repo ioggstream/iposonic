@@ -100,7 +100,7 @@ def get_playlist_view():
     else:
         playlist = app.iposonic.get_playlists(eid=eid)
         assert playlist, "Playlists: %s" % app.iposonic.db.playlists
-        print "found playlist: %s" % playlist
+        print("found playlist: %s" % playlist)
         entry_ids = playlist.get('entry')
         if entry_ids:
             entries = [x for x in app.iposonic.get_song_list(
@@ -108,7 +108,7 @@ def get_playlist_view():
         j_playlist = playlist
     # format output
     assert entries, "Missing entries: %s" % entries
-    print "Entries retrieved: %s" % entries
+    print("Entries retrieved: %s" % entries)
     j_playlist.update({
         'entry': entries,
         'songCount': len(entries),
@@ -133,9 +133,9 @@ def create_playlist_view():
 
     (name, playlistId) = map(request.values.get, ['name', 'playlistId'])
     songId_l = request.values.getlist('songId')
-    print "songId: %s" % songId_l
+    print("songId: %s" % songId_l)
     if not (name or playlistId):
-        print "request: %s" % request.data
+        print("request: %s" % request.data)
         raise SubsonicMissingParameterException(
             'id or playlistId', 'create_playlist_view')
 

@@ -220,10 +220,10 @@ def get_music_directory_view():
         last_modified = -1
 
     if last_modified == -1:
-        print "Getting items from valbum."
+        print("Getting items from valbum.")
         children = app.iposonic.get_songs(query={'albumId': dir_id})
     elif fs_cache.get(dir_id, 0) == last_modified:
-        print "Getting items from cache."
+        print("Getting items from cache.")
         children = app.iposonic.get_songs(query={'parent': dir_id})
         children.extend(app.iposonic.get_albums(query={'parent': dir_id}))
     else:
@@ -231,7 +231,7 @@ def get_music_directory_view():
             # TODO find a way to support non-unicode directories and
             #    folders. The easiest way is to simply RENAME THEM!
             #    ................
-            print "checking string type: ", type(child)
+            print("checking string type: ", type(child))
             #child = to_unicode(child)
             if child[0] in ['.', '_']:
                 continue
@@ -324,7 +324,7 @@ def search2_view():
     """
     (u, p, v, c, f, callback, query) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'query'])
-    print "query:%s\n\n" % query
+    print("query:%s\n\n" % query)
     if not query:
         raise SubsonicProtocolException(
             "Missing required parameter: 'query' in search2.view")
@@ -333,12 +333,12 @@ def search2_view():
         request.args.get, ["artistCount", "albumCount", "songCount"])
 
     # ret is
-    print "searching"
+    print("searching")
     ret = app.iposonic.search2(query, artistCount, albumCount, songCount)
     #songs = [{'song': s} for s in ret['title']]
     #songs.extend([{'album': a} for a in ret['album']])
     #songs.extend([{'artist': a} for a in ret['artist']])
-    print "ret: %s" % ret
+    print("ret: %s" % ret)
     return request.formatter(
         {
             'searchResult2': {

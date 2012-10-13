@@ -78,4 +78,4 @@ class CoverSource_old(object):  # {{{1
 if __name__ == '__main__':
     c = CoverSource()
     for res in c.search(sys.argv[1]):
-        print res
+        print(res)

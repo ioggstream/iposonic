@@ -44,7 +44,7 @@ def yappize():
         import signal
 
         def signal_handler(signal_n, frame):
-            print 'You pressed Ctrl+C!'
+            print('You pressed Ctrl+C!')
             yappi.stop()
             yappi.print_stats(open("yappi.out", "w"))
             sys.exit(0)
@@ -100,7 +100,7 @@ def run(argc, argv):
     app.iposonic = Iposonic(args.collection, dbhandler=Dbh,
                             recreate_db=args.resetdb, tmp_dir=args.tmp_dir)
     app.iposonic.db.init_db()
-    print thread.get_ident(), "iposonic main @%s" % id(app.iposonic)
+    print(thread.get_ident(), "iposonic main @%s" % id(app.iposonic))
 
     # While developing don't enforce authentication
     #   otherwise you can use a credential file
