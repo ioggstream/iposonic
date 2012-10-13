@@ -63,3 +63,9 @@ def test_jsonp2xml_5():
     }
 
     print ResponseHelper.jsonp2xml(val)
+
+def test_jsonp2xml_6():
+    val =   { 'lyrics': {'artist': 1234, 'title': "sss", '': ['testo libero'] } }
+    print ResponseHelper.jsonp2xml(val)
+
+      

@@ -14,7 +14,8 @@ from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissi
 from mediamanager import MediaManager, UnsupportedMediaError
 from art_downloader import CoverSource
 from urllib import urlopen
-
+import urllib2
+from mediamanager.lyrics import ChartLyrics
 #
 # download and stream
 #
@@ -173,7 +174,7 @@ def memorize(f):
         It requires that te underlying function takes two
         parameters: f(eid, nocache=False).
     """
-    def tmp(eid, nocache=False):
+    def tmp(eid, nocache=False, *kwds):
         try:
             if not nocache:
                 (item, ts) = cache2[eid]
@@ -188,7 +189,7 @@ def memorize(f):
             pass
 
         try:
-            cache2[eid] = (f(eid, nocache=nocache), time.time())
+            cache2[eid] = (f(eid, nocache=nocache, *kwds), time.time())
         except IposonicException:
             cache2[eid] = (None, time.time())
 
@@ -306,7 +307,37 @@ def get_cover_art_view():
 
     return send_file(cover_art_path)
 
+#@memorize
+def get_lyrics(lid, nocache=False, info=None):
+    #lyrics_path = os.path.join("/", app.iposonic.cache_dir, "%s" % lid)
+    c = ChartLyrics()
+    ret = c.search(info)
+    return ret
+        
 
 @app.route("/rest/getLyrics.view", methods=['GET', 'POST'])
 def get_lyrics_view():
+    """
+         artist    No        The artist name.
+        title
+    json_response: {lyrics: { artist: ..., title: ...} }
+    xml_response: <lyrics artist="Muse" title="Hysteria">...."""
+    def lyrics_uuid(info):
+        return MediaManager.uuid("%s/%s" % (
+                                            MediaManager.normalize_artist(info, stopwords=True),
+                                            info['title'].lower())
+                                 )
+    (u, p, v, c, f, callback) = map(
+    request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (artist, title) = map(request.args.get, ['artist', 'title'])
+    assert artist and title 
+    assert  'null' not in [artist, title]
+    info = {'artist':artist,'title':title}
+    lyrics_id = lyrics_uuid(info)    
+    lyrics = get_lyrics(lyrics_id, info=info)
+    assert 'lyrics' in lyrics, "Missing lyrics in %s" % lyrics
+    ret = { 'lyrics': {'artist': artist, 'title': title, '': [lyrics['lyrics']] } }
+  
+    return request.formatter(ret)
+
     raise NotImplementedError("WriteMe")

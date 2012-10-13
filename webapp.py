@@ -366,29 +366,32 @@ class ResponseHelper:
                     #   and embed them in the tag named
                     attributes = ""
                     content = ""
-                    for (attr, value) in t.iteritems():
-                        # only serializable values are attributes
-                        if value.__class__.__name__ in 'str':
-                            attributes = """%s %s="%s" """ % (
-                                attributes,
-                                attr,
-                                cgi.escape(
-                                    stringutils.to_unicode(value), quote=None)
-                            )
-                        elif value.__class__.__name__ in ['int', 'unicode', 'bool', 'long']:
-                            attributes = """%s %s="%s" """ % (
-                                attributes, attr, value)
-                        # other values are content
-                        elif isinstance(value, dict):
-                            content += ResponseHelper.jsonp2xml(value)
-                        elif isinstance(value, list):
-                            content += ResponseHelper.jsonp2xml({attr: value})
-                    if content:
-                        ret += "<%s%s>%s</%s>" % (
-                            tag, attributes, content, tag)
+                    if not isinstance(t, dict):
+                        ret += "%s" % t
                     else:
-                        ret += "<%s%s/>" % (tag, attributes)
-            if isinstance(tag_list, dict):
+                        for (attr, value) in t.iteritems():
+                            # only serializable values are attributes
+                            if value.__class__.__name__ in 'str':
+                                attributes = """%s %s="%s" """ % (
+                                    attributes,
+                                    attr,
+                                    cgi.escape(
+                                        stringutils.to_unicode(value), quote=None)
+                                )
+                            elif value.__class__.__name__ in ['int', 'unicode', 'bool', 'long']:
+                                attributes = """%s %s="%s" """ % (
+                                    attributes, attr, value)
+                            # other values are content
+                            elif isinstance(value, dict):
+                                content += ResponseHelper.jsonp2xml(value)
+                            elif isinstance(value, list):
+                                content += ResponseHelper.jsonp2xml({attr: value})
+                        if content:
+                            ret += "<%s%s>%s</%s>" % (
+                                tag, attributes, content, tag)
+                        else:
+                            ret += "<%s%s/>" % (tag, attributes)
+            elif isinstance(tag_list, dict):
                 attributes = ""
                 content = ""
 
