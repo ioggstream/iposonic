@@ -96,9 +96,13 @@ def get_album_list_view():
     if not type_a in ['random', 'newest', 'highest', 'frequent', 'recent', 'starred']:
         raise SubsonicProtocolException("Invalid or missing parameter: type")
 
-    if not size:
+    try:
+        size = int(size)
+    except:
         size = 20
-    if not offset:
+    try:
+        offset = int(offset)
+    except:
         offset = 0
 
     if type_a == 'random':
@@ -121,6 +125,7 @@ def get_album_list_view():
         albums = [a for a in app.iposonic.get_albums()]
 
     last = min(offset + size, len(albums) - 1)
+    log.info("paging albums: %s,%s/%s"% (offset, last, len(albums)))
     return request.formatter({'albumList': {'album': albums[offset:last]}})
 
 
