@@ -326,7 +326,7 @@ class ResponseHelper:
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
-        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&', '').encode('utf-8', 'xmlcharrefreplace')
+        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace(u'\x01\xff\xfe','').replace('&', '').encode('utf-8', 'xmlcharrefreplace')
 
     @staticmethod
     def jsonp2xml(json):

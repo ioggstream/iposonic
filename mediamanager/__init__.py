@@ -170,10 +170,10 @@ class MediaManager:
 
                 filename = filename.replace(m_notes.group(), "").strip()
                 ret['year'] = int(notes)
-                print "year: %s " % notes
+                print ("year: %s " % notes)
 
             except:
-                print "notes: %s" % notes
+                print ("notes: %s" % notes)
 
         info_l = [x.strip(" -") for x in filename.split("-")]
         title, album, artist, track = (None, None, None, None)
@@ -285,7 +285,7 @@ class MediaManager:
                         ret['track'] = int(ret['tracknumber'])
 
                 except Exception as e:
-                    print "Error parsing track or bitrate: %s" % e
+                    print ("Error parsing track or bitrate: %s" % e)
 
                 MediaManager.log.info("Parsed id3: %s" % ret)
                 return ret

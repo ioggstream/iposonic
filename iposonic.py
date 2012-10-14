@@ -385,7 +385,7 @@ class IposonicDB(object, IposonicDBTables):
                 self.songs[info['id']] = info
                 self.log.info("adding file: %s, %s " % (info['id'], path))
                 return info['id']
-            except UnsupportedMediaError, e:
+            except UnsupportedMediaError as e:
                 raise IposonicException(e)
         raise IposonicException("Path not found or bad extension: %s " % path)
 

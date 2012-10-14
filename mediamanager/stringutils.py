@@ -13,6 +13,9 @@ import logging
 from binascii import crc32
 
 from os.path import dirname, basename, join
+
+log = logging.getLogger(__name__)
+
 encodings = ['utf-8', 'ascii', 'latin_1', 'iso8859_15', 'cp850',
              'cp037', 'cp1252']
 
@@ -57,7 +60,7 @@ def to_unicode(s, getencoding=False):
         If s is not a string, return the unchanged object.
     """
     if not isinstance(s, str):
-        print "returning unchanged object: %s" % s.__class__
+        log.info("returning unchanged object: %s" % s.__class__)
         return s
     for e in encodings:
         try:
