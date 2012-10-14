@@ -205,15 +205,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 ret = fn(self, *args, **kwds)
                 return ret
             except (ProgrammingError, OperationalError) as e:
-                print "Corrupted database: removing and recreating"
+                print("Corrupted database: removing and recreating")
                 self.reset()
             except Exception as e:
                 if len(args):
                     ret = to_unicode(args[0])
                 else:
                     ret = ""
-                print u"error: string: %s, ex: %s" % (
-                    ret.__class__, e)
+                print (u"error: string: %s, ex: %s" % (ret.__class__, e))
                 raise
         connect.__name__ = fn.__name__
         return connect
@@ -231,7 +230,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 return ret
             except (ProgrammingError, OperationalError) as e:
                 session.rollback()
-                print "Corrupted database: removing and recreating"
+                print("Corrupted database: removing and recreating")
                 self.reset()
             except Exception as e:
                 session.rollback()
@@ -239,8 +238,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                     ret = to_unicode(args[0])
                 else:
                     ret = ""
-                print u"error: string: %s, ex: %s" % (
-                    ret.__class__, e)
+                print(u"error: string: %s, ex: %s" % (ret.__class__, e))
                 raise
         transact.__name__ = fn.__name__
         return transact
@@ -307,7 +305,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if order:
             (order_f, is_desc) = order
             order_f = table_o.__getattribute__(table_o, order_f)
-            print "order: ", order
+            print("order: ", order)
             if is_desc:
                 order_f = order_f.desc()
 
@@ -359,7 +357,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             try:
                 ret.append(self.get_songs(eid=k))
             except Exception as e:
-                print "error retrieving %s due %s" % (k, e)
+                print("error retrieving %s due %s" % (k, e))
         return ret
 
     @transactional
@@ -469,7 +467,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if record and eid:
             record.update({'created': int(os.stat(path).st_ctime)})
 
-            print "Adding entry: %s " % record
+            print("Adding entry: %s " % record)
             session.merge(record)
             if record_a:
                 session.merge(record_a)
@@ -484,7 +482,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
         """
         #raise NotImplementedError("This method should not be used")
-        print "walking: ", self.get_music_folders()
+        print("walking: ", self.get_music_folders())
 
         if time.time() - self.initialized < self.refresh_interval:
             return
@@ -504,9 +502,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
             #index all artists
             for a in artists_local:
                 try:
-                    print u"scanning artist: %s" % a
+                    print(u"scanning artist: %s" % a)
                 except:
-                    print u'cannot read object: %s' % a.__class__
+                    print(u'cannot read object: %s' % a.__class__)
                 if a:
                     path = join("/", music_folder, a)
                     add_or_log(self, path)
@@ -548,7 +546,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
     def init_db(self):
         if self.initialized:
             return
-        print "initializing database in %s" % self.datadir
+        print("initializing database in %s" % self.datadir)
         if not os.path.isdir(self.datadir):
             os.mkdir(self.datadir)
         self.driver.server_init(

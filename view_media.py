@@ -48,14 +48,14 @@ def stream_view():
             if maxBitRate:
                 return maxBitRate < info.get('bitRate')
         except:
-            print "sending unchanged"
+            print("sending unchanged")
             return False
 
-    print "actual - bitRate: ", info.get('bitRate')
+    print("actual - bitRate: ", info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
     if is_transcode(maxBitRate, info):
         return Response(_transcode_mp3(path, maxBitRate), direct_passthrough=True)
-    print "sending static file: %s" % path
+    print("sending static file: %s" % path)
     return send_file(path)
     raise IposonicException("why here?")
 
@@ -64,7 +64,7 @@ def _transcode_mp3(srcfile, maxBitRate):
     """Transcode mp3 files reducing the bitrate."""
     cmd = ["/usr/bin/lame", "-S", "-v", "-b", "32", "-B", maxBitRate,
            srcfile, "-"]
-    print "generate(): %s" % cmd
+    print("generate(): %s" % cmd)
     srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     while True:
         data = srcfile.stdout.read(4096)
@@ -267,7 +267,7 @@ def get_cover_art_file(eid, nocache=False):
         #  ex. Actually "U2 & Frank Sinatra" != "U2"
         #      leads to a false negative
         # TODO con
-        print "confronting info: %s with: %s" % (info, cover)
+        print("confronting info: %s with: %s" % (info, cover))
         normalize_info, normalize_cover = map(
             MediaManager.normalize_artist, [info, cover])
         full_match = len(set([normalize_info, normalize_cover])) == 1
@@ -277,16 +277,16 @@ def get_cover_art_file(eid, nocache=False):
         partial_match = len(
             [x for x in normalize_info if x not in normalize_cover]) == 0
         if full_match or stopwords_match or partial_match:
-            print "Saving image %s -> %s" % (
-                cover.get('cover_small'), cover_art_path)
+            print("Saving image %s -> %s" % (
+                cover.get('cover_small'), cover_art_path))
             fd = open(cover_art_path, "w")
             fd.write(urlopen(cover.get('cover_small')).read())
             fd.close()
 
             return cover_art_path
         else:
-            print "Artist mismatch: %s, %s" % tuple(
-                [x.get('artist', x.get('name')) for x in [info, cover]])
+            print("Artist mismatch: %s, %s" % tuple(
+                [x.get('artist', x.get('name')) for x in [info, cover]]))
 
     raise IposonicException("Missing Coverart")
 

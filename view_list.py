@@ -53,7 +53,7 @@ def get_starred_view():
         request.args.get, ["artistCount", "albumCount", "songCount"])
 
     ret = app.iposonic.get_starred(query, artistCount, albumCount, songCount)
-    print "ret: %s" % ret
+    print("ret: %s" % ret)
     return request.formatter(
         {
             'starred': {
@@ -165,7 +165,7 @@ def get_random_songs_view():
                                                          ['size', 'genre', 'fromYear', 'toYear', 'musicFolderId'])
     songs = []
     if genre:
-        print "genre: %s" % genre
+        print("genre: %s" % genre)
         songs = app.iposonic.get_genre_songs(genre.strip().lower())
     else:
         all_songs = app.iposonic.get_songs()

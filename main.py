@@ -44,7 +44,7 @@ def yappize():
         import signal
 
         def signal_handler(signal_n, frame):
-            print 'You pressed Ctrl+C!'
+            print('You pressed Ctrl+C!')
             yappi.stop()
             yappi.print_stats(open("yappi.out", "w"))
             sys.exit(0)
