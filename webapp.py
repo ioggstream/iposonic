@@ -153,7 +153,7 @@ def set_content_type(response):
     """Set json response content-type."""
     (u, p, v, c, f, callback) = map(
         request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    log.warn("response is streamed: %s" % response.is_streamed)
+    log.info("response is streamed: %s" % response.is_streamed)
 
     if f in ['jsonp', 'json'] and not response.is_streamed:
         response.headers['content-type'] = 'application/json'
@@ -426,9 +426,9 @@ class ResponseHelper:
                     ret += "<%s%s/>" % (tag, attributes)
 
         # Log the source and destination of the response
-        ResponseHelper.log.info("ret object is  %s" % ret.__class__)
+        ResponseHelper.log.debug("ret object is  %s" % ret.__class__)
         if dump_response:
-            ResponseHelper.log.info(
+            ResponseHelper.log.debug(
                 "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))
 
         return ret.replace("isDir=\"True\"", "isDir=\"true\"")

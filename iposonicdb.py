@@ -64,7 +64,7 @@ class LazyDeveloperMeta(DeclarativeMeta):
 
        Should subclass DeclarativeMeta because it should contain Base initialization methods.
 
-       TODO: actually uses only string columns, but it's ok for small collections ;)
+       TODO: make customizable columns types, but it's ok for small collections ;)
        """
     def __init__(klass, classname, bases, dict_):
         """ Create a new class type.
@@ -155,7 +155,6 @@ class IposonicDBTables:
         def __init__(self, path):
             """Fill entry using MediaManager.get_info.
 
-                TODO convert get_info to Unicode
             """
             Base.__init__(self)
             self.update(MediaManager.get_info(path))
@@ -193,7 +192,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     """
     log = logging.getLogger('SqliteIposonicDB')
     engine_s = "sqlite"
-
+    
     def connectable(fn):
         """add connectable semantics to a method.
 
@@ -205,14 +204,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 ret = fn(self, *args, **kwds)
                 return ret
             except (ProgrammingError, OperationalError) as e:
-                print("Corrupted database: removing and recreating")
+                self.log.warn("Corrupted database: removing and recreating")
                 self.reset()
             except Exception as e:
                 if len(args):
                     ret = to_unicode(args[0])
                 else:
                     ret = ""
-                print (u"error: string: %s, ex: %s" % (ret.__class__, e))
+                self.log.exception(u"error: string: %s, ex: %s" % (ret.__class__, e))
                 raise
         connect.__name__ = fn.__name__
         return connect
@@ -230,7 +229,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 return ret
             except (ProgrammingError, OperationalError) as e:
                 session.rollback()
-                print("Corrupted database: removing and recreating")
+                self.log.warn("Corrupted database: removing and recreating")
                 self.reset()
             except Exception as e:
                 session.rollback()
@@ -238,7 +237,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                     ret = to_unicode(args[0])
                 else:
                     ret = ""
-                print(u"error: string: %s, ex: %s" % (ret.__class__, e))
+                self.log.exception(u"error: string: %s, ex: %s" % (ret.__class__, e))
                 raise
         transact.__name__ = fn.__name__
         return transact
@@ -305,7 +304,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if order:
             (order_f, is_desc) = order
             order_f = table_o.__getattribute__(table_o, order_f)
-            print("order: ", order)
+            self.log.debug("order: %s"% [order])
             if is_desc:
                 order_f = order_f.desc()
 
@@ -357,7 +356,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             try:
                 ret.append(self.get_songs(eid=k))
             except Exception as e:
-                print("error retrieving %s due %s" % (k, e))
+                self.log.warn("error retrieving %s due %s" % (k, e))
         return ret
 
     @transactional
@@ -367,7 +366,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     @connectable
     def get_songs(self, eid=None, query=None, session=None):
         assert session
-        print("get_songs: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_songs: eid: %s, query: %s" % (eid, query))
         return self._query(self.Media, query, eid=eid, session=session)
 
     @connectable
@@ -453,7 +452,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
         elif MediaManager.is_allowed_extension(path_u):
             try:
                 record = self.Media(path)
-                # TODO: create a virtual album
+                # Create a virtual album using a mock album id
+                #   every song with the same virtual album (artist,album)
+                #   is tied to it.
                 if record.album != basename(path) and record.artist and record.album:
                     vpath = join("/", record.artist, record.album)
                     record_a = self.Album(vpath)
@@ -467,7 +468,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if record and eid:
             record.update({'created': int(os.stat(path).st_ctime)})
 
-            print("Adding entry: %s " % record)
+            self.log.info("Adding entry: %s " % record)
             session.merge(record)
             if record_a:
                 session.merge(record_a)
@@ -481,8 +482,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
         """
-        #raise NotImplementedError("This method should not be used")
-        print("walking: ", self.get_music_folders())
+        self.log.info("walking: %s"% self.get_music_folders())
 
         if time.time() - self.initialized < self.refresh_interval:
             return
@@ -502,9 +502,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
             #index all artists
             for a in artists_local:
                 try:
-                    print(u"scanning artist: %s" % a)
+                    self.log.info(u"scanning artist: %s" % a)
                 except:
-                    print(u'cannot read object: %s' % a.__class__)
+                    self.log.info(u'cannot read object: %s' % a.__class__)
                 if a:
                     path = join("/", music_folder, a)
                     add_or_log(self, path)
@@ -546,7 +546,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
     def init_db(self):
         if self.initialized:
             return
-        print("initializing database in %s" % self.datadir)
+        self.log.info("initializing database in %s" % self.datadir)
         if not os.path.isdir(self.datadir):
             os.mkdir(self.datadir)
         self.driver.server_init(

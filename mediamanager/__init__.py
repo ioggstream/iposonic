@@ -172,10 +172,10 @@ class MediaManager:
 
                 filename = filename.replace(m_notes.group(), "").strip()
                 ret['year'] = int(notes)
-                print ("year: %s " % notes)
+                MediaManager.log.info("year: %s " % notes)
 
             except:
-                print ("notes: %s" % notes)
+                MediaManager.log.info("notes: %s" % notes)
 
         info_l = [x.strip(" -") for x in filename.split("-")]
         title, album, artist, track = (None, None, None, None)
@@ -281,13 +281,10 @@ class MediaManager:
                 try:
                     ret['bitRate'] = audio.info.bitrate / 1000
                     ret['duration'] = int(audio.info.length)
-                    if ret.get('tracknumber', 0):
-                        MediaManager.log.info(
-                            "Overriding track with tracknumber")
-                        ret['track'] = int(ret['tracknumber'])
-
+                    ret['track'] = MediaManager.get_track_number(ret)
+                    
                 except Exception as e:
-                    print ("Error parsing track or bitrate: %s" % e)
+                    MediaManager.log.warn ("Error parsing track or bitrate: %s" % e)
 
                 MediaManager.log.info("Parsed id3: %s" % ret)
                 return ret
@@ -295,7 +292,7 @@ class MediaManager:
                 raise UnsupportedMediaError(
                     "Header not found in file: %s" % path, e)
             except ID3NoHeaderError as e:
-                print "Media has no id3 header: %s" % path
+                MediaManager.log.warn("Media has no id3 header: %s" % path)
             return None
         if not os.path.exists(path):
             raise UnsupportedMediaError("File does not exist: %s" % path)
@@ -308,19 +305,18 @@ class MediaManager:
         for (root, filedir, files) in os.walk(directory):
             for f in files:
                 path = join("/", root, f)
-                # print "path: %s" % path
                 try:
                     info = MediaManager.get_info(path)
                 except UnsupportedMediaError as e:
-                    print "Media not supported by Iposonic: %s\n\n" % e
+                    MediaManager.log.warn("Media not supported by Iposonic: %s\n\n" % e)
                 except HeaderNotFoundError as e:
                     raise e
                 except ID3NoHeaderError as e:
-                    print "Media has no id3 header: %s" % path
+                    MediaManager.log.warn("Media has no id3 header: %s" % path)
 
     @staticmethod
     def get_track_number(x):
-        """Search track info in various parameters."""
+        """Return track info searching it in various parameters."""
         def _trackize(x):
             if not x:
                 return 0
@@ -330,6 +326,7 @@ class MediaManager:
             try:
                 return int(x)
             except ValueError:
+                self.log.debug("Error parsing track")
                 return 0
 
         for field in ['track', 'tracknumber']:
