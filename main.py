@@ -31,11 +31,11 @@ from authorizer import Authorizer
 
 # Import all app views
 #  TODO move to a view module
-import view_browse
-import view_playlist
-import view_user
-import view_media
-import view_list
+import view.browse
+import view.playlist
+import view.user
+import view.media
+import view.list
 
 def yappize():
     try:
