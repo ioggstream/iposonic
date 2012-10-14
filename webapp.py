@@ -13,7 +13,9 @@ from __future__ import unicode_literals
 from flask import Flask
 from flask import request, abort
 
-import random, time, os
+import random
+import time
+import os
 
 
 import simplejson
@@ -133,8 +135,9 @@ def authorize():
 
     auth = request.authorization
     if auth:
-        log.info("Client sends basic-auth: %s:%s" % (auth.username, auth.password))
-        
+        log.info(
+            "Client sends basic-auth: %s:%s" % (auth.username, auth.password))
+
     (u, p, v, c) = map(
         request.args.get, ['u', 'p', 'v', 'c'])
 
@@ -191,6 +194,7 @@ def iposonic_error(e):
            }
     return request.formatter(ret, status='failed'), 500
 
+
 @app.errorhandler(AssertionError)
 def iposonic_error_in_flow(e):
     ret = {'error':
@@ -200,6 +204,7 @@ def iposonic_error_in_flow(e):
             }]
            }
     return request.formatter(ret, status='failed'), 500
+
 
 @app.errorhandler(Exception)
 def iposonic_generic_error(e):
@@ -279,15 +284,17 @@ def randomize2_list(lst, limit=20):
         ret.append(k)
     return ret
 
+
 def randomize_list(lst, limit=20):
     random.seed(os.urandom(10))
     a_max = len(lst)
     ret = []
 
     for k in range(limit):
-        k_rnd = random.randint(0, a_max-1)
+        k_rnd = random.randint(0, a_max - 1)
         ret.append(lst[k_rnd])
     return ret
+
 
 class ResponseHelper:
     """Serialize a python dict to an xml object, and embeds it in a subsonic-response
@@ -336,8 +343,7 @@ class ResponseHelper:
             'xmlns': "http://subsonic.org/restapi"
         })
         # To clear responses we need to mangle some BOM UTF chars
-        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace(u'\x01\xff\xfe','').replace('&', '').encode('utf-8', 'xmlcharrefreplace')
-
+        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace(u'\x01\xff\xfe', '').replace('&', '').encode('utf-8', 'xmlcharrefreplace')
 
     @staticmethod
     def jsonp2xml(json):
@@ -396,7 +402,8 @@ class ResponseHelper:
                             elif isinstance(value, dict):
                                 content += ResponseHelper.jsonp2xml(value)
                             elif isinstance(value, list):
-                                content += ResponseHelper.jsonp2xml({attr: value})
+                                content += ResponseHelper.jsonp2xml(
+                                    {attr: value})
                         if content:
                             ret += "<%s%s>%s</%s>" % (
                                 tag, attributes, content, tag)
@@ -422,6 +429,6 @@ class ResponseHelper:
         ResponseHelper.log.info("ret object is  %s" % ret.__class__)
         if dump_response:
             ResponseHelper.log.info(
-            "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))
+                "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))
 
         return ret.replace("isDir=\"True\"", "isDir=\"true\"")

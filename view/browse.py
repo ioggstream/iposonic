@@ -256,7 +256,8 @@ def get_music_directory_view():
                 child_new = to_unicode(child)
                 os.rename(
                     b'%s/%s' % (dir_path.encode('utf-8'), child),
-                    b'%s/%s' % (dir_path.encode('utf-8'), child_new.encode('utf-8'))
+                    b'%s/%s' % (
+                        dir_path.encode('utf-8'), child_new.encode('utf-8'))
                 )
                 child = child_new
 

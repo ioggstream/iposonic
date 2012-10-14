@@ -156,10 +156,10 @@ class TestMediaManager:
             #    to a unicode object
             f_u = stringutils.to_unicode(f)
             print f.__class__, "%s" % f_u
-            
+
     def test_utf16_bom(self):
         f = "./test/data/id3_with_bom_utf16_le.mp3"
 
         info = MediaManager.get_info(f)
         album = info.get('album').strip(u'\x01\xff\xfe')
-        print ("info:%s\nalbum:%s" % (info,album))
+        print ("info:%s\nalbum:%s" % (info, album))

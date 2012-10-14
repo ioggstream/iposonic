@@ -37,6 +37,7 @@ import view.user
 import view.media
 import view.list
 
+
 def yappize():
     try:
         # profiling
@@ -58,8 +59,8 @@ def yappize():
 def run(argc, argv):
 
     parser = argparse.ArgumentParser(
-                        description='Iposonic is a SubSonic compatible streaming server.'
-                        + 'Run with #python ./main.py -c /opt/music')
+        description='Iposonic is a SubSonic compatible streaming server.'
+        + 'Run with #python ./main.py -c /opt/music')
     parser.add_argument('-c', dest='collection', metavar=None, type=str,
                         nargs="+", required=True,
                         help='Music collection path')
@@ -67,36 +68,36 @@ def run(argc, argv):
                         nargs=None, default=os.path.expanduser('~/.iposonic'),
                         help='Temporary directory, defaults to ~/.iposonic')
     parser.add_argument('--profile', metavar=None, type=bool,
-                        nargs='?', const=True, default=False, 
+                        nargs='?', const=True, default=False,
                         help='profile with yappi')
 
     parser.add_argument(
-                        '--access-file', dest='access_file', action=None, type=str,
-                        default=os.path.expanduser('~/.iposonic_auth'),
-                        help='Access file for user authentication, defaults to ~/.iposonic_auth. Use --noauth to disable authentication.')
+        '--access-file', dest='access_file', action=None, type=str,
+        default=os.path.expanduser('~/.iposonic_auth'),
+        help='Access file for user authentication, defaults to ~/.iposonic_auth. Use --noauth to disable authentication.')
     parser.add_argument(
-                        '--noauth', dest='noauth', action=None, type=bool,
-                        nargs='?', const=True, default=False,
-                        help='Disable authentication.')
+        '--noauth', dest='noauth', action=None, type=bool,
+        nargs='?', const=True, default=False,
+        help='Disable authentication.')
 
     parser.add_argument(
-                        '--free-coverart', dest='free_coverart', action=None, type=bool,
-                        const=True, default=False, nargs='?',
-                        help='Do not authenticate requests to getCoverArt. Default is False: iposonic requires authentication for every request.')
+        '--free-coverart', dest='free_coverart', action=None, type=bool,
+        const=True, default=False, nargs='?',
+        help='Do not authenticate requests to getCoverArt. Default is False: iposonic requires authentication for every request.')
     parser.add_argument('--resetdb', dest='resetdb', action=None, type=bool,
                         const=True, default=False, nargs='?',
                         help='Drop database and cache directories and recreate them.')
     parser.add_argument(
-                        '--rename-non-utf8', dest='rename_non_utf8', action=None, type=bool,
-                        const=True, default=False, nargs='?',
-                        help='Rename non utf8 files to utf8 guessing encoding. When false, iposonic support only utf8 filenames.')
+        '--rename-non-utf8', dest='rename_non_utf8', action=None, type=bool,
+        const=True, default=False, nargs='?',
+        help='Rename non utf8 files to utf8 guessing encoding. When false, iposonic support only utf8 filenames.')
 
     args = parser.parse_args()
     print(args)
-    
+
     if args.profile:
         yappize()
-        
+
     app.config.update(args.__dict__)
 
     for x in args.collection:
@@ -118,7 +119,7 @@ def run(argc, argv):
         t = Thread(target=cover_art_worker, args=[app.iposonic.cache_dir])
         t.daemon = True
         t.start()
-        
+
     app.run(host='0.0.0.0', port=5000, debug=True)
 
 

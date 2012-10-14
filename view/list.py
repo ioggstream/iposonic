@@ -120,7 +120,7 @@ def get_album_list_view():
         # get all albums...hey, they may be a lot!
         albums = [a for a in app.iposonic.get_albums()]
 
-    last = min(offset+size, len(albums)-1)
+    last = min(offset + size, len(albums) - 1)
     return request.formatter({'albumList': {'album': albums[offset:last]}})
 
 

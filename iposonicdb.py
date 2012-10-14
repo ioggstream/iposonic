@@ -550,7 +550,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
         if not os.path.isdir(self.datadir):
             os.mkdir(self.datadir)
         self.driver.server_init(
-            ['ipython',"--no-defaults", "-h", self.datadir, '--bootstrap'], ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
+            ['ipython', "--no-defaults", "-h", self.datadir, '--bootstrap'], ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
 
         conn = self.driver.connection(user=self.user, passwd=self.passwd)
         try:

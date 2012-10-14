@@ -4,8 +4,10 @@
 #    https://github.com/jmcantrell/coverart/blob/master/coverart/sources/lastfmcovers.py
 #
 import sys
-import re,os
-import time,logging
+import re
+import os
+import time
+import logging
 from urllib import urlopen, quote_plus
 from xml.etree.ElementTree import parse
 from iposonic import IposonicException
@@ -16,6 +18,7 @@ from Queue import Queue
 q = Queue()
 
 log = logging.getLogger("art_downloader")
+
 
 class CoverSource(object):
     """Download cover art from url_base."""
@@ -81,7 +84,6 @@ def memorize(f):
     return tmp
 
 
-
 @memorize
 def cover_search(album, nocache=False):
     """Download album info from the web.
@@ -103,9 +105,10 @@ def cover_search(album, nocache=False):
             return ret
     return ret
 
+
 def cover_art_mock(cache_dir, cover_searc=cover_search):
     while True:
-        log.info("cover_art_mock: %s"%q.get())
+        log.info("cover_art_mock: %s" % q.get())
 
 
 def cover_art_worker(cache_dir, cover_search=cover_search):
@@ -115,10 +118,11 @@ def cover_art_worker(cache_dir, cover_search=cover_search):
         info = q.get()
         try:
             cover_art_path = os.path.join("/",
-                cache_dir,
-                MediaManager.cover_art_uuid(info)
-            )
-            log.info( "coverart %s: searching album: %s " % (info.get('id'), info.get('album')))
+                                          cache_dir,
+                                          MediaManager.cover_art_uuid(info)
+                                          )
+            log.info("coverart %s: searching album: %s " % (
+                info.get('id'), info.get('album')))
             covers = cover_search(info.get('album'))
             for cover in covers:
                 # TODO consider multiple authors in info
@@ -135,23 +139,19 @@ def cover_art_worker(cache_dir, cover_search=cover_search):
                 partial_match = len(
                     [x for x in normalize_info if x not in normalize_cover]) == 0
                 if full_match or stopwords_match or partial_match:
-                    log.warn( "Saving image %s -> %s" % (
+                    log.warn("Saving image %s -> %s" % (
                         cover.get('cover_small'), cover_art_path)
-                        )
+                    )
                     fd = open(cover_art_path, "w")
                     fd.write(urlopen(cover.get('cover_small')).read())
                     fd.close()
 
                 else:
-                    log.info( "Artist mismatch: %s, %s" % tuple(
+                    log.info("Artist mismatch: %s, %s" % tuple(
                         [x.get('artist', x.get('name')) for x in [info, cover]])
                     )
         except Exception as e:
             log.error("Error while downloading albumart.", e)
-                
+
         q.task_done()
     log.warn("finish download thread")
-
-
-
-

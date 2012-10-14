@@ -164,9 +164,9 @@ class CacheError:
     pass
 
 
-
-
 cache2 = dict()
+
+
 def memorize(f):
 
     """The memorize pattern is a simple cache implementation.
@@ -258,7 +258,6 @@ def get_cover_art_file(eid, nocache=False):
     # and return 503
     q.put(info)
     abort(503)
-    
 
 
 @app.route("/rest/getCoverArt.view", methods=['GET', 'POST'])
@@ -283,7 +282,7 @@ def get_lyrics(lid, nocache=False, info=None):
         with open(lyrics_path, "rb") as f:
             ret = f.read()
             if ret:
-                return { 'lyrics': ret}
+                return {'lyrics': ret}
     except IOError:
         pass
     # if the entry is not in cache, search the web
@@ -305,20 +304,23 @@ def get_lyrics_view():
     xml_response: <lyrics artist="Muse" title="Hysteria">...."""
     def lyrics_uuid(info):
         return MediaManager.uuid("%s/%s" % (
-                                            MediaManager.normalize_artist(info, stopwords=True),
-                                            info['title'].lower())
+                                 MediaManager.normalize_artist(
+                                 info, stopwords=True),
+                                 info['title'].lower())
                                  )
     (u, p, v, c, f, callback) = map(
-    request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (artist, title) = map(request.args.get, ['artist', 'title'])
-    assert artist and title 
-    assert  'null' not in [artist, title], "A required field (artist,title) is empty."
-    info = {'artist':artist,'title':title}
-    lyrics_id = lyrics_uuid(info)    
+    assert artist and title
+    assert  'null' not in [artist,
+                           title], "A required field (artist,title) is empty."
+    info = {'artist': artist, 'title': title}
+    lyrics_id = lyrics_uuid(info)
     lyrics = get_lyrics(lyrics_id, info=info)
     assert 'lyrics' in lyrics, "Missing lyrics in %s" % lyrics
-    ret = { 'lyrics': {'artist': artist, 'title': title, '': [lyrics['lyrics']] } }
-  
+    ret = {'lyrics': {'artist': artist, 'title': title, '': [lyrics[
+        'lyrics']]}}
+
     return request.formatter(ret)
 
     raise NotImplementedError("WriteMe")
