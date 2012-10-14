@@ -335,11 +335,9 @@ class ResponseHelper:
             'version': version,
             'xmlns': "http://subsonic.org/restapi"
         })
-        # To clear responses we need to mangle some BOM UTF chars doing
-        # 1- unicode-escape to convert utf-8 to ascii bytes
-        # 2- decode that string ignoring BOMs with utf-8-sig
-        # 3- finally re-encode in utf-8 the cleaned string
-        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace('&', '').encode('unicode_escape').decode('utf-8-sig').encode('utf-8', 'xmlcharrefreplace')
+        # To clear responses we need to mangle some BOM UTF chars
+        return ResponseHelper.jsonp2xml({'subsonic-response': ret}).replace(u'\x01\xff\xfe','').replace('&', '').encode('utf-8', 'xmlcharrefreplace')
+
 
     @staticmethod
     def jsonp2xml(json):
