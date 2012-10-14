@@ -12,7 +12,7 @@ from flask import request, send_file, Response, abort
 from webapp import app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, UnsupportedMediaError
-from art_downloader import CoverSource
+from mediamanager.cover_art import CoverSource
 from urllib import urlopen
 import urllib2
 from mediamanager.lyrics import ChartLyrics
@@ -199,7 +199,7 @@ def memorize(f):
 
 @memorize
 def get_cover_art_file(eid, nocache=False):
-    from art_downloader import q
+    from mediamanager.cover_art import q
 
     """Return coverArt file, eventually downloading it.
 

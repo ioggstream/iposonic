@@ -15,7 +15,7 @@ tmp_dir = "/tmp/iposonic/"
 
 def harn_setup(klass, test_dir):
         klass.test_dir = os.getcwd() + test_dir
-        klass.db = klass.dbhandler([klass.test_dir], dbfile="mock_iposonic")
+        klass.db = klass.dbhandler([klass.test_dir], dbfile=join(tmp_dir,"mock_iposonic"))
         klass.db.reset()
 
         klass.db.walk_music_directory()

@@ -113,13 +113,13 @@ def run(argc, argv):
     app.authorizer = Authorizer(
         mock=skip_authentication, access_file=args.access_file)
 
-    from art_downloader import cover_art_worker, cover_art_mock, q
+    from mediamanager.cover_art import cover_art_worker, cover_art_mock, q
     for i in range(1):
         t = Thread(target=cover_art_worker, args=[app.iposonic.cache_dir])
         t.daemon = True
         t.start()
         
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
 
 if __name__ == "__main__":
