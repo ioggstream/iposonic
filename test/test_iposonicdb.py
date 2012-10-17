@@ -5,7 +5,7 @@ import os
 import re
 from os.path import join, dirname
 from iposonic import Iposonic, MediaManager, IposonicDB
-from iposonicdb import SqliteIposonicDB
+from iposonicdb import SqliteIposonicDB, MySQLIposonicDB
 
 from test_iposonic import TestIposonicDB
 
@@ -20,6 +20,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
         self.test_dir = os.getcwd() + "/test/data/"
         self.db = self.dbhandler([self.test_dir], dbfile="mock_iposonic")
+        self.db.init_db()
         self.db.reset()
         self.db.add_entry("/tmp/")
 
@@ -80,4 +81,5 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
 
 class TestMySQLIposonicDB(TestSqliteIposonicDB):
+    dbhandler = MySQLIposonicDB
     pass

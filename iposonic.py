@@ -550,6 +550,9 @@ class Iposonic:
     def add_entry(self, path, album=False):
         """Add imageart related stuff here."""
         return self.db.add_entry(path, album)
+    
+    def delete_entry(self, path):
+        raise NotImplementedError("deleting entry: %s" % path)
 
     def update_entry(self, eid, new):
         """TODO move do db"""

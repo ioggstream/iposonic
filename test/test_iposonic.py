@@ -16,7 +16,8 @@ tmp_dir = "/tmp/iposonic/"
 def harn_setup(klass, test_dir):
         klass.test_dir = os.getcwd() + test_dir
         klass.db = klass.dbhandler(
-            [klass.test_dir], dbfile=join(tmp_dir, "mock_iposonic"))
+            [klass.test_dir], dbfile= "mock_iposonic")
+        klass.db.init_db()
         klass.db.reset()
 
         klass.db.walk_music_directory()
@@ -174,10 +175,6 @@ class TestIposonicDB:
         assert self.db.get_music_folders()
 
     @SkipTest
-    def test_get_indexes(self):
-        raise NotImplemented
-
-    @SkipTest
     def test_get_albums(self):
         raise NotImplemented
 
@@ -209,7 +206,7 @@ class TestIposonicDB:
 
     def test_get_song_by_id(self):
         self.harn_load_fs()
-        assert self.id_l, "Empty id_l: %s" % id_l
+        assert self.id_l, "Empty id_l: %s" % self.id_l
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
             assert 'path' in info, "error processing eid: %s" % eid
