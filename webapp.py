@@ -69,11 +69,11 @@ def ping_view():
     (u, p, v, c) = map(request.values.get, ['u', 'p', 'v', 'c'])
     iposonic = app.iposonic
     log.warn("config: %s" % app.config)
-    log.warn("songs: %s" % iposonic.db.get_songs())
-    log.warn("albums: %s" % iposonic.db.get_albums())
-    log.warn("artists: %s" % iposonic.db.get_artists())
-    log.warn("indexes: %s" % iposonic.db.get_indexes())
-    log.warn("playlists: %s" % iposonic.db.get_playlists())
+    log.warn("songs: %s" % len(iposonic.db.get_songs()))
+    log.warn("albums: %s" %len( iposonic.db.get_albums()))
+    log.warn("artists: %s" %len( iposonic.db.get_artists()))
+    #log.warn("indexes: %s" % iposonic.db.get_indexes())
+    #log.warn("playlists: %s" % iposonic.db.get_playlists())
 
     return request.formatter({})
 
@@ -141,7 +141,10 @@ def authorize():
     (u, p, v, c) = map(
         request.args.get, ['u', 'p', 'v', 'c'])
 
-    p_clear = hex_decode(p)
+    if p:
+        p_clear = hex_decode(p)
+    else:
+        p_clear = auth.password
     if not app.authorizer.authorize(u, p_clear):
         abort(401)
 
@@ -312,7 +315,7 @@ class ResponseHelper:
             'xmlns': "http://subsonic.org/restapi"
         })
         return simplejson.dumps({'subsonic-response': ret},
-                                indent=True,
+                                indent=False,
                                 encoding='latin_1')
 
     @staticmethod
@@ -329,7 +332,7 @@ class ResponseHelper:
         return "%s(%s)" % (
             callback,
             simplejson.dumps({'subsonic-response': ret},
-                             indent=True,
+                             indent=False,
                              encoding='utf-8')
         )
 
