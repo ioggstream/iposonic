@@ -45,7 +45,7 @@ class SubsonicProtocolException(IposonicException):
     """
     def __init__(self, request=None):
         if request:
-            print("request: %s" % request.data)
+            log.info("request: %s" % request.data)
     pass
 
 
@@ -362,7 +362,7 @@ class IposonicDB(object, IposonicDBTables):
             try:
                 ret.append(self.get_songs(eid=k))
             except Exception as e:
-                print("error retrieving %s due %s" % (k, e))
+                log.exception("error retrieving %s due %s" % (k, e))
         return ret
 
     def add_entry(self, path, album=False):
@@ -395,7 +395,7 @@ class IposonicDB(object, IposonicDBTables):
           TODO: create a cache for this.
         """
         #raise NotImplementedError("This method should not be used")
-        print("walking: ", self.get_music_folders())
+        log.info("walking: ", self.get_music_folders())
 
         # reset database
         self.reset()
@@ -424,7 +424,7 @@ class IposonicDB(object, IposonicDBTables):
                         self.indexes[first].append(artist_j)
                     except IposonicException as e:
                         log.error(e)
-                print("artists: %s" % self.artists)
+                log.info("artists: %s" % self.artists)
 
         return self.get_indexes()
 
@@ -447,12 +447,11 @@ class Iposonic:
         - recreate_db: a handler for sql storages that delete the previous
                         copy of the db
 
-        TODO replace print(with log)
         """
     log = logging.getLogger('Iposonic')
 
     def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False, tmp_dir="/tmp/iposonic"):
-        print("Creating Iposonic with music folders: %s, dbhandler: %s" %
+        self.log.info("Creating Iposonic with music folders: %s, dbhandler: %s" %
               (music_folders, dbhandler))
 
         # set directory
@@ -576,13 +575,11 @@ class Iposonic:
                 always different path for all the files in the same album
         """
         songs = self.db.get_songs(eid=eid, query=query)
-        #print("songs: %s (%s) " % (songs, songs.__class__))
 
         # add album coverArt to each song
         # XXX find a smart way to get coverArt
         if songs.__class__.__name__ == 'dict':
             songs.update({'coverArt': songs.get('id')})
-            #print("songs2: %s " % songs)
             return songs
 
         return [x.update({'coverArt': x.get('id')}) or x for x in songs]

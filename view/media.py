@@ -51,13 +51,12 @@ def stream_view():
             print("sending unchanged")
             return False
 
-    print("actual - bitRate: ", info.get('bitRate'))
+    log.info("actual - bitRate: ", info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)
-    print("sending static file: %s" % path)
+    log.info("sending static file: %s" % path)
     return send_file(path)
-    raise IposonicException("why here?")
 
 
             
