@@ -26,22 +26,27 @@ get_encoder(){
 
 
 main(){
-	local srcfile=$1
-	local dstformat=$2
-	local mbr=$3
+	local srcfile="$1"
+	local dstformat="$2"
+	local mbr="$3"
+
+	echo >&2 "$0  $srcfile $2 $3"
 	
 	: ${srcfile?-} ${dstformat?-} ${mbr?-}
 	
-	srcext=${srcfile##*.}
+	srcext="${srcfile##*.}"
 	
 	if [ "$srcext" != "$dstformat" ]; then
 		decoder=$(get_decoder $srcext)
 	fi
 	
-	[ $dstformat == "ogg" ] && let mbr+=32
+	[ "$dstformat" == "ogg" ] && let mbr+=32
 	
 	encoder=$(get_encoder $dstformat)
-	eval "$decoder $srcfile | $encoder $mbr" 
+	echo >&2 "decoder: $decoder"
+	echo >&2 "srcfile: $srcfile"
+        
+	$decoder "$srcfile" | $encoder $mbr 
 	
 }
 

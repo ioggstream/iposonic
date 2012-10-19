@@ -69,9 +69,9 @@ def ping_view():
     (u, p, v, c) = map(request.values.get, ['u', 'p', 'v', 'c'])
     iposonic = app.iposonic
     log.warn("config: %s" % app.config)
-    log.warn("songs: %s" % iposonic.db.get_songs())
-    log.warn("albums: %s" % iposonic.db.get_albums())
-    log.warn("artists: %s" % iposonic.db.get_artists())
+    log.warn("songs: %s" % len(iposonic.db.get_songs()))
+    log.warn("albums: %s" % len(iposonic.db.get_albums()))
+    log.warn("artists: %s" % len(iposonic.db.get_artists()))
     log.warn("indexes: %s" % iposonic.db.get_indexes())
     log.warn("playlists: %s" % iposonic.db.get_playlists())
 

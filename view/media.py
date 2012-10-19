@@ -54,10 +54,22 @@ def stream_view():
     print("actual - bitRate: ", info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
     if is_transcode(maxBitRate, info):
-        return Response(_transcode_mp3(path, maxBitRate), direct_passthrough=True)
+        return Response(_transcode(path, maxBitRate), direct_passthrough=True)
     print("sending static file: %s" % path)
     return send_file(path)
     raise IposonicException("why here?")
+
+
+            
+
+def _transcode(srcfile, maxBitRate, dstformat="ogg"):
+    cmd = ["transcoder/transcode.sh", srcfile, dstformat, maxBitRate]
+    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    while True:
+        data = srcfile.stdout.read(4096)
+        if not data:
+            break
+        yield data
 
 
 def _transcode_mp3(srcfile, maxBitRate):
