@@ -114,11 +114,24 @@ def run(argc, argv):
     app.authorizer = Authorizer(
         mock=skip_authentication, access_file=args.access_file)
 
-    from mediamanager.cover_art import cover_art_worker, cover_art_mock, q
+    #
+    # Run cover_art downloading thread
+    #
+    from mediamanager.cover_art import cover_art_worker, cover_art_mock
     for i in range(1):
         t = Thread(target=cover_art_worker, args=[app.iposonic.cache_dir])
         t.daemon = True
         t.start()
+        
+    #
+    # Run scrobbling thread
+    #
+    from mediamanager.scrobble import scrobble_worker
+    for i in range(1):
+        t = Thread(target=scrobble_worker, args=[])
+        t.daemon = True
+        t.start()
+    
 
     app.run(host='0.0.0.0', port=5000, debug=True)
 

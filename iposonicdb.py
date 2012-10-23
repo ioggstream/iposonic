@@ -12,6 +12,7 @@ from os.path import join, basename
 
 # logging
 import logging
+logging.basicConfig(level=logging.INFO)
 
 from iposonic import (
     IposonicException,
@@ -183,8 +184,13 @@ class IposonicDBTables:
     class User(Base, SerializerMixin, UserDAO):
         __fields__ = UserDAO.__fields__
 
-        def __init__(self, name):
+        def __init__(self, username):
             Base.__init__(self)
+            self.update({
+                'id': MediaManager.uuid(username), 
+                'username': username}
+                )
+            
 
     class UserMedia(Base, SerializerMixin, UserMediaDAO):
         __fields__ = UserMediaDAO.__fields__
@@ -245,6 +251,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         connect.__name__ = fn.__name__
         return connect
 
+    @synchronized(sql_lock)
     def transactional(fn):
         """add transactional semantics to a method.
 
@@ -379,6 +386,20 @@ class SqliteIposonicDB(object, IposonicDBTables):
             return []
         return [r.json() for r in rs.all()]
 
+    #
+    # User management
+    #
+    @connectable
+    def get_users(self, eid=None, query=None, session=None):
+        assert session
+        self.log.info("get_users: eid: %s, query: %s" % (eid, query))
+        return self._query(self.User, query, eid=eid, session=session)
+
+    
+    #
+    # Media management
+    #
+    
     @connectable
     def get_song_list(self, eids=[], session=None):
         """return iterable"""

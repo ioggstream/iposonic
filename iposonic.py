@@ -82,6 +82,7 @@ class MediaDAO:
                   'isvideo', 'duration', 'size', 'bitRate',
                   'userRating', 'averageRating', 'coverArt',
                   'starred', 'created', 'albumId'
+                  , 'scrobbleId' # scrobbleId is an internal parameter used to match songs with last.fm
                   ]
 
 
@@ -127,7 +128,7 @@ class PlaylistDAO:
 
 class UserDAO:
     __tablename__ = "user"
-    __fields__ = ['id', 'username', 'email']
+    __fields__ = ['id', 'username', 'email', 'scrobbleUser', 'scrobblePassword']
 
 
 class UserMediaDAO:
@@ -144,9 +145,11 @@ class UserMediaDAO:
 class IposonicDBTables:
     """Class defining base & tables.
 
-        For sqlalchemy usage I should only override
+        TODO For sqlalchemy usage I should only override
         the Base class...
 
+        IMPORTANT: YOU HAVE TO OVERRIDE THOSE CLASSES
+        IN THE IMPLEMENTATION FILE (eg. iposonicdb.py)
     """
 
     class BaseB(dict):
@@ -173,6 +176,16 @@ class IposonicDBTables:
         def __init__(self, path):
             IposonicDBTables.BaseB.__init__(self)
             self.update(MediaManager.get_info(path))
+    
+    class User(BaseB, UserDAO):
+        __fields__ = UserDAO.__fields__
+
+        def __init__(self, username):
+            IposonicDBTables.BaseB.__init__(self)
+            self.update({
+                'id': MediaManager.uuid(username), 
+                'username': username}
+                )
 
     class Playlist(BaseB, PlaylistDAO):
         __fields__ = PlaylistDAO.__fields__
@@ -427,6 +440,10 @@ class IposonicDB(object, IposonicDBTables):
                 log.info("artists: %s" % self.artists)
 
         return self.get_indexes()
+        
+    def get_users(self, username):
+        raise NotImplementedError("In-memory datastore doesn't support multiple users")
+
 
 
 #
@@ -478,7 +495,10 @@ class Iposonic:
             'get_highest',
             'get_playlists',
             'get_song_list',
-            'delete_entry'
+            'delete_entry',
+            # User management
+            'get_users'
+            
         ]:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
@@ -649,4 +669,4 @@ class Iposonic:
                 return x
 
         raise ValueError("Playlist not static")
-#
+    
