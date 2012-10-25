@@ -57,8 +57,7 @@ def create_user_view():
     }
     print("user: %s " % new_user)
     app.iposonic.add_user(new_user)
-    raise NotImplementedError()
-
+    return request.formatter({})
 
 @app.route("/rest/deleteUser.view", methods=['GET', 'POST'])
 def delete_user_view():

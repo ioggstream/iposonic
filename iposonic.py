@@ -326,7 +326,7 @@ class IposonicDB(object, IposonicDBTables):
             if record:
                 h[eid].update(new)
                 return
-        raise ValueError("Entry not found with eid: %s" % eid)
+        raise ValueError("Media Entry (song, artist, album) not found. eid: %s" % eid)
 
     def get_songs(self, eid=None, query=None):
         """Return a list of songs in the following form.
@@ -594,7 +594,7 @@ class Iposonic:
         self.log.info("updating user: %s" % eid)
         entry = self.db.User(eid)
         entry.update(new)
-        return self.update_entry(entry)
+        return self.create_entry(entry)
         
     def delete_user(self, path):
         raise NotImplementedError("deleting entry: %s" % path)

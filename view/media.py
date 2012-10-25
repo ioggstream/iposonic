@@ -52,11 +52,15 @@ def stream_view():
             print("sending unchanged")
             return False
 
-    log.info("actual - bitRate: ", info.get('bitRate'))
+    log.info("actual - bitRate: %s" % info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
     
     # update now playing
-    user = app.iposonic.update_entry(MediaManager.uuid(u), {'nowPlaying': eid})
+    try:
+        log.info("Update nowPlaying: %s for user: %s" % (eid, MediaManager.uuid(u))) 
+        user = app.iposonic.update_user(MediaManager.uuid(u), {'nowPlaying': eid})
+    except:
+        log.exception("Can't update nowPlaying for user: %s")
     
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)
