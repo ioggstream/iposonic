@@ -113,6 +113,7 @@ def test_shout():
     artist.shout("<3")
 
 
+@SkipTest
 def test_get_similar_playlist():
     info = {
         'title': 'buonanotte fiorellino',
@@ -127,10 +128,8 @@ def test_get_similar_playlist():
         {'artist': a, 'title': t}) for (a, t) in ret_l]
     playlist = []
     for x in uid_l:
-        iposonic.get
+        assert iposonic.get
 
-def setup():
-    # add user with scrobbling credentials
-    
-def test_worker():
-    
+
+#def setup():
+#    # add user with scrobbling credentials

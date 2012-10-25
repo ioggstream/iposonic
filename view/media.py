@@ -54,21 +54,21 @@ def stream_view():
 
     log.info("actual - bitRate: %s" % info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
-    
+
     # update now playing
     try:
-        log.info("Update nowPlaying: %s for user: %s" % (eid, MediaManager.uuid(u))) 
-        user = app.iposonic.update_user(MediaManager.uuid(u), {'nowPlaying': eid})
+        log.info("Update nowPlaying: %s for user: %s" % (eid,
+                 MediaManager.uuid(u)))
+        user = app.iposonic.update_user(
+            MediaManager.uuid(u), {'nowPlaying': eid})
     except:
         log.exception("Can't update nowPlaying for user: %s")
-    
+
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)
     log.info("sending static file: %s" % path)
     return send_file(path)
 
-
-            
 
 def _transcode(srcfile, maxBitRate, dstformat="ogg"):
     cmd = ["transcoder/transcode.sh", srcfile, dstformat, maxBitRate]
@@ -120,22 +120,24 @@ def scrobble_view():
         time	No		(Since 1.8.0) The time (in milliseconds since 1 Jan 1970) at which the song was listened to.
         submission	No	True	Whether this is a "submission" or a "now playing" notification.
 
-    
+
     """
     from mediamanager.scrobble import q
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    (eid, time, submission) = map(
+    (eid, ts, submission) = map(
         request.args.get, ['id', 'time', 'submission'])
     assert eid, "Missing song id"
-    
+
+    log.info("Retrieving scrobbling credentials")
+    lastfm_user = app.iposonic.get_users(MediaManager.uuid(u))
+    log.info("Scobbling credentials: %s" % lastfm_user)
+    # get song info and append timestamp
     info = app.iposonic.get_entry_by_id(eid)
-    lastfm_user = app.iposonic.get_users(MediaManager.uuid(u)) 
-    q.put((lastfm_user, info))
-    #scrobble_many(info, {
-    #    'username': lastfm_user.get('scrobbleUser'),
-    #    'password': lastfm_user.get('scrobblePassword')
-    #    }) 
+    info.update({'timestamp': int(time.time())})
+    q.put(({
+        'username': lastfm_user.get('scrobbleUser'),
+        'password': lastfm_user.get('scrobblePassword')}, info))
 
     return request.formatter({})
 
