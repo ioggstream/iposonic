@@ -54,6 +54,10 @@ def stream_view():
 
     log.info("actual - bitRate: ", info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
+    
+    # update now playing
+    user = app.iposonic.update_entry(MediaManager.uuid(u), {'nowPlaying': eid})
+    
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)
     log.info("sending static file: %s" % path)
@@ -122,7 +126,7 @@ def scrobble_view():
     assert eid, "Missing song id"
     
     info = app.iposonic.get_entry_by_id(eid)
-    lastfm_user = app.iposonic.get_user(u) 
+    lastfm_user = app.iposonic.get_users(MediaManager.uuid(u)) 
     q.put((lastfm_user, info))
     #scrobble_many(info, {
     #    'username': lastfm_user.get('scrobbleUser'),

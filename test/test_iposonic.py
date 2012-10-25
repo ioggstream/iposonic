@@ -315,6 +315,13 @@ class TestUserIposonicDB:
         item = items[0]
         assert item.get('username') == 'mock_user', "No users: %s" % item
 
+    def test_add_user(self):
+        u = {
+                'password': 'mock_password',
+                'scrobbleUser': 'ioggstream',
+                'scrobblePassword': 'secret'
+            }
+
     def test_get_user(self):
         from mediamanager import MediaManager
         eid = MediaManager.uuid('mock_user')

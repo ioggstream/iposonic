@@ -133,18 +133,20 @@ def authorize():
     if not endpoint_requires_authentication(request, app):
         return
 
+    (u, p, v, c) = map(
+        request.args.get, ['u', 'p', 'v', 'c'])
+
+    # basic-auth has precedence over URI
     auth = request.authorization
     if auth:
         log.info(
             "Client sends basic-auth: %s:%s" % (auth.username, auth.password))
-
-    (u, p, v, c) = map(
-        request.args.get, ['u', 'p', 'v', 'c'])
-
-    if p:
-        p_clear = hex_decode(p)
-    else:
         p_clear = auth.password
+        u = auth.username
+    else:
+        p_clear = hex_decode(p)
+
+        
     if not app.authorizer.authorize(u, p_clear):
         abort(401)
 

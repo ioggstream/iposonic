@@ -128,7 +128,7 @@ class PlaylistDAO:
 
 class UserDAO:
     __tablename__ = "user"
-    __fields__ = ['id', 'username', 'email', 'scrobbleUser', 'scrobblePassword']
+    __fields__ = ['id', 'username', 'password', 'email', 'scrobbleUser', 'scrobblePassword', 'nowPlaying']
 
 
 class UserMediaDAO:
@@ -441,7 +441,7 @@ class IposonicDB(object, IposonicDBTables):
 
         return self.get_indexes()
         
-    def get_users(self, username):
+    def get_users(self, eid=None, query=None):
         raise NotImplementedError("In-memory datastore doesn't support multiple users")
 
 
@@ -580,6 +580,26 @@ class Iposonic:
     def create_entry(self, entry):
         return self.db.create_entry(entry)
 
+
+    #
+    # User stuff
+    #
+    def add_user(self, user):
+        self.log.info("creating user: %s" % user)
+        entry = self.db.User(user.get('username'))
+        entry.update(user)
+        return self.create_entry(entry)
+        
+    def update_user(self, eid, new):
+        self.log.info("updating user: %s" % eid)
+        entry = self.db.User(eid)
+        entry.update(new)
+        return self.update_entry(entry)
+        
+    def delete_user(self, path):
+        raise NotImplementedError("deleting entry: %s" % path)
+
+    
     #
     # Retrieve
     #

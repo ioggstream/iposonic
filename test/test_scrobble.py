@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 from nose import *
 import time
 import pylast
+from test_iposonic import harn_setup
 
 API_KEY = "b725246f2c3e1738153c656928483570"
 API_SECRET = "e08b9a80defa4ccd9fda4d4e89d5eb19"
@@ -127,3 +128,9 @@ def test_get_similar_playlist():
     playlist = []
     for x in uid_l:
         iposonic.get
+
+def setup():
+    # add user with scrobbling credentials
+    
+def test_worker():
+    

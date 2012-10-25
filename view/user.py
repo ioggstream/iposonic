@@ -35,6 +35,57 @@ def get_user_view():
     return request.formatter({'user': user})
 
 
+@app.route("/rest/createUser.view", methods=['GET', 'POST'])
+def create_user_view():
+    """TODO return a mock username settings."""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+
+    (un, pw, email, scrobbleUser, scrobblePassword) = map(request.args.get, [
+                                                          'x',
+                                                          'password',
+                                                          'email',
+                                                          'scrobbleUser',
+                                                          'scrobblePassword'
+                                                          ])
+    new_user = {
+        'username': un,
+        'password': pw,
+        'email': email,
+        'scrobbleUser': scrobbleUser,
+        'scrobblePassword': scrobblePassword
+    }
+    print("user: %s " % new_user)
+    app.iposonic.add_user(new_user)
+    raise NotImplementedError()
+
+
+@app.route("/rest/deleteUser.view", methods=['GET', 'POST'])
+def delete_user_view():
+    """TODO return a mock username settings."""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    raise NotImplementedError()
+
+
+@app.route("/rest/getUsers.view", methods=['GET', 'POST'])
+def get_users_view():
+    """TODO return a mock username settings."""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    ret = app.iposonic.db.get_users()
+    return request.formatter({'users': { 'user': ret }})
+
+
+
+@app.route("/rest/changePassword.view", methods=['GET', 'POST'])
+def change_password_view():
+    """TODO return a mock username settings."""
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    raise NotImplementedError()
+
+
 @app.route("/rest/getNowPlaying.view", methods=['GET', 'POST'])
 def get_now_playing_view():
     """TODO: save timestamp and song duration of every stream.view request
@@ -56,5 +107,10 @@ def get_now_playing_view():
         """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    abort(404)
-    raise NotImplementedError()
+    user = app.iposonic.get_users(eid=MediaManager.uuid(u))
+    assert user.get('nowPlaying'), "Nothing playing now..."
+    
+    song = app.iposonic.get_songs(eid=user.get('nowPlaying'))
+    song.update({'username': u})
+    
+    return request.formatter({'nowPlaying': {'entry': song} })
