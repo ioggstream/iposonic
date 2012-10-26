@@ -57,12 +57,12 @@ def stream_view():
 
     # update now playing
     try:
-        log.info("Update nowPlaying: %s for user: %s" % (eid,
-                 MediaManager.uuid(u)))
+        log.info("Update nowPlaying: %s for user: %s -> %s" % (eid,
+                 u, MediaManager.uuid(u)))
         user = app.iposonic.update_user(
             MediaManager.uuid(u), {'nowPlaying': eid})
     except:
-        log.exception("Can't update nowPlaying for user: %s")
+        log.exception("Can't update nowPlaying for user: %s" % u)
 
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)

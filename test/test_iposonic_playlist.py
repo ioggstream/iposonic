@@ -71,16 +71,18 @@ class TestUserIposonicDB:
         item = items[0]
         assert item.get('username') == 'mock_user', "No users: %s" % item
 
-    @SkipTest
     def test_add_user(self):
         u = {
-                'username': 'mock_user',
-                'password': 'mock_password',
-                'scrobbleUser': 'ioggstream',
-                'scrobblePassword': 'secret'
-            }
-        item = self.db.User(u.get('username'))
-        
+            'username': 'mock_user',
+            'password': 'mock_password',
+            'scrobbleUser': 'ioggstream',
+            'scrobblePassword': 'secret'
+        }
+        item = self.db.add_user(u)
+        assert item, "Item not working"
+        print ("retrieving item with id: %s" % item.id)
+        t = self.db.get_users(eid=item.id)
+        assert 'username' in t, "Created %s" % t
 
     def test_get_user(self):
         from mediamanager import MediaManager
@@ -88,4 +90,3 @@ class TestUserIposonicDB:
         ret = self.db.get_users(eid)
         assert ret, "Can't find user %s" % eid
         assert ret.get('username') == 'mock_user', "No user: %s" % ret
-

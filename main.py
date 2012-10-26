@@ -122,7 +122,7 @@ def run(argc, argv):
         t = Thread(target=cover_art_worker, args=[app.iposonic.cache_dir])
         t.daemon = True
         t.start()
-        
+
     #
     # Run scrobbling thread
     #
@@ -131,7 +131,6 @@ def run(argc, argv):
         t = Thread(target=scrobble_worker, args=[])
         t.daemon = True
         t.start()
-    
 
     app.run(host='0.0.0.0', port=5000, debug=True)
 

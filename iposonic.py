@@ -81,8 +81,7 @@ class MediaDAO:
                   'genre', 'track', 'tracknumber', 'date', 'suffix',
                   'isvideo', 'duration', 'size', 'bitRate',
                   'userRating', 'averageRating', 'coverArt',
-                  'starred', 'created', 'albumId'
-                  , 'scrobbleId' # scrobbleId is an internal parameter used to match songs with last.fm
+                  'starred', 'created', 'albumId', 'scrobbleId'  # scrobbleId is an internal parameter used to match songs with last.fm
                   ]
 
 
@@ -128,7 +127,8 @@ class PlaylistDAO:
 
 class UserDAO:
     __tablename__ = "user"
-    __fields__ = ['id', 'username', 'password', 'email', 'scrobbleUser', 'scrobblePassword', 'nowPlaying']
+    __fields__ = ['id', 'username', 'password', 'email',
+                  'scrobbleUser', 'scrobblePassword', 'nowPlaying']
 
 
 class UserMediaDAO:
@@ -176,16 +176,16 @@ class IposonicDBTables:
         def __init__(self, path):
             IposonicDBTables.BaseB.__init__(self)
             self.update(MediaManager.get_info(path))
-    
+
     class User(BaseB, UserDAO):
         __fields__ = UserDAO.__fields__
 
         def __init__(self, username):
             IposonicDBTables.BaseB.__init__(self)
             self.update({
-                'id': MediaManager.uuid(username), 
+                'id': MediaManager.uuid(username),
                 'username': username}
-                )
+            )
 
     class Playlist(BaseB, PlaylistDAO):
         __fields__ = PlaylistDAO.__fields__
@@ -326,7 +326,8 @@ class IposonicDB(object, IposonicDBTables):
             if record:
                 h[eid].update(new)
                 return
-        raise ValueError("Media Entry (song, artist, album) not found. eid: %s" % eid)
+        raise ValueError(
+            "Media Entry (song, artist, album) not found. eid: %s" % eid)
 
     def get_songs(self, eid=None, query=None):
         """Return a list of songs in the following form.
@@ -440,16 +441,15 @@ class IposonicDB(object, IposonicDBTables):
                 log.info("artists: %s" % self.artists)
 
         return self.get_indexes()
-        
-    def get_users(self, eid=None, query=None):
-        raise NotImplementedError("In-memory datastore doesn't support multiple users")
 
+    def get_users(self, eid=None, query=None):
+        raise NotImplementedError(
+            "In-memory datastore doesn't support multiple users")
 
 
 #
 # IpoSonic
 #
-
 class Iposonic:
     """Iposonic is a simple media server allowing to
         browse and stream music, managing playlists and
@@ -469,7 +469,7 @@ class Iposonic:
 
     def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False, tmp_dir="/tmp/iposonic"):
         self.log.info("Creating Iposonic with music folders: %s, dbhandler: %s" %
-              (music_folders, dbhandler))
+                      (music_folders, dbhandler))
 
         # set directory
         self.tmp_dir = tmp_dir
@@ -490,15 +490,15 @@ class Iposonic:
         """Proxies DB methods."""
         if method in [
             'get_artists',
-            'get_music_folders',
             'get_albums',
+            'get_song_list',
+            'get_music_folders',
             'get_highest',
             'get_playlists',
-            'get_song_list',
             'delete_entry',
             # User management
             'get_users'
-            
+
         ]:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
@@ -569,7 +569,7 @@ class Iposonic:
     def add_entry(self, path, album=False):
         """Add imageart related stuff here."""
         return self.db.add_entry(path, album)
-    
+
     def delete_entry(self, path):
         raise NotImplementedError("deleting entry: %s" % path)
 
@@ -580,7 +580,6 @@ class Iposonic:
     def create_entry(self, entry):
         return self.db.create_entry(entry)
 
-
     #
     # User stuff
     #
@@ -589,20 +588,20 @@ class Iposonic:
         entry = self.db.User(user.get('username'))
         entry.update(user)
         return self.create_entry(entry)
-        
+
     def update_user(self, eid, new):
         self.log.info("updating user: %s" % eid)
-        entry = self.db.User(eid)
-        entry.update(new)
-        return self.create_entry(entry)
-        
-    def delete_user(self, path):
-        raise NotImplementedError("deleting entry: %s" % path)
+        entry = self.db.update_user(eid, new)
+        return entry
 
-    
+    def delete_user(self, eid):
+        self.log.info("delete user: %s" % eid)
+        entry = self.db.delete_user(eid, new)
+        return entry
     #
     # Retrieve
     #
+
     def get_songs(self, eid=None, query=None):
         """return one or more songs.
 
@@ -689,4 +688,3 @@ class Iposonic:
                 return x
 
         raise ValueError("Playlist not static")
-    

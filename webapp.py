@@ -42,7 +42,14 @@ except:
     from iposonic import IposonicDB as Dbh
 
 log = logging.getLogger('iposonic-webapp')
-app = Flask(__name__)
+
+
+class IposonicApp(Flask):
+    """Iposonic app, a flask of iposonic and authorizer."""
+    iposonic = None
+
+
+app = IposonicApp(__name__)
 
 ###
 # The web
@@ -146,7 +153,6 @@ def authorize():
     else:
         p_clear = hex_decode(p)
 
-        
     if not app.authorizer.authorize(u, p_clear):
         abort(401)
 

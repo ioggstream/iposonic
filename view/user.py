@@ -37,7 +37,10 @@ def get_user_view():
 
 @app.route("/rest/createUser.view", methods=['GET', 'POST'])
 def create_user_view():
-    """TODO return a mock username settings."""
+    """Create an user getting info from GET variables.
+
+        TODO get with post too
+    """
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
@@ -69,7 +72,7 @@ def delete_user_view():
 
 @app.route("/rest/getUsers.view", methods=['GET', 'POST'])
 def get_users_view():
-    """TODO return a mock username settings."""
+    """List all users in database."""
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     ret = app.iposonic.db.get_users()
