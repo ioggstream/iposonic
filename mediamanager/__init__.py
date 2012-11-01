@@ -62,7 +62,7 @@ class MediaManager:
             artist = "".join([x for x in artist.split(
                 " ") if x not in MediaManager.stopwords])
         ret = MediaManager.re_notascii.sub("", artist)
-        MediaManager.log.info("normalize_artist(%s): %s" % (x, ret))
+        MediaManager.log.debug("normalize_artist(%s): %s" % (x, ret))
         return ret
 
     @staticmethod

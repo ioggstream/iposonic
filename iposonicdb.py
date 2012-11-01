@@ -105,6 +105,7 @@ class IposonicDBTables:
             __fields__ and __tablename__  see  iposonic.py
         """
         __fields__ = []
+        log = logging.getLogger(__name__)
 
         def json(self):
             """Return a dict/json representation of the public fields of
@@ -124,12 +125,20 @@ class IposonicDBTables:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
                     elif k == 'path':
-                        try:
-                            v = v.replace(app.config.get('collection')[0], '')
-                        except NameError:
-                            # outside the application context
-                            # don't need it
-                            pass
+                        # for future use
+#                        for field in ['artist', 'name', 'Author']:
+#                            artist = self.get(field,'')
+#                            if artist:
+#                                break
+#                        artist = artist if artist else 'Unknown Artist'
+#                        album = self.get('album') if self.get('album') else 'Unknown Album'
+#                        
+#                        title = self.get('title','') if self.get('title') else 'Unknown song'
+#                        assert artist != None, "Can't find artist: %s" % dict.__repr__(self.__dict__)
+#                        assert album != None
+#                        #assert title
+#                        v = os.path.join(artist, album, title)
+                        pass
                     elif k.lower() in ['userrating',
                                        'averagerating',
                                        'duration',
@@ -334,20 +343,32 @@ class SqliteIposonicDB(object, IposonicDBTables):
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
 
+    def _query_and_format(self, table_o, query, eid=None, order=None, session=None):
+        """Query and return json entries  .
+        
+           this method can't be use for modifying items
+
+        """
+        ret = self._query(table_o, query, eid=eid, order=order, session=session)
+        if eid:
+            return ret.json()    
+        if ret:
+            return [r.json() for r in ret]
+        return []
+
     #
     # Query a-la-sqlalchemy supporting ordering and filtering
     #
     def _query(self, table_o, query, eid=None, order=None, session=None):
-        """Query db and return json entries.
+        """Query db and return database objects.
 
-           this method can't be use for modifying items
         """
         assert table_o, "Table must not be null"
         order_f = None
         qmodel = session.query(table_o)
         if eid:
             rs = qmodel.filter_by(id=eid).one()
-            return rs.json()
+            return rs
 
         # Multiple results support ordering
         if order:
@@ -372,8 +393,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
             rs = qmodel
         if not rs:
             return []
-        rs = rs.order_by(order_f).all()
-        return [r.json() for r in rs]
+        return  rs.order_by(order_f).all()
 
     def _query_id(self, eid, table=None, session=None):
         """Get an entry by id. If table is unspecified
@@ -409,7 +429,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_users(self, eid=None, query=None, session=None):
         assert session
         self.log.info("get_users: eid: %s, query: %s" % (eid, query))
-        return self._query(self.User, query, eid=eid, session=session)
+        return self._query_and_format(self.User, query, eid=eid, session=session)
 
     #@transactional
     def add_user(self, user):
@@ -457,17 +477,17 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_songs(self, eid=None, query=None, session=None):
         assert session
         self.log.info("get_songs: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Media, query, eid=eid, session=session)
+        return self._query_and_format(self.Media, query, eid=eid, session=session)
 
     @connectable
     def get_albums(self, eid=None, query=None, order=None, session=None):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Album, query, eid=eid, order=order, session=session)
+        return self._query_and_format(self.Album, query, eid=eid, order=order, session=session)
 
     @connectable
     def get_playlists(self, eid=None, query=None, session=None):
         self.log.info("get_playlists: eid: %s, query: %s" % (eid, query))
-        return self._query(self.Playlist, query, eid=eid, session=session)
+        return self._query_and_format(self.Playlist, query, eid=eid, session=session)
 
     @connectable
     def get_artists(self, eid=None, query=None, order=None, session=None):
@@ -476,17 +496,18 @@ class SqliteIposonicDB(object, IposonicDBTables):
             returns a dict-array [{'id': .., 'name': .., 'path': .. }]
 
         """
-        if not self.initialized:
-            self.walk_music_directory()
+        self.log.info("get_artists: %s" % eid)
         return self._query(self.Artist, query, eid=eid, order=order, session=session)
 
     def get_indexes(self):
+        """Create a subsonic index getting artists from the database."""
         #
         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
         #
         indexes = dict()
         for artist_j in self.get_artists(order=('name', 1)):
             a = artist_j.get('name')
+            artist_j = artist_j.json()
             if not a:
                 continue
             first = a[0:1].upper()
@@ -519,8 +540,8 @@ class SqliteIposonicDB(object, IposonicDBTables):
         old = self._query_id(eid, session=session).delete()
 
     @transactional
-    def add_entry(self, path, album=False, session=None):
-        self.log.info("add_entry: %s, album=%s" % (path, album))
+    def add_path(self, path, album=False, session=None):
+        self.log.info("add_path: %s, album=%s" % (path, album))
         assert session
         eid = None
         record = None
@@ -567,7 +588,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         raise IposonicException("Path not found or bad extension: %s " % path)
 
     @transactional
-    def walk_music_directory(self, session=None):
+    def walk_music_directory_depecated(self, session=None):
         """Find all artists (top-level directories) and create indexes.
 
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
@@ -581,7 +602,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         #self.reset()
         def add_or_log(self, path):
             try:
-                self.add_entry(path, session=session)
+                self.add_path(path, session=session)
             except IposonicException as e:
                 self.log.error(e)
         # find all artists

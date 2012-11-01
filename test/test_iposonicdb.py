@@ -7,7 +7,7 @@ from os.path import join, dirname
 from iposonic import Iposonic, MediaManager, IposonicDB
 from iposonicdb import SqliteIposonicDB, MySQLIposonicDB
 
-from test_iposonic import TestIposonicDB
+from test_iposonicdb_simple import TestIposonicDB
 
 
 class TestSqliteIposonicDB(TestIposonicDB):
@@ -22,7 +22,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         self.db = self.dbhandler([self.test_dir], dbfile="mock_iposonic")
         self.db.init_db()
         self.db.reset()
-        self.db.add_entry("/tmp/")
+        self.db.add_path("/tmp/")
 
     def teardown(self):
         print "closing server"
@@ -31,7 +31,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
     def test_get_songs(self):
         path = join(self.test_dir, "mock_artist/mock_album/sample.ogg")
-        self.db.add_entry(path)
+        self.db.add_path(path)
 
         l_session = self.db.Session()
         ret = l_session.execute("select * from song;").fetchall()
@@ -42,7 +42,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
     def test_get_songs_by_parent(self):
         path = join(self.test_dir, "mock_artist/mock_album/sample.ogg")
-        self.db.add_entry(path)
+        self.db.add_path(path)
 
         parent = MediaManager.uuid(dirname(path))
         l_session = self.db.Session()
@@ -54,7 +54,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         assert ret, "ret_get_songs: %s" % ret
 
     def test_get_songs_with_select(self):
-        self.db.add_entry(self.test_dir + "/mock_artist/mock_album/sample.ogg")
+        self.db.add_path(self.test_dir + "/mock_artist/mock_album/sample.ogg")
         l_session = self.db.Session()
         ret = l_session.execute("select * from song;").fetchall()
         assert ret, "ret: %s" % ret
@@ -70,7 +70,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
     def test_add(self):
         path = "./test/data/Aretha Franklin/20 Greatest hits/Angel.mp3"
-        eid = self.db.add_entry(path)
+        eid = self.db.add_path(path)
         info_old = MediaManager.get_info(path)
         info = self.db.get_songs(eid=eid)
 

@@ -132,7 +132,16 @@ def run(argc, argv):
         t.daemon = True
         t.start()
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    #
+    # Run walker thread
+    #
+    from scanner import walk_music_folder
+    for i in range(1):
+        t = Thread(target=walk_music_folder, args=[app.iposonic])
+        t.daemon = True
+        t.start()
+        
+    app.run(host='0.0.0.0', port=5000, debug=False)
 
 
 if __name__ == "__main__":
