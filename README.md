@@ -1,5 +1,5 @@
 iposonic
-== == == ==
+========
 
 A tiny subsonic server api implementation with python + flask.
 Supports:
@@ -16,7 +16,7 @@ It works nicely for listing and playing your files with a subsonic client.
     * MiniSub and Perisonic
 
 quickstart
-== == == == ==
+==========
 To run, just
     * install flask and the other dependencies with
            # pip install flask
@@ -31,7 +31,7 @@ You can test methods adding some audio files in test / data / and messing with n
 
 
 prerequisites
-== == == == == ==
+============
 Required
     * pip install flask
     * pip install mutagen
@@ -41,13 +41,20 @@ Required
 Optional
     * pip install sqlalchemy       # [optional if you want a permanent store]
     * pip install MySQL - python     # [optional if you want MySQL support]
+    * pip install pylast             # [optional if you want to scrobble to last.fm]
     * pip install nose             # [to test and develop]
     * [apt - get | yum] install lame   # [optional if you want transcoding and down-sampling]
 
 big collections
-== == == == == == == =
+===============
 
 If you have big music collections, Iposonic supports local data indexing with
     * MySQL Embedded(library provided in this source, with full text search)
     * MySQL Server(configure it in MySQLIposonicDB class)
     * Sqlite(thru sqlalchemy, but does not support full text search)
+
+scrobbling
+==========
+
+Scrobbling is enabled on development branches: lastfm and fs_thread
+
