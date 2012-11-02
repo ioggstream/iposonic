@@ -12,11 +12,11 @@ from os.path import join, basename
 
 # logging
 import logging
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import orm 
 logging.basicConfig(level=logging.INFO)
 
 from iposonic import (
-    IposonicException,
+    IposonicException, EntryNotFoundException,
     ArtistDAO, AlbumDAO, MediaDAO, PlaylistDAO,
     UserDAO, UserMediaDAO
 )
@@ -81,7 +81,7 @@ class LazyDeveloperMeta(DeclarativeMeta):
             elif name in ['path', 'entry']:
                 kol = String(192)
             else:
-                kol = String(40)
+                kol = String(64)
             setattr(
                 klass, name, Column(name, kol, primary_key=is_pk))
             is_pk = False
@@ -248,12 +248,12 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 ret = fn(self, *args, **kwds)
                 return ret
             except (ProgrammingError, OperationalError) as e:
-                self.log.warn("Corrupted database: removing and recreating")
+                self.log.exception("Corrupted database: removing and recreating", e)
                 self.reset()
-            except NoResultFound:
+            except orm.exc.NoResultFound as e:
                 # detailed logging for NoResultFound isn't needed.
                 # just propagate the exception
-                raise
+                raise EntryNotFoundException(e)
             except Exception as e:
                 if len(args):
                     ret = to_unicode(args[0])
@@ -279,7 +279,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 return ret
             except (ProgrammingError, OperationalError) as e:
                 session.rollback()
-                self.log.warn("Corrupted database: removing and recreating")
+                self.log.exception("Corrupted database: removing and recreating")
                 self.reset()
             except Exception as e:
                 session.rollback()

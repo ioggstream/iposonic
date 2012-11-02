@@ -1,7 +1,10 @@
+from __future__ import unicode_literals
+
 from iposonicdb import SqliteIposonicDB
-from test_iposonic import harn_setup, harn_load_fs2, tmp_dir
+from harnesses import harn_setup, harn_load_fs2
+from test_iposonic import tmp_dir
 from mediamanager import MediaManager
-from sqlalchemy.orm.exc import NoResultFound
+from iposonic import EntryNotFoundException
 
 
 class TestPlaylistIposonicDB:
@@ -13,7 +16,7 @@ class TestPlaylistIposonicDB:
 
     def setup_playlist(self):
         item = self.db.Playlist("mock_playlist")
-        songs = str.join(",", [str(x.get('id')) for x in self.db.get_songs()])
+        songs = ",".join([str(x.get('id')) for x in self.db.get_songs()])
         item.update({'entry': songs})
 
         session = self.db.Session()
@@ -89,7 +92,7 @@ class TestUserIposonicDB:
         try:
             t = self.db.get_users(eid=eid)
             assert False, "can't find user"
-        except NoResultFound:
+        except EntryNotFoundException:
             pass
 
     def test_get_user(self):

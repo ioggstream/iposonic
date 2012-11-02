@@ -1,9 +1,11 @@
+from __future__ import unicode_literals
+
 from nose import *
 from mediamanager import *
 import os
 
 from iposonic import IposonicDB, UnsupportedMediaError
-from art_downloader import q, cover_art_worker
+from mediamanager.cover_art import q, cover_art_worker
 
 
 def harn_get_cover_art_file(info):

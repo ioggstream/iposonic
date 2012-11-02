@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 from nose import *
 from mediamanager.lyrics import ChartLyrics
+import logging
+log = logging.getLogger(__name__)
 
 
 def test_get_lyrics():
@@ -9,4 +11,4 @@ def test_get_lyrics():
 
     lyrics = c.search(info)
     assert lyrics
-    print ("lyrics: " + lyrics)
+    log.info ("lyrics: %s" % lyrics)

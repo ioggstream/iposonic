@@ -38,6 +38,9 @@ class IposonicException(Exception):
     """Generic Iposonic Exception"""
     pass
 
+class EntryNotFoundException(IposonicException, KeyError):
+    """Entry not found."""
+    pass
 
 class SubsonicProtocolException(IposonicException):
     """Request doesn't respect Subsonic API .
@@ -540,7 +543,7 @@ class Iposonic:
         for f in [self.get_artists, self.get_albums, self.get_songs]:
             try:
                 ret = f(eid)
-            except KeyError:
+            except EntryNotFoundException:
                 pass
             if ret:
                 return ret
