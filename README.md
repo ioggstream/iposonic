@@ -1,5 +1,5 @@
 iposonic
-== == == ==
+========
 
 A tiny subsonic server api implementation with python + flask.
 Supports:
@@ -16,7 +16,7 @@ It works nicely for listing and playing your files with a subsonic client.
     * MiniSub and Perisonic
 
 quickstart
-== == == == ==
+==========
 To run, just
     * install flask and the other dependencies with
            # pip install flask
@@ -31,7 +31,7 @@ You can test methods adding some audio files in test / data / and messing with n
 
 
 prerequisites
-== == == == == ==
+============
 Required
     * pip install flask
     * pip install mutagen
@@ -45,7 +45,7 @@ Optional
     * [apt - get | yum] install lame   # [optional if you want transcoding and down-sampling]
 
 big collections
-== == == == == == == =
+===============
 
 If you have big music collections, Iposonic supports local data indexing with
     * MySQL Embedded(library provided in this source, with full text search)

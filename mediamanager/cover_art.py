@@ -17,7 +17,7 @@ from Queue import Queue
 
 q = Queue()
 
-log = logging.getLogger("art_downloader")
+log = logging.getLogger(__name__)
 
 
 class CoverSource(object):

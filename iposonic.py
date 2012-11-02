@@ -38,6 +38,11 @@ class IposonicException(Exception):
     pass
 
 
+class EntryNotFoundException(IposonicException, KeyError):
+    """Entry not found."""
+    pass
+
+
 class SubsonicProtocolException(IposonicException):
     """Request doesn't respect Subsonic API .
 
@@ -81,7 +86,7 @@ class MediaDAO:
                   'genre', 'track', 'tracknumber', 'date', 'suffix',
                   'isvideo', 'duration', 'size', 'bitRate',
                   'userRating', 'averageRating', 'coverArt',
-                  'starred', 'created', 'albumId'
+                  'starred', 'created', 'albumId', 'scrobbleId'  # scrobbleId is an internal parameter used to match songs with last.fm
                   ]
 
 
@@ -127,7 +132,8 @@ class PlaylistDAO:
 
 class UserDAO:
     __tablename__ = "user"
-    __fields__ = ['id', 'username', 'email']
+    __fields__ = ['id', 'username', 'password', 'email',
+                  'scrobbleUser', 'scrobblePassword', 'nowPlaying']
 
 
 class UserMediaDAO:
@@ -144,9 +150,11 @@ class UserMediaDAO:
 class IposonicDBTables:
     """Class defining base & tables.
 
-        For sqlalchemy usage I should only override
+        TODO For sqlalchemy usage I should only override
         the Base class...
 
+        IMPORTANT: YOU HAVE TO OVERRIDE THOSE CLASSES
+        IN THE IMPLEMENTATION FILE (eg. iposonicdb.py)
     """
 
     class BaseB(dict):
@@ -173,6 +181,16 @@ class IposonicDBTables:
         def __init__(self, path):
             IposonicDBTables.BaseB.__init__(self)
             self.update(MediaManager.get_info(path))
+
+    class User(BaseB, UserDAO):
+        __fields__ = UserDAO.__fields__
+
+        def __init__(self, username):
+            IposonicDBTables.BaseB.__init__(self)
+            self.update({
+                'id': MediaManager.uuid(username),
+                'username': username}
+            )
 
     class Playlist(BaseB, PlaylistDAO):
         __fields__ = PlaylistDAO.__fields__
@@ -313,7 +331,8 @@ class IposonicDB(object, IposonicDBTables):
             if record:
                 h[eid].update(new)
                 return
-        raise ValueError("Entry not found with eid: %s" % eid)
+        raise ValueError(
+            "Media Entry (song, artist, album) not found. eid: %s" % eid)
 
     def get_songs(self, eid=None, query=None):
         """Return a list of songs in the following form.
@@ -336,7 +355,7 @@ class IposonicDB(object, IposonicDBTables):
 
         """
         if not self.artists:
-            self.walk_music_directory()
+            raise NotImplementedError("rewrite me in scanner thread")
         return IposonicDB._get_hash(self.artists, eid, query)
 
     def get_playlists(self, eid=None, query=None):
@@ -365,16 +384,17 @@ class IposonicDB(object, IposonicDBTables):
                 log.exception("error retrieving %s due %s" % (k, e))
         return ret
 
-    def add_entry(self, path, album=False):
+    def add_path(self, path, album=False):
+        """Create an entry from path and add it to the DB."""
         if os.path.isdir(path):
-            u_path = path.decode('utf-8')
-            self.log.warn("Adding entry %s" % u_path)
+            self.log.warn(
+                "Adding %s: %s " % ("album" if album else "artist", stringutils.to_unicode(path)))
             eid = MediaManager.uuid(path)
             if album:
                 self.albums[eid] = IposonicDB.Album(path)
             else:
                 self.artists[eid] = IposonicDB.Artist(path)
-            self.log.info("adding directory: %s, %s " % (eid, u_path))
+            self.log.info(u"adding directory: %s, %s " % (eid, stringutils.to_unicode(path)))
             return eid
         elif MediaManager.is_allowed_extension(path):
             try:
@@ -389,7 +409,7 @@ class IposonicDB(object, IposonicDBTables):
                 raise IposonicException(e)
         raise IposonicException("Path not found or bad extension: %s " % path)
 
-    def walk_music_directory(self):
+    def walk_music_directory_old(self):
         """Find all artists (top-level directories) and create indexes.
 
           TODO: create a cache for this.
@@ -410,7 +430,7 @@ class IposonicDB(object, IposonicDBTables):
                 if a:
                     path = join("/", music_folder, a)
                     try:
-                        self.add_entry(path)
+                        self.add_path(path)
                         self.artists[MediaManager.uuid(
                             path)] = IposonicDB.Artist(path)
                         artist_j = {'artist': {
@@ -422,17 +442,22 @@ class IposonicDB(object, IposonicDBTables):
                         first = a[0:1].upper()
                         self.indexes.setdefault(first, [])
                         self.indexes[first].append(artist_j)
+                        log.info(
+                            "Adding to index converted entry: %s" % artist_j)
                     except IposonicException as e:
                         log.error(e)
                 log.info("artists: %s" % self.artists)
 
         return self.get_indexes()
 
+    def get_users(self, eid=None, query=None):
+        raise NotImplementedError(
+            "In-memory datastore doesn't support multiple users")
+
 
 #
 # IpoSonic
 #
-
 class Iposonic:
     """Iposonic is a simple media server allowing to
         browse and stream music, managing playlists and
@@ -452,7 +477,7 @@ class Iposonic:
 
     def __init__(self, music_folders, dbhandler=IposonicDB, recreate_db=False, tmp_dir="/tmp/iposonic"):
         self.log.info("Creating Iposonic with music folders: %s, dbhandler: %s" %
-              (music_folders, dbhandler))
+                      (music_folders, dbhandler))
 
         # set directory
         self.tmp_dir = tmp_dir
@@ -469,16 +494,33 @@ class Iposonic:
             music_folders, recreate_db=recreate_db, datadir=tmp_dir)
         self.log.setLevel(logging.INFO)
 
+    def jsonize(fn):
+        def tmp(self, *args, **kwds):
+            item = fn(self, *args, **kwds)
+            print "running jsonize on %s" % item
+
+            if item:
+                if isinstance(item, list):
+                    return [x.json() for x in item]
+                else:
+                    return item.json()
+            return None
+        tmp.__name__ = fn.__name__
+        return tmp
+
     def __getattr__(self, method):
         """Proxies DB methods."""
         if method in [
-            'get_artists',
-            'get_music_folders',
+            #'get_artists',
             'get_albums',
+            'get_song_list',
+            'get_music_folders',
             'get_highest',
             'get_playlists',
-            'get_song_list',
-            'delete_entry'
+            'delete_entry',
+            # User management
+            'get_users'
+
         ]:
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
@@ -486,6 +528,11 @@ class Iposonic:
         return object.__getattr__(self, method)
 
         #    raise NotImplementedError("Method not found: %s" % method, e)
+
+    @jsonize
+    def get_artists(self, *args, **kwds):
+        """Render artists in a webapp-able way."""
+        return  self.db.get_artists(*args, **kwds)
 
     def get_folder_by_id(self, folder_id):
         """It's ok just because self.db.get_music_folders() are few"""
@@ -499,7 +546,7 @@ class Iposonic:
         for f in [self.get_artists, self.get_albums, self.get_songs]:
             try:
                 ret = f(eid)
-            except:
+            except EntryNotFoundException:
                 pass
             if ret:
                 return ret
@@ -511,7 +558,8 @@ class Iposonic:
         return (info['path'], info['path'])
 
     def get_indexes(self):
-        """
+        """Return subsonic-formatted indexes.
+
         {'A':
         [{'artist':
             {'id': '517674445', 'name': 'Antonello Venditti'}
@@ -546,10 +594,10 @@ class Iposonic:
     #   Create Update Delete
     #
 
-    def add_entry(self, path, album=False):
+    def add_path(self, path, album=False):
         """Add imageart related stuff here."""
-        return self.db.add_entry(path, album)
-    
+        return self.db.add_path(path, album)
+
     def delete_entry(self, path):
         raise NotImplementedError("deleting entry: %s" % path)
 
@@ -561,8 +609,27 @@ class Iposonic:
         return self.db.create_entry(entry)
 
     #
+    # User stuff
+    #
+    def add_user(self, user):
+        self.log.info("creating user: %s" % user)
+        entry = self.db.User(user.get('username'))
+        entry.update(user)
+        return self.create_entry(entry)
+
+    def update_user(self, eid, new):
+        self.log.info("updating user: %s" % eid)
+        entry = self.db.update_user(eid, new)
+        return entry
+
+    def delete_user(self, eid):
+        self.log.info("delete user: %s" % eid)
+        entry = self.db.delete_user(eid, new)
+        return entry
+    #
     # Retrieve
     #
+
     def get_songs(self, eid=None, query=None):
         """return one or more songs.
 
@@ -632,7 +699,7 @@ class Iposonic:
 
           TODO: create a cache for this.
         """
-        self.db.walk_music_directory()
+        raise NotImplementedError("Reimplement this in the scanner thread")
 
     def get_playlists_static(self, eid=None):
         """Return a set of static playlists like random songs or by genre.
@@ -649,4 +716,3 @@ class Iposonic:
                 return x
 
         raise ValueError("Playlist not static")
-#

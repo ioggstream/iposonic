@@ -125,7 +125,7 @@ def get_album_list_view():
         albums = [a for a in app.iposonic.get_albums()]
 
     last = min(offset + size, len(albums) - 1)
-    log.info("paging albums: %s,%s/%s"% (offset, last, len(albums)))
+    log.info("paging albums: %s,%s/%s" % (offset, last, len(albums)))
     return request.formatter({'albumList': {'album': albums[offset:last]}})
 
 
