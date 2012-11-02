@@ -69,6 +69,7 @@ def _transcode(srcfile, maxBitRate, dstformat="ogg"):
         if not data:
             break
         yield data
+    srcfile.wait()
 
 
 def _transcode_mp3(srcfile, maxBitRate):
