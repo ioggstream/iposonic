@@ -554,8 +554,6 @@ class SqliteIposonicDB(object, IposonicDBTables):
         else:
             path_u = path
 
-        # encoding = detect_encode(path)
-
         if os.path.isdir(path):
             eid = MediaManager.uuid(path)
             if album:

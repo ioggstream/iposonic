@@ -16,7 +16,7 @@ from binascii import crc32
 from os.path import dirname, basename, join
 
 #local import
-from stringutils import isdir, stat
+from stringutils import isdir, stat, to_unicode
 
 
 class UnsupportedMediaError(Exception):
@@ -81,7 +81,7 @@ class MediaManager:
         album = album.replace('&', ' and ')
         album = MediaManager.re_notes.sub("", album)
         album = MediaManager.re_notes_2.sub("", album)
-        MediaManager.log.info("normalize_artist(%s): %s" % (x, album))
+        MediaManager.log.debug("normalize_artist(%s): %s" % (x, album))
         return album.strip()
 
     @staticmethod
@@ -125,7 +125,8 @@ class MediaManager:
                 "Unallowed extension for path: %s" % path)
 
         if path.endswith("mp3"):
-            return lambda x: MP3(x, ID3=EasyID3)
+            # return lambda x: MP3(x, ID3=EasyID3)
+            return MediaManager.mp3_tag_manager
         if path.endswith("ogg"):
             return mutagen.oggvorbis.Open
         if path.endswith("wma"):
@@ -133,6 +134,29 @@ class MediaManager:
         raise UnsupportedMediaError(
             "Can't find tag manager for path: %s" % path)
 
+    @staticmethod
+    def mp3_tag_manager(path):
+        try:
+            return MP3(path, ID3=EasyID3)
+        except HeaderNotFoundError:
+            # Convert id3 tag manually
+            #    TIT2 bal dans ma rue
+            #    TRCK 16
+            #    TPE1 Edith Piaf
+            #    TALB L'etoile de la chanson
+            #    COMM:ID3v1 Comment:'eng' Created by Grip
+            #    TCON Alternative
+            ret = mutagen.id3.Open(path)
+            return {
+                    'title' : ret.get('TIT2').text,
+                    'track': ret.get('TRCK').text,
+                    'artist': ret.get('TPE1').text,
+                    'album': ret.get('TALB').text,
+                    'genre': ret.get('TCON').text
+                    }
+                
+        raise HeaderNotFoundError()
+    
     @staticmethod
     def get_info_from_filename(path):
         """Get track number, path, file size from file name."""
@@ -162,7 +186,7 @@ class MediaManager:
 
     @staticmethod
     def get_info_from_filename2(path_u):
-        """Improve v1"""
+        """Get from an existing file: title, artist, album"""
         filename = basename(path_u)
 
         # strip extension
@@ -180,10 +204,10 @@ class MediaManager:
 
                 filename = filename.replace(m_notes.group(), "").strip()
                 ret['year'] = int(notes)
-                MediaManager.log.info("year: %s " % notes)
+                MediaManager.log.debug("year: %s " % notes)
 
             except:
-                MediaManager.log.info("notes: %s" % notes)
+                MediaManager.log.debug("notes: %s" % notes)
 
         info_l = [x.strip(" -") for x in filename.split("-")]
         title, album, artist, track = (None, None, None, None)
@@ -206,7 +230,7 @@ class MediaManager:
                 album, artist = x, album
 
         try:
-            size = os.path.getsize(path)
+            size = os.path.getsize(path_u)
         except:
             size = -1
 
@@ -268,14 +292,15 @@ class MediaManager:
         """
         if True:  # os.path.isfile(path):
             try:
-                path_u = stringutils.to_unicode(path)
+                path_u = to_unicode(path)
                 # get basic info
                 ret = MediaManager.get_info_from_filename2(path)
 
                 manager = MediaManager.get_tag_manager(path)
                 audio = manager(path.encode('utf-8'))
-
-                MediaManager.log.info("Original id3: %s" % audio)
+                MediaManager.log.debug("Original id3: %s" % audio)
+                
+                # Add only non-null fields
                 for (k, v) in audio.iteritems():
                     if isinstance(v, list) and v and v[0]:
                         ret[k] = v[0]
@@ -295,12 +320,15 @@ class MediaManager:
                     MediaManager.log.warn(
                         "Error parsing track or bitrate: %s" % e)
 
+                # This field is Iposonic specific and
+                # is used to identify a song independently of
+                # the interpreter and cache the lyrics
                 try:
                     ret['scrobbleId'] = MediaManager.lyrics_uuid(ret)
                 except:
                     raise
 
-                MediaManager.log.info("Parsed id3: %s" % ret)
+                MediaManager.log.debug("Parsed id3: %s" % ret)
                 return ret
             except HeaderNotFoundError as e:
                 raise UnsupportedMediaError(
@@ -336,12 +364,17 @@ class MediaManager:
             if not x:
                 return 0
 
+            try:
+                return int(x)
+            except:
+                pass
+            
             if x.find("/"):
                 x = x[:x.index("/")]
             try:
                 return int(x)
             except ValueError:
-                self.log.debug("Error parsing track")
+                MediaManager.log.debug("Error parsing track")
                 return 0
 
         for field in ['track', 'tracknumber']:
