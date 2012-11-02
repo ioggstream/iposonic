@@ -126,12 +126,14 @@ def run(argc, argv):
     #
     # Run scrobbling thread
     #
-    from mediamanager.scrobble import scrobble_worker
-    for i in range(1):
-        t = Thread(target=scrobble_worker, args=[])
-        t.daemon = True
-        t.start()
-
+    try:
+        from mediamanager.scrobble import scrobble_worker
+        for i in range(1):
+            t = Thread(target=scrobble_worker, args=[])
+            t.daemon = True
+            t.start()
+    except:
+        log.exception("Cannot enable scrobbling")
     #
     # Run walker thread
     #
@@ -141,7 +143,7 @@ def run(argc, argv):
         t.daemon = True
         t.start()
 
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='127.0.0.1', port=5000, debug=False)
 
 
 if __name__ == "__main__":
