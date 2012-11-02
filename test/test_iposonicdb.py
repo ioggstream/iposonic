@@ -21,7 +21,7 @@ class TestSqliteIposonicDB(TestIposonicDB):
         self.id_albums = []
 
         self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.dbhandler([self.test_dir], dbfile="mock_iposonic")
+        self.db = self.dbhandler([self.test_dir], dbfile="")
         self.db.init_db()
         self.db.reset()
         self.db.add_path("/tmp/")
@@ -67,14 +67,15 @@ class TestSqliteIposonicDB(TestIposonicDB):
         path = join(self.test_dir, "mock_artist")
         mock_id = self.db.add_path(path)
         assert  mock_id, "No artists: %s " % mock_id
-        record = session.query(self.db.Artist).filter_by(id=mock_id)#"-1525717793"
+        record = session.query(
+            self.db.Artist).filter_by(id=mock_id)  # "-1525717793"
         assert record, "Can't find mock Artist with predefined id. Fix test code!"
         eid = record.one().id
-        
+
         # update it
         record.update({'userRating': 5})
         session.commit()
-        
+
         # check if updated
         dup = session.query(self.db.Artist).filter_by(id=eid).one()
         assert dup.userRating == '5', "dup: %s" % dup
@@ -93,4 +94,5 @@ class TestSqliteIposonicDB(TestIposonicDB):
 
 class TestMySQLIposonicDB(TestSqliteIposonicDB):
     dbhandler = MySQLIposonicDB
+    dbfile = "mock_db"
     pass

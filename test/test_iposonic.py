@@ -27,45 +27,14 @@ class TestIposonic:
         log.info("Setup************")
         self.test_dir = os.getcwd() + "/test/data/"
         self.iposonic = Iposonic([self.test_dir])
-        self.harn_load_fs2()
+        self.db = self.iposonic.db
+        harn_load_fs2(self)
         assert self.iposonic.db.albums
         assert self.iposonic.db.songs
 
     def teardown(self):
         self.iposonic = None
 
-    def harn_load_fs2(self):
-        """Scan a tree adding artists, albums and songs"""
-        for (root, dirfile, files) in os.walk(self.test_dir):
-            ret = dirfile
-            ret.extend(files)
-            for p in ret:
-                # eid_list points to songs or to albums
-                # and is used to add the item to the right
-                # list
-                is_artist, is_album = True, False
-                if root == self.test_dir:
-                    is_artist = True
-                    eid_list = self.id_artists
-                elif p in dirfile:
-                    is_album = True
-                    eid_list = self.id_albums
-                else:
-                    eid_list = self.id_songs
-
-                path = join("/", root, p)
-                eid = self.iposonic.db.add_path(path, album=is_album)
-                eid_list.append(eid)
-
-    def harn_load_fs(self):
-        """Adds the entries in root to the iposonic index"""
-        root = self.test_dir
-        self.id_l = []
-
-        for f in os.listdir(root):
-            path = join("/", root, f)
-            eid = self.iposonic.add_path(path)
-            self.id_l.append(eid)
 
     def test_search_artists_by_name(self):
         ret = self.iposonic.db.get_artists(query={'name': 'mock_artist'})
@@ -141,4 +110,3 @@ class TestIposonic:
 #
 # Test DB
 #
-

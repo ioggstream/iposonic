@@ -22,7 +22,6 @@ import os
 import re
 from os.path import join, basename, dirname
 
-from scanner import walk_music_folder
 #
 # manage media files
 #
@@ -38,9 +37,11 @@ class IposonicException(Exception):
     """Generic Iposonic Exception"""
     pass
 
+
 class EntryNotFoundException(IposonicException, KeyError):
     """Entry not found."""
     pass
+
 
 class SubsonicProtocolException(IposonicException):
     """Request doesn't respect Subsonic API .
@@ -384,15 +385,16 @@ class IposonicDB(object, IposonicDBTables):
         return ret
 
     def add_path(self, path, album=False):
+        """Create an entry from path and add it to the DB."""
         if os.path.isdir(path):
-            u_path = path.decode('utf-8')
-            self.log.warn("Adding %s: %s " % ( "album" if album else "artist" , u_path))
+            self.log.warn(
+                "Adding %s: %s " % ("album" if album else "artist", stringutils.to_unicode(path)))
             eid = MediaManager.uuid(path)
             if album:
                 self.albums[eid] = IposonicDB.Album(path)
             else:
                 self.artists[eid] = IposonicDB.Artist(path)
-            self.log.info("adding directory: %s, %s " % (eid, u_path))
+            self.log.info(u"adding directory: %s, %s " % (eid, stringutils.to_unicode(path)))
             return eid
         elif MediaManager.is_allowed_extension(path):
             try:
@@ -440,7 +442,8 @@ class IposonicDB(object, IposonicDBTables):
                         first = a[0:1].upper()
                         self.indexes.setdefault(first, [])
                         self.indexes[first].append(artist_j)
-                        log.info("Adding to index converted entry: %s" % artist_j)
+                        log.info(
+                            "Adding to index converted entry: %s" % artist_j)
                     except IposonicException as e:
                         log.error(e)
                 log.info("artists: %s" % self.artists)
@@ -490,7 +493,7 @@ class Iposonic:
         self.db = dbhandler(
             music_folders, recreate_db=recreate_db, datadir=tmp_dir)
         self.log.setLevel(logging.INFO)
-        
+
     def jsonize(fn):
         def tmp(self, *args, **kwds):
             item = fn(self, *args, **kwds)
@@ -503,8 +506,8 @@ class Iposonic:
                     return item.json()
             return None
         tmp.__name__ = fn.__name__
-        return tmp 
-    
+        return tmp
+
     def __getattr__(self, method):
         """Proxies DB methods."""
         if method in [
@@ -530,7 +533,7 @@ class Iposonic:
     def get_artists(self, *args, **kwds):
         """Render artists in a webapp-able way."""
         return  self.db.get_artists(*args, **kwds)
-    
+
     def get_folder_by_id(self, folder_id):
         """It's ok just because self.db.get_music_folders() are few"""
         for folder in self.db.get_music_folders():
@@ -556,7 +559,7 @@ class Iposonic:
 
     def get_indexes(self):
         """Return subsonic-formatted indexes.
-        
+
         {'A':
         [{'artist':
             {'id': '517674445', 'name': 'Antonello Venditti'}

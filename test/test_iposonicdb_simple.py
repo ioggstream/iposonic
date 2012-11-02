@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 from nose import SkipTest
-from harnesses import harn_setup,harn_load_fs2
+from harnesses import harn_setup, harn_load_fs2
 import os
 from os.path import join
 
@@ -22,9 +22,9 @@ class TestIposonicDB:
     id_songs = []
     id_artists = []
     id_albums = []
-
+    dbfile = ""
     def setup(self):
-        harn_setup(self, "/test/data", add_songs=False)
+        harn_setup(self, "/test/data", add_songs=False, dbfile=self.dbfile)
         harn_load_fs2(self)
         #self.db.add_path("/tmp/")
 
@@ -90,7 +90,6 @@ class TestIposonicDB:
         assert info.get('bitRate'), ret
         print info
 
-
     def test_get_indexes(self):
         print self.db.get_indexes()
 
@@ -111,4 +110,3 @@ class TestIposonicDB:
         ret = self.db.get_albums()
         assert ret, "Missing ret. %s" % ret
         print "ret: %s" % ret
-

@@ -12,7 +12,7 @@ from os.path import join, basename
 
 # logging
 import logging
-from sqlalchemy import orm 
+from sqlalchemy import orm
 logging.basicConfig(level=logging.INFO)
 
 from iposonic import (
@@ -132,7 +132,7 @@ class IposonicDBTables:
 #                                break
 #                        artist = artist if artist else 'Unknown Artist'
 #                        album = self.get('album') if self.get('album') else 'Unknown Album'
-#                        
+#
 #                        title = self.get('title','') if self.get('title') else 'Unknown song'
 #                        assert artist != None, "Can't find artist: %s" % dict.__repr__(self.__dict__)
 #                        assert album != None
@@ -248,7 +248,8 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 ret = fn(self, *args, **kwds)
                 return ret
             except (ProgrammingError, OperationalError) as e:
-                self.log.exception("Corrupted database: removing and recreating", e)
+                self.log.exception(
+                    "Corrupted database: removing and recreating", e)
                 self.reset()
             except orm.exc.NoResultFound as e:
                 # detailed logging for NoResultFound isn't needed.
@@ -279,7 +280,8 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 return ret
             except (ProgrammingError, OperationalError) as e:
                 session.rollback()
-                self.log.exception("Corrupted database: removing and recreating")
+                self.log.exception(
+                    "Corrupted database: removing and recreating")
                 self.reset()
             except Exception as e:
                 session.rollback()
@@ -345,13 +347,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     def _query_and_format(self, table_o, query, eid=None, order=None, session=None):
         """Query and return json entries  .
-        
+
            this method can't be use for modifying items
 
         """
-        ret = self._query(table_o, query, eid=eid, order=order, session=session)
+        ret = self._query(
+            table_o, query, eid=eid, order=order, session=session)
         if eid:
-            return ret.json()    
+            return ret.json()
         if ret:
             return [r.json() for r in ret]
         return []

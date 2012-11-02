@@ -290,15 +290,16 @@ class MediaManager:
                     ret['bitRate'] = audio.info.bitrate / 1000
                     ret['duration'] = int(audio.info.length)
                     ret['track'] = MediaManager.get_track_number(ret)
-                    
-                except Exception as e:
-                    MediaManager.log.warn ("Error parsing track or bitrate: %s" % e)
 
-                try: 
+                except Exception as e:
+                    MediaManager.log.warn(
+                        "Error parsing track or bitrate: %s" % e)
+
+                try:
                     ret['scrobbleId'] = MediaManager.lyrics_uuid(ret)
                 except:
                     raise
-                    
+
                 MediaManager.log.info("Parsed id3: %s" % ret)
                 return ret
             except HeaderNotFoundError as e:
@@ -321,7 +322,8 @@ class MediaManager:
                 try:
                     info = MediaManager.get_info(path)
                 except UnsupportedMediaError as e:
-                    MediaManager.log.warn("Media not supported by Iposonic: %s\n\n" % e)
+                    MediaManager.log.warn(
+                        "Media not supported by Iposonic: %s\n\n" % e)
                 except HeaderNotFoundError as e:
                     raise e
                 except ID3NoHeaderError as e:

@@ -140,7 +140,7 @@ def run(argc, argv):
         t = Thread(target=walk_music_folder, args=[app.iposonic])
         t.daemon = True
         t.start()
-        
+
     app.run(host='0.0.0.0', port=5000, debug=False)
 
 

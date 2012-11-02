@@ -62,6 +62,7 @@ def create_user_view():
     app.iposonic.add_user(new_user)
     return request.formatter({})
 
+
 @app.route("/rest/deleteUser.view", methods=['GET', 'POST'])
 def delete_user_view():
     """TODO return a mock username settings."""
@@ -76,8 +77,7 @@ def get_users_view():
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     ret = app.iposonic.db.get_users()
-    return request.formatter({'users': { 'user': ret }})
-
+    return request.formatter({'users': {'user': ret}})
 
 
 @app.route("/rest/changePassword.view", methods=['GET', 'POST'])
@@ -111,8 +111,8 @@ def get_now_playing_view():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     user = app.iposonic.get_users(eid=MediaManager.uuid(u))
     assert user.get('nowPlaying'), "Nothing playing now..."
-    
+
     song = app.iposonic.get_songs(eid=user.get('nowPlaying'))
     song.update({'username': u})
-    
-    return request.formatter({'nowPlaying': {'entry': song} })
+
+    return request.formatter({'nowPlaying': {'entry': song}})
