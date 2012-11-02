@@ -3,8 +3,8 @@ iposonic
 
 A tiny subsonic server api implementation with python + flask.
 Supports:
-    * coverArt search on the web
-    * playlist add / delete, 4 default dynamic meta - playlist(included starred and random)
+ * coverArt search on the web
+ * playlist add / delete, 4 default dynamic meta - playlist(included starred and random)
     * simple and customizable authentication
     * mp3 down - sampling for streaming from GPRS / UMTS connections
     * rating and starring
