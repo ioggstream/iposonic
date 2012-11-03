@@ -13,7 +13,6 @@ from webapp import app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, UnsupportedMediaError
 from mediamanager.cover_art import CoverSource
-from mediamanager.scrobble import scrobble_many
 from urllib import urlopen
 import urllib2
 from mediamanager.lyrics import ChartLyrics
@@ -21,6 +20,7 @@ from mediamanager.lyrics import ChartLyrics
 # download and stream
 #
 log = logging.getLogger('view_media')
+
 
 
 @app.route("/rest/stream.view", methods=['GET', 'POST'])
@@ -123,7 +123,11 @@ def scrobble_view():
 
 
     """
-    from mediamanager.scrobble import q
+    try:
+        from mediamanager.scrobble import q
+    except:
+        abort(404)
+
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (eid, ts, submission) = map(

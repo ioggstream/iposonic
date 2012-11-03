@@ -6,6 +6,7 @@ import sys
 import logging
 from os.path import join, basename
 
+#from decorator import decorator
 #from pyinotify import ProcessEvent, WatchManager, IN_DELETE, IN_CREATE, ThreadedNotifier
 from mediamanager.stringutils import to_unicode
 from Queue import Queue
@@ -24,43 +25,42 @@ def add_or_log(path, album=False, iposonic=None):
     except Exception as e:
         iposonic.log.error(e)
 
-from decorator import decorator
 
 
-class ProcessDir(ProcessEvent):
-    """Performs Actions based on mask values.
-
-        event functions signature should be
-            event_f(self, event)
-        every other argument should be passed via `self`
-
-        inotify returns an event object!
-    """
-    def __init__(self, iposonic):
-        self.iposonic = iposonic
-
-    #@decorator
-    def unbreakable(fn):
-        def f(self, *args, **kwds):
-            try:
-                log.info("executing unbreakable %s" % f.__name__)
-                fn(self, *args, **kwds)
-            except Exception:
-                log.exception("error managing %s" % f.__name__)
-        return f
-
-    @unbreakable
-    def process_IN_CREATE(self, event):
-        log.info("Creating File and File Record:", event.pathname)
-        log.info("event object: %s" % {'path': event.path, 'name': event.name})
-        #self.iposonic.add_path(event.pathname)
-
-    @unbreakable
-    def process_IN_DELETE(self, event):
-        log.info("Deleting File and File Record:", event.pathname)
-        log.debug("event object: %s" % event)
-        self.iposonic.delete_entry(event.pathname)
-
+#class ProcessDir(ProcessEvent):
+#    """Performs Actions based on mask values.
+#
+#        event functions signature should be
+#            event_f(self, event)
+#        every other argument should be passed via `self`
+#
+#        inotify returns an event object!
+#    """
+#    def __init__(self, iposonic):
+#        self.iposonic = iposonic
+#
+#    #@decorator
+#    def unbreakable(fn):
+#        def f(self, *args, **kwds):
+#            try:
+#                log.info("executing unbreakable %s" % f.__name__)
+#                fn(self, *args, **kwds)
+#            except Exception:
+#                log.exception("error managing %s" % f.__name__)
+#        return f
+#
+#    @unbreakable
+#    def process_IN_CREATE(self, event):
+#        log.info("Creating File and File Record:", event.pathname)
+#        log.info("event object: %s" % {'path': event.path, 'name': event.name})
+#        #self.iposonic.add_path(event.pathname)
+#
+#    @unbreakable
+#    def process_IN_DELETE(self, event):
+#        log.info("Deleting File and File Record:", event.pathname)
+#        log.debug("event object: %s" % event)
+#        self.iposonic.delete_entry(event.pathname)
+#
 
 def eventually_rename_child(child, dir_path, rename_non_utf8=True):
     print ("eventually_rename_child")

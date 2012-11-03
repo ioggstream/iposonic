@@ -133,7 +133,7 @@ def run(argc, argv):
             t.daemon = True
             t.start()
     except:
-        log.exception("Cannot enable scrobbling")
+        log.exception("Cannot enable scrobbling. Please install pylast library with # pip install pylast")
     #
     # Run walker thread
     #
