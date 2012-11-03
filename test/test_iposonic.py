@@ -299,7 +299,7 @@ class TestUserIposonicDB:
                 'scrobbleUser': 'ioggstream',
                 'scrobblePassword': 'secret'
             })
-            print ("setting up user...%s", item)
+            print ("setting up user...%s" % item)
 
             session.add(item)
         session.commit()
@@ -317,10 +317,10 @@ class TestUserIposonicDB:
 
     def test_add_user(self):
         u = {
-                'password': 'mock_password',
-                'scrobbleUser': 'ioggstream',
-                'scrobblePassword': 'secret'
-            }
+            'password': 'mock_password',
+            'scrobbleUser': 'ioggstream',
+            'scrobblePassword': 'secret'
+        }
 
     def test_get_user(self):
         from mediamanager import MediaManager

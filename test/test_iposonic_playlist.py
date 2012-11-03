@@ -55,7 +55,7 @@ class TestUserIposonicDB:
                 'scrobbleUser': 'ioggstream',
                 'scrobblePassword': 'secret'
             })
-            print ("setting up user...%s", item)
+            print ("setting up user...%s"% item)
 
             session.add(item)
         session.commit()
