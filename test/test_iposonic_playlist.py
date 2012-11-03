@@ -1,6 +1,10 @@
+from __future__ import unicode_literals
+
 from iposonicdb import SqliteIposonicDB
-from test_iposonic import harn_setup, harn_load_fs2, tmp_dir
+from harnesses import harn_setup, harn_load_fs2
+from test_iposonic import tmp_dir
 from mediamanager import MediaManager
+from iposonic import EntryNotFoundException
 
 
 class TestPlaylistIposonicDB:
@@ -12,7 +16,7 @@ class TestPlaylistIposonicDB:
 
     def setup_playlist(self):
         item = self.db.Playlist("mock_playlist")
-        songs = str.join(",", [str(x.get('id')) for x in self.db.get_songs()])
+        songs = ",".join([str(x.get('id')) for x in self.db.get_songs()])
         item.update({'entry': songs})
 
         session = self.db.Session()
@@ -71,18 +75,25 @@ class TestUserIposonicDB:
         item = items[0]
         assert item.get('username') == 'mock_user', "No users: %s" % item
 
-    def test_add_user(self):
+    def test_add_remove_user(self):
         u = {
             'username': 'mock_user',
             'password': 'mock_password',
             'scrobbleUser': 'ioggstream',
             'scrobblePassword': 'secret'
         }
-        item = self.db.add_user(u)
-        assert item, "Item not working"
-        print ("retrieving item with id: %s" % item.id)
-        t = self.db.get_users(eid=item.id)
+        eid = self.db.add_user(u)
+        assert eid, "Item not working"
+        print ("retrieving item with id: %s" % eid)
+        t = self.db.get_users(eid=eid)
         assert 'username' in t, "Created %s" % t
+
+        self.db.delete_user(eid=eid)
+        try:
+            t = self.db.get_users(eid=eid)
+            assert False, "can't find user"
+        except EntryNotFoundException:
+            pass
 
     def test_get_user(self):
         from mediamanager import MediaManager

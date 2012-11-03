@@ -85,7 +85,8 @@ def get_indexes_view():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
     # refresh indexes
-    app.iposonic.refresh()
+    import scanner
+    scanner.q.put("refresh")
 
     #
     # XXX we should think to reimplement the
@@ -207,8 +208,11 @@ def get_music_directory_view():
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in getMusicDirectory.view")
     (path, dir_path) = app.iposonic.get_directory_path_by_id(dir_id)
+    mf = app.iposonic.db.music_folders[0]
+    dir_path = os.path.join("/", mf, dir_path)
+    log.info("Getting entries in path: %s" % dir_path)
     children = []
-    artist = app.iposonic.db.Artist(path)
+    artist = app.iposonic.db.Artist(dir_path)
     #
     # if nothing changed before our last visit
     #    or is a virtual path (eg. uniexistent)
@@ -250,7 +254,7 @@ def get_music_directory_view():
             #
             if not isinstance(child, unicode):
                 if not app.config.get('rename_non_utf8'):
-                    app.log.warn(
+                    log.warn(
                         "skipping non unicode path: %s " % to_unicode(child))
                     continue
                 child_new = to_unicode(child)
@@ -272,7 +276,7 @@ def get_music_directory_view():
                 try:
                     child_j = app.iposonic.get_entry_by_id(eid)
                 except IposonicException:
-                    app.iposonic.add_entry(path, album=is_dir)
+                    app.iposonic.add_path(path, album=is_dir)
                     child_j = app.iposonic.get_entry_by_id(eid)
 
                 children.append(child_j)

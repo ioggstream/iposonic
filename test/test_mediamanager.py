@@ -63,6 +63,17 @@ class TestMediaManager:
             'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
+        
+    def get_info_test_mp3_3(self):
+        file_name = "./test/data/edith_piaf/letoile_de_la_chanson/16_bal_dans_ma_rue.mp3"
+        parent = dirname(file_name)
+
+        expected = {
+            'title': 'bal dans ma rue',
+            'artist': 'Edith Piaf',
+            'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
+        }
+        self.get_info_harn(file_name, expected)
 
     def get_info_test_wma(self):
         file_name = "./test/data/sample.wma"
