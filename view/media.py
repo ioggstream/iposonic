@@ -13,6 +13,7 @@ from webapp import app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, UnsupportedMediaError
 from mediamanager.cover_art import CoverSource
+from mediamanager.scrobble import scrobble_many
 from urllib import urlopen
 import urllib2
 from mediamanager.lyrics import ChartLyrics
@@ -51,13 +52,32 @@ def stream_view():
             print("sending unchanged")
             return False
 
-    print("actual - bitRate: ", info.get('bitRate'))
+    log.info("actual - bitRate: %s" % info.get('bitRate'))
     assert os.path.isfile(path), "Missing file: %s" % path
+
+    # update now playing
+    try:
+        log.info("Update nowPlaying: %s for user: %s -> %s" % (eid,
+                 u, MediaManager.uuid(u)))
+        user = app.iposonic.update_user(
+            MediaManager.uuid(u), {'nowPlaying': eid})
+    except:
+        log.exception("Can't update nowPlaying for user: %s" % u)
+
     if is_transcode(maxBitRate, info):
-        return Response(_transcode_mp3(path, maxBitRate), direct_passthrough=True)
-    print("sending static file: %s" % path)
+        return Response(_transcode(path, maxBitRate), direct_passthrough=True)
+    log.info("sending static file: %s" % path)
     return send_file(path)
-    raise IposonicException("why here?")
+
+
+def _transcode(srcfile, maxBitRate, dstformat="ogg"):
+    cmd = ["transcoder/transcode.sh", srcfile, dstformat, maxBitRate]
+    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    while True:
+        data = srcfile.stdout.read(4096)
+        if not data:
+            break
+        yield data
 
 
 def _transcode_mp3(srcfile, maxBitRate):
@@ -94,9 +114,30 @@ def download_view():
 
 @app.route("/rest/scrobble.view", methods=['GET', 'POST'])
 def scrobble_view():
-    """Add song to last.fm"""
+    """Add song to last.fm
+
+        id	Yes		A string which uniquely identifies the file to scrobble.
+        time	No		(Since 1.8.0) The time (in milliseconds since 1 Jan 1970) at which the song was listened to.
+        submission	No	True	Whether this is a "submission" or a "now playing" notification.
+
+
+    """
+    from mediamanager.scrobble import q
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (eid, ts, submission) = map(
+        request.args.get, ['id', 'time', 'submission'])
+    assert eid, "Missing song id"
+
+    log.info("Retrieving scrobbling credentials")
+    lastfm_user = app.iposonic.get_users(MediaManager.uuid(u))
+    log.info("Scobbling credentials: %s" % lastfm_user)
+    # get song info and append timestamp
+    info = app.iposonic.get_entry_by_id(eid)
+    info.update({'timestamp': int(time.time())})
+    q.put(({
+        'username': lastfm_user.get('scrobbleUser'),
+        'password': lastfm_user.get('scrobblePassword')}, info))
 
     return request.formatter({})
 
@@ -224,13 +265,14 @@ def get_cover_art_file(eid, nocache=False):
     # otherwise we need to guess from item info,
     # and hit the database
     info = app.iposonic.get_entry_by_id(eid)
-    log.info("entry from db: %s" % info)
+    log.info("search cover_art requires media info from db: %s" % info)
 
     # search cover_art using id3 tag
     if not info.get('artist') or not info.get('album'):
         return None
 
     # if we're a CD collection, use parent
+    #   TODO add other patterns to "cd" eg. "disk", "volume"
     if info.get('isDir') and info.get('album').lower().startswith("cd"):
         info = app.iposonic.get_entry_by_id(info.get('parent'))
         log.info("album is a cd, getting parent info: %s" % info)
@@ -246,6 +288,7 @@ def get_cover_art_file(eid, nocache=False):
         cover_art_path = join(
             "/", app.iposonic.cache_dir, "%s" % info.get('parent'))
         if os.path.exists(cover_art_path):
+            log.info("successfully get cover_art from parent directory")
             return cover_art_path
 
     cover_art_path = join("/", app.iposonic.cache_dir,
@@ -302,12 +345,7 @@ def get_lyrics_view():
         title
     json_response: {lyrics: { artist: ..., title: ...} }
     xml_response: <lyrics artist="Muse" title="Hysteria">...."""
-    def lyrics_uuid(info):
-        return MediaManager.uuid("%s/%s" % (
-                                 MediaManager.normalize_artist(
-                                 info, stopwords=True),
-                                 info['title'].lower())
-                                 )
+
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
     (artist, title) = map(request.args.get, ['artist', 'title'])
@@ -315,7 +353,7 @@ def get_lyrics_view():
     assert  'null' not in [artist,
                            title], "A required field (artist,title) is empty."
     info = {'artist': artist, 'title': title}
-    lyrics_id = lyrics_uuid(info)
+    lyrics_id = MediaManager.lyrics_uuid(info)
     lyrics = get_lyrics(lyrics_id, info=info)
     assert 'lyrics' in lyrics, "Missing lyrics in %s" % lyrics
     ret = {'lyrics': {'artist': artist, 'title': title, '': [lyrics[

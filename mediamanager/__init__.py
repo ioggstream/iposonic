@@ -85,6 +85,14 @@ class MediaManager:
         return album.strip()
 
     @staticmethod
+    def lyrics_uuid(info):
+        return MediaManager.uuid("%s/%s" % (
+                                 MediaManager.normalize_artist(
+                                 info, stopwords=True),
+                                 info['title'].lower())
+                                 )
+
+    @staticmethod
     def cover_art_uuid(info):
             """Generate an un unique identifier for coverart."""
             return MediaManager.uuid("%s/%s" % (
@@ -286,6 +294,11 @@ class MediaManager:
                 except Exception as e:
                     MediaManager.log.warn ("Error parsing track or bitrate: %s" % e)
 
+                try: 
+                    ret['scrobbleId'] = MediaManager.lyrics_uuid(ret)
+                except:
+                    raise
+                    
                 MediaManager.log.info("Parsed id3: %s" % ret)
                 return ret
             except HeaderNotFoundError as e:

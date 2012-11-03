@@ -7,19 +7,22 @@ from os.path import join
 from iposonic import Iposonic, MediaManager, IposonicDB
 from iposonicdb import SqliteIposonicDB
 
+import logging
+logging.basicConfig(level=logging.INFO)
 #
 # Test configuration
 #
 tmp_dir = "/tmp/iposonic/"
 
 
-def harn_setup(klass, test_dir):
+def harn_setup(klass, test_dir, add_songs=True):
         klass.test_dir = os.getcwd() + test_dir
         klass.db = klass.dbhandler(
-            [klass.test_dir], dbfile=join(tmp_dir, "mock_iposonic"))
+            [klass.test_dir], dbfile="mock_iposonic")
+        klass.db.init_db()
         klass.db.reset()
-
-        klass.db.walk_music_directory()
+        if add_songs:
+            klass.db.walk_music_directory()
 
 
 def harn_load_fs2(klass):
@@ -174,10 +177,6 @@ class TestIposonicDB:
         assert self.db.get_music_folders()
 
     @SkipTest
-    def test_get_indexes(self):
-        raise NotImplemented
-
-    @SkipTest
     def test_get_albums(self):
         raise NotImplemented
 
@@ -209,7 +208,7 @@ class TestIposonicDB:
 
     def test_get_song_by_id(self):
         self.harn_load_fs()
-        assert self.id_l, "Empty id_l: %s" % id_l
+        assert self.id_l, "Empty id_l: %s" % self.id_l
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
             assert 'path' in info, "error processing eid: %s" % eid
@@ -281,3 +280,51 @@ class TestPlaylistIposonicDB:
         ret = self.db.get_playlists(eid=eid)
         assert ret, "Can't find playlist %s" % eid
         assert ret.get('name') == 'mock_playlist', "No playlists: %s" % ret
+
+
+class TestUserIposonicDB:
+    dbhandler = SqliteIposonicDB
+    # Harness
+    id_songs = []
+    id_artists = []
+    id_albums = []
+
+    def setup_user(self):
+        session = self.db.Session()
+        print ("setting up users...")
+        for unames in ["mock_user%s" % s for s in ['', 1, 2, 3]]:
+            item = self.db.User(unames)
+            item.update({
+                'password': 'mock_password',
+                'scrobbleUser': 'ioggstream',
+                'scrobblePassword': 'secret'
+            })
+            print ("setting up user...%s", item)
+
+            session.add(item)
+        session.commit()
+        session.close()
+
+    def setup(self):
+        harn_setup(self, tmp_dir, add_songs=False)
+        self.setup_user()
+
+    def test_get_users(self):
+        items = self.db.get_users()
+        print  items
+        item = items[0]
+        assert item.get('username') == 'mock_user', "No users: %s" % item
+
+    def test_add_user(self):
+        u = {
+                'password': 'mock_password',
+                'scrobbleUser': 'ioggstream',
+                'scrobblePassword': 'secret'
+            }
+
+    def test_get_user(self):
+        from mediamanager import MediaManager
+        eid = MediaManager.uuid('mock_user')
+        ret = self.db.get_users(eid)
+        assert ret, "Can't find user %s" % eid
+        assert ret.get('username') == 'mock_user', "No user: %s" % ret

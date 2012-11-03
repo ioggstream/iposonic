@@ -42,7 +42,14 @@ except:
     from iposonic import IposonicDB as Dbh
 
 log = logging.getLogger('iposonic-webapp')
-app = Flask(__name__)
+
+
+class IposonicApp(Flask):
+    """Iposonic app, a flask of iposonic and authorizer."""
+    iposonic = None
+
+
+app = IposonicApp(__name__)
 
 ###
 # The web
@@ -69,11 +76,11 @@ def ping_view():
     (u, p, v, c) = map(request.values.get, ['u', 'p', 'v', 'c'])
     iposonic = app.iposonic
     log.warn("config: %s" % app.config)
-    log.warn("songs: %s" % iposonic.db.get_songs())
-    log.warn("albums: %s" % iposonic.db.get_albums())
-    log.warn("artists: %s" % iposonic.db.get_artists())
-    log.warn("indexes: %s" % iposonic.db.get_indexes())
-    log.warn("playlists: %s" % iposonic.db.get_playlists())
+    log.warn("songs: %s" % len(iposonic.db.get_songs()))
+    log.warn("albums: %s" % len(iposonic.db.get_albums()))
+    log.warn("artists: %s" % len(iposonic.db.get_artists()))
+    #log.warn("indexes: %s" % iposonic.db.get_indexes())
+    #log.warn("playlists: %s" % iposonic.db.get_playlists())
 
     return request.formatter({})
 
@@ -133,15 +140,19 @@ def authorize():
     if not endpoint_requires_authentication(request, app):
         return
 
+    (u, p, v, c) = map(
+        request.args.get, ['u', 'p', 'v', 'c'])
+
+    # basic-auth has precedence over URI
     auth = request.authorization
     if auth:
         log.info(
             "Client sends basic-auth: %s:%s" % (auth.username, auth.password))
+        p_clear = auth.password
+        u = auth.username
+    else:
+        p_clear = hex_decode(p)
 
-    (u, p, v, c) = map(
-        request.args.get, ['u', 'p', 'v', 'c'])
-
-    p_clear = hex_decode(p)
     if not app.authorizer.authorize(u, p_clear):
         abort(401)
 
@@ -312,7 +323,7 @@ class ResponseHelper:
             'xmlns': "http://subsonic.org/restapi"
         })
         return simplejson.dumps({'subsonic-response': ret},
-                                indent=True,
+                                indent=False,
                                 encoding='latin_1')
 
     @staticmethod
@@ -329,7 +340,7 @@ class ResponseHelper:
         return "%s(%s)" % (
             callback,
             simplejson.dumps({'subsonic-response': ret},
-                             indent=True,
+                             indent=False,
                              encoding='utf-8')
         )
 

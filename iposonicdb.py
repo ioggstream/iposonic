@@ -12,6 +12,8 @@ from os.path import join, basename
 
 # logging
 import logging
+from sqlalchemy.orm.exc import NoResultFound
+logging.basicConfig(level=logging.INFO)
 
 from iposonic import (
     IposonicException,
@@ -121,6 +123,13 @@ class IposonicDBTables:
                 if k in self.__fields__:
                     if k.lower() == 'isdir':
                         v = (v.lower() == 'true')
+                    elif k == 'path':
+                        try:
+                            v = v.replace(app.config.get('collection')[0], '')
+                        except NameError:
+                            # outside the application context
+                            # don't need it
+                            pass
                     elif k.lower() in ['userrating',
                                        'averagerating',
                                        'duration',
@@ -176,8 +185,12 @@ class IposonicDBTables:
     class User(Base, SerializerMixin, UserDAO):
         __fields__ = UserDAO.__fields__
 
-        def __init__(self, name):
+        def __init__(self, username):
             Base.__init__(self)
+            self.update({
+                'id': MediaManager.uuid(username),
+                'username': username}
+            )
 
     class UserMedia(Base, SerializerMixin, UserMediaDAO):
         __fields__ = UserMediaDAO.__fields__
@@ -189,10 +202,32 @@ class IposonicDBTables:
 
 class SqliteIposonicDB(object, IposonicDBTables):
     """Store data on Sqlite
+
+        To use this class you have to:
+        # instantiate
+        db = SqliteIposonicDB()
+        # initialize db (required for embedded)
+        db.init_db()
+
+        This object implements connection to specific databases using two
+        decorators:
+        - connectable for read
+        - transactional for write
+
+        The DAO part is inherited from IposonicDBTables, containing:
+        - Album
+        - Artist
+        - Media
+        - Playlist
+        - User
+
+
     """
     log = logging.getLogger('SqliteIposonicDB')
     engine_s = "sqlite"
-    
+    sql_lock = Lock()
+
+    @synchronized(sql_lock)
     def connectable(fn):
         """add connectable semantics to a method.
 
@@ -206,16 +241,22 @@ class SqliteIposonicDB(object, IposonicDBTables):
             except (ProgrammingError, OperationalError) as e:
                 self.log.warn("Corrupted database: removing and recreating")
                 self.reset()
+            except NoResultFound:
+                # detailed logging for NoResultFound isn't needed.
+                # just propagate the exception
+                raise
             except Exception as e:
                 if len(args):
                     ret = to_unicode(args[0])
                 else:
                     ret = ""
-                self.log.exception(u"error: string: %s, ex: %s" % (ret.__class__, e))
+                self.log.exception(
+                    u"error: string: %s, ex: %s" % (ret.__class__, e))
                 raise
         connect.__name__ = fn.__name__
         return connect
 
+    @synchronized(sql_lock)
     def transactional(fn):
         """add transactional semantics to a method.
 
@@ -237,21 +278,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
                     ret = to_unicode(args[0])
                 else:
                     ret = ""
-                self.log.exception(u"error: string: %s, ex: %s" % (ret.__class__, e))
+                self.log.exception(
+                    u"error: string: %s, ex: %s" % (ret.__class__, e))
                 raise
         transact.__name__ = fn.__name__
         return transact
-
-    def create_uri(self):
-        if self.engine_s == 'sqlite':
-            return "%s:///%s" % (self.engine_s, self.dbfile)
-        elif self.engine_s.startswith('mysql'):
-            return "%s://%s:%s@%s/%s?charset=utf8" % (
-                self.engine_s,
-                self.user,
-                self.passwd,
-                self.host,
-                self.dbfile)
 
     def __init__(self, music_folders, dbfile="iposonic1",
                  refresh_interval=60, user="iposonic", passwd="iposonic",
@@ -266,7 +297,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
         # sql alchemy db connector
         self.engine = create_engine(
-            self.create_uri(), echo=False, convert_unicode=True)
+            self.create_uri(), echo=False, convert_unicode=True, encoding='utf8')
 
         #self.engine.raw_connection().connection.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
@@ -279,9 +310,20 @@ class SqliteIposonicDB(object, IposonicDBTables):
         self.datadir = datadir
         assert self.log.isEnabledFor(logging.INFO)
 
+    def create_uri(self):
+        if self.engine_s == 'sqlite':
+            return "%s:///%s" % (self.engine_s, self.dbfile)
+        elif self.engine_s.startswith('mysql'):
+            return "%s://%s:%s@%s/%s?charset=utf8" % (
+                self.engine_s,
+                self.user,
+                self.passwd,
+                self.host,
+                self.dbfile)
+
     def init_db(self):
         """On sqlite does nothing."""
-        if recreate_db:
+        if self.recreate_db:
             self.reset()
 
     def end_db(self):
@@ -292,7 +334,14 @@ class SqliteIposonicDB(object, IposonicDBTables):
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
 
+    #
+    # Query a-la-sqlalchemy supporting ordering and filtering
+    #
     def _query(self, table_o, query, eid=None, order=None, session=None):
+        """Query db and return json entries.
+
+           this method can't be use for modifying items
+        """
         assert table_o, "Table must not be null"
         order_f = None
         qmodel = session.query(table_o)
@@ -304,10 +353,11 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if order:
             (order_f, is_desc) = order
             order_f = table_o.__getattribute__(table_o, order_f)
-            self.log.debug("order: %s"% [order])
+            self.log.debug("order: %s" % [order])
             if is_desc:
                 order_f = order_f.desc()
 
+        # TODO does it works with (k,v) = query.popitem()?
         if query:
             for (k, v) in query.items():
                 field_o = table_o.__getattribute__(table_o, k)
@@ -325,9 +375,15 @@ class SqliteIposonicDB(object, IposonicDBTables):
         rs = rs.order_by(order_f).all()
         return [r.json() for r in rs]
 
-    def _query_id(self, eid, session=None):
+    def _query_id(self, eid, table=None, session=None):
+        """Get an entry by id. If table is unspecified
+           it will search in any.
+        """
         assert eid, "Missing eid"
-        for table_o in [self.Media, self.Album, self.Artist, self.Playlist]:
+        table_l = [self.Media, self.Album, self.Artist, self.Playlist]
+        if table:
+            table_l = [table]
+        for table_o in table_l:
             qmodel = session.query(table_o)
             try:
                 rs = qmodel.filter_by(id=eid)
@@ -345,6 +401,40 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if not rs:
             return []
         return [r.json() for r in rs.all()]
+
+    #
+    # User management
+    #
+    @connectable
+    def get_users(self, eid=None, query=None, session=None):
+        assert session
+        self.log.info("get_users: eid: %s, query: %s" % (eid, query))
+        return self._query(self.User, query, eid=eid, session=session)
+
+    #@transactional
+    def add_user(self, user):
+        entry = self.User(user.get('username'))
+        entry.update(user)
+        self.log.info("add_users: eid: %s, new: %s" % (entry, user))
+        return self.create_entry(entry)
+
+    @transactional
+    def update_user(self, eid, new, session=None):
+        assert session
+        self.log.info("get_users: eid: %s, new: %s" % (eid, new))
+        old = self._query_id(
+            eid, table=self.User, session=session).update(new)
+        self.log.info("user found, updating: %s" % old)
+
+    @transactional
+    def delete_user(self, eid, session=None):
+        assert session, "Missing Session"
+        assert eid, "Missing eid"
+        old = self._query_id(eid, table=self.User, session=session).delete()
+        self.log.info("user correctly deleted")
+    #
+    # Media management
+    #
 
     @connectable
     def get_song_list(self, eids=[], session=None):
@@ -482,7 +572,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
         """
-        self.log.info("walking: %s"% self.get_music_folders())
+        self.log.info("walking: %s" % self.get_music_folders())
 
         if time.time() - self.initialized < self.refresh_interval:
             return
@@ -531,18 +621,17 @@ class MySQLIposonicDB(SqliteIposonicDB):
     # mysql embedded
     import _mysqlembedded as _mysql
 
-    log = logging.getLogger('SqliteIposonicDB')
+    log = logging.getLogger('MySQLIposonicDB')
     engine_s = "mysql+mysqldb"
     driver = _mysql
 
-    sql_lock = Lock()
-
+    @synchronized(SqliteIposonicDB.sql_lock)
     def end_db(self):
         """MySQL requires teardown of connections and memory structures."""
         if self.initialized and self.driver:
             self.driver.server_end()
 
-    #@synchronized(sql_lock)
+    @synchronized(SqliteIposonicDB.sql_lock)
     def init_db(self):
         if self.initialized:
             return
