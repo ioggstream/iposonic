@@ -670,7 +670,7 @@ class Iposonic:
         """
         # TODO merge them or use sets
         return {
-            'artist': self.db.get_artists(query={'name': query}),
+            'artist': self.get_artists(query={'name': query}),
             'album': self.db.get_albums(query={'title': query}),
             'title': self.db.get_songs(query={'title': query})
         }

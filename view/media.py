@@ -72,7 +72,7 @@ def stream_view():
 
 def _transcode(srcfile, maxBitRate, dstformat="ogg"):
     cmd = ["transcoder/transcode.sh", srcfile, dstformat, maxBitRate]
-    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE, close_fds=True)
     while True:
         data = srcfile.stdout.read(4096)
         if not data:
@@ -86,7 +86,7 @@ def _transcode_mp3(srcfile, maxBitRate):
     cmd = ["/usr/bin/lame", "-S", "-v", "-b", "32", "-B", maxBitRate,
            srcfile, "-"]
     print("generate(): %s" % cmd)
-    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE, close_fds=True)
     while True:
         data = srcfile.stdout.read(4096)
         if not data:
