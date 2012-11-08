@@ -47,6 +47,7 @@ main(){
 	echo >&2 "srcfile: $srcfile"
         
 	$decoder "$srcfile" | $encoder $mbr 
+
 	
 }
 

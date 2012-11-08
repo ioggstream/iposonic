@@ -72,13 +72,21 @@ def stream_view():
 
 def _transcode(srcfile, maxBitRate, dstformat="ogg"):
     cmd = ["transcoder/transcode.sh", srcfile, dstformat, maxBitRate]
-    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE, close_fds=True)
-    while True:
-        data = srcfile.stdout.read(4096)
-        if not data:
-            break
-        yield data
-    srcfile.wait()
+    srcfile = subprocess.Popen(cmd, stdout=subprocess.PIPE, close_fds=True, preexec_fn=os.setsid)
+    try:
+        while True:
+            data = srcfile.stdout.read(4096)
+            if not data:
+                break
+            yield data
+    except:
+        log.exception("close connection while transcoding: killing process")
+        os.killpg(srcfile.pid, 15)
+        srcfile.kill()
+        raise
+    finally:
+        pass
+#        #srcfile.wait()
 
 
 def _transcode_mp3(srcfile, maxBitRate):
