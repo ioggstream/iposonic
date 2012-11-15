@@ -35,7 +35,7 @@ def stream_view():
 
     (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
 
-    print("request.headers: %s" % request.headers)
+    log.info("request.headers: %s" % request.headers)
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
@@ -49,11 +49,12 @@ def stream_view():
             if maxBitRate:
                 return maxBitRate < info.get('bitRate')
         except:
-            print("sending unchanged")
+            log.info("sending unchanged")
             return False
 
     log.info("actual - bitRate: %s" % info.get('bitRate'))
-    assert os.path.isfile(path), "Missing file: %s" % path
+    # XXX encode may be redundant here
+    assert os.path.isfile(path.encode('utf-8')), "Missing file: %s" % path.encode('utf-8','xmlcharrefreplace')
 
     # update now playing
     try:

@@ -208,6 +208,7 @@ def iposonic_error(e):
 
 @app.errorhandler(AssertionError)
 def iposonic_error_in_flow(e):
+    log.exception("Error: %s" % e)
     ret = {'error':
            [{
             'code': 0,

@@ -141,7 +141,7 @@ def walk_music_folder(iposonic):
                             except:
                                 iposonic.log.info("error: %s" % stringutils.to_unicode(f))
                 except:
-                    iposonic.log.warn("error traversing: %s" % path)
+                    iposonic.log.exception("error traversing: %s" % path)
 
     # do something when the app signals something
     while True:

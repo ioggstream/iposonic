@@ -325,7 +325,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if self.engine_s == 'sqlite':
             return "%s:///%s" % (self.engine_s, self.dbfile)
         elif self.engine_s.startswith('mysql'):
-            return "%s://%s:%s@%s/%s?charset=utf8" % (
+            return "%s://%s:%s@%s/%s?charset=utf8" % ( #setting &use_unicode=0 causes entry stored as ascii-encoded utf8
                 self.engine_s,
                 self.user,
                 self.passwd,
@@ -661,7 +661,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
         if not os.path.isdir(self.datadir):
             os.mkdir(self.datadir)
         self.driver.server_init(
-            ['ipython', "--no-defaults", "-h", self.datadir, '--bootstrap'], ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
+            ['ipython', "--no-defaults", "-h", self.datadir, '--bootstrap', '--character-set-server', 'utf8'], ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
 
         conn = self.driver.connection(user=self.user, passwd=self.passwd)
         try:
