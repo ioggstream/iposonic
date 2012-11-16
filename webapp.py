@@ -170,8 +170,9 @@ def set_content_type(response):
         response.headers['content-type'] = 'application/json'
 
     # Flask sets it by default
-    #if request.endpoint in ['get_cover_art_view']:
-    #    response.headers['content-type'] = 'application/octet-stream'
+    if request.endpoint in ['get_cover_art_view']:
+        response.headers['content-type'] = 'image/jpeg'
+        #response.headers['content-type'] = 'application/octet-stream'
 
     if not response.is_streamed and not request.endpoint in ['stream_view', 'download_view']:
         # response.data is byte, so before printing we need to
