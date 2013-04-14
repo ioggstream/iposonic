@@ -56,13 +56,13 @@ class MediaManager:
             artist = x.get('artist', x.get('name', x.get('Author'))).lower()
         except AttributeError:
             raise UnsupportedMediaError(
-                "Missing artist field (artist,name or Author) in: %s" % x)
+                "Missing artist field (artist, name or Author) in: %s" % x)
         artist = artist.replace('&', ' and ')
         if stopwords:
             artist = "".join([x for x in artist.split(
                 " ") if x not in MediaManager.stopwords])
         ret = MediaManager.re_notascii.sub("", artist)
-        MediaManager.log.debug("normalize_artist(%s): %s" % (x, ret))
+        MediaManager.log.debug("normalize_artist(%r): %r" % (x, ret))
         return ret
 
     @staticmethod
@@ -77,7 +77,7 @@ class MediaManager:
             album = x.get('album', x.get('parent')).lower()
         except AttributeError:
             raise UnsupportedMediaError(
-                "Missing album field (album,parent) in: %s" % x)
+                "Missing album field (album, parent) in: %s" % x)
         album = album.replace('&', ' and ')
         album = MediaManager.re_notes.sub("", album)
         album = MediaManager.re_notes_2.sub("", album)
@@ -86,6 +86,10 @@ class MediaManager:
 
     @staticmethod
     def lyrics_uuid(info):
+        """Create an UUID for song lyric. 
+
+           Raise UnsupportedMediaError if artist is missing
+        """
         return MediaManager.uuid("%s/%s" % (
                                  MediaManager.normalize_artist(
                                  info, stopwords=True),
@@ -94,7 +98,10 @@ class MediaManager:
 
     @staticmethod
     def cover_art_uuid(info):
-            """Generate an un unique identifier for coverart."""
+            """Generate an un unique identifier for coverart.
+
+               Raise UnsupportedMediaError if artist/album is missing
+            """
             return MediaManager.uuid("%s/%s" % (
                                      MediaManager.normalize_artist(info),
                                      MediaManager.normalize_album(info))
@@ -102,8 +109,9 @@ class MediaManager:
 
     @staticmethod
     def uuid(path):
-        # path should be byte[], so convert it
-        #   if it's unicode
+        """ path should be byte[], so encode it
+            if it's unicode
+        """
         data = path
         if isinstance(path, unicode):
             data = path.encode('utf-8')
@@ -162,7 +170,7 @@ class MediaManager:
         """Get track number, path, file size from file name."""
         #assert os.path.isfile(path)
 
-        try:
+        try: # TODO os.path.splitext 
             filename, extension = basename(path).rsplit(".", 1)
         except:
             filename, extension = basename(path), ""
@@ -190,7 +198,7 @@ class MediaManager:
         filename = basename(path_u)
 
         # strip extension
-        try:
+        try: # TODO os.path.splitext
             filename, extension = filename.rsplit(".", 1)
         except:
             extension = ""  # if no extension found
@@ -280,7 +288,12 @@ class MediaManager:
 
     @staticmethod
     def get_info(path):
-        """Get id3 or ogg info from a file.
+        """Get id3 or ogg info from a file. 
+
+           NB: get_info infers data from file path 
+               using get_info_from_filename2 and overrides
+               data with id3.
+
            "bitRate": 192,
            "contentType": "audio/mpeg",
            "duration": 264,
@@ -326,7 +339,11 @@ class MediaManager:
                 try:
                     ret['scrobbleId'] = MediaManager.lyrics_uuid(ret)
                 except:
-                    raise
+                    ret['scrobbleId'] = None
+                    # raise # TESTME what happens if I don't raise?
+
+                # Set default values for missing params
+                ret.setdefault('artist', 'WuMing')  
 
                 MediaManager.log.debug("Parsed id3: %s" % ret)
                 return ret
@@ -336,6 +353,7 @@ class MediaManager:
             except ID3NoHeaderError as e:
                 MediaManager.log.warn("Media has no id3 header: %s" % path)
             return None
+
         if not os.path.exists(path):
             raise UnsupportedMediaError("File does not exist: %s" % path)
 
@@ -355,7 +373,7 @@ class MediaManager:
                 except HeaderNotFoundError as e:
                     raise e
                 except ID3NoHeaderError as e:
-                    MediaManager.log.warn("Media has no id3 header: %s" % path)
+                    MediaManager.log.warn("Media has no id3 header: %r" % path)
 
     @staticmethod
     def get_track_number(x):

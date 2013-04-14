@@ -23,6 +23,10 @@ logging.basicConfig(level=logging.INFO)
 
 class TestMediaManager:
     def get_info_harn(self, file_name, expected):
+        """Harness  for testing MediaManager.get_info
+            - simulating iposonic getting file_name info and
+            - checking for the expected keys
+        """
         info = MediaManager.get_info(os.getcwd() + "/" + file_name)
         print("info: %s" % info)
         for f in expected.keys():
@@ -63,9 +67,31 @@ class TestMediaManager:
             'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
         }
         self.get_info_harn(file_name, expected)
-        
+
     def get_info_test_mp3_3(self):
         file_name = "./test/data/edith_piaf/letoile_de_la_chanson/16_bal_dans_ma_rue.mp3"
+        parent = dirname(file_name)
+
+        expected = {
+            'title': 'bal dans ma rue',
+            'artist': 'Edith Piaf',
+            'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
+        }
+        self.get_info_harn(file_name, expected)
+
+    def get_info_test_mp3_noartist_nodir(self):
+        file_name = "./test/data/noartist.mp3"
+        parent = dirname(file_name)
+
+        expected = {
+            'title': 'noartist',
+            'artist': 'WuMing',
+            'parent': MediaManager.uuid(join("/", os.getcwd(), parent))
+        }
+        self.get_info_harn(file_name, expected)
+
+    def get_info_test_mp3_noartist_withdir(self):
+        file_name = "./test/data/unexistent_artist/noartist.mp3"
         parent = dirname(file_name)
 
         expected = {
@@ -116,7 +142,8 @@ class TestMediaManager:
                 'title') == 'While my guitar gently weeps', "ret: %s" % info
 
     def test_get_info_from_name2_full_path(self):
-        for path in ['/opt/music/CSI/CSI - Kodemondo/Celluloide 03.ogg']:
+        for path in ['/opt/music/CSI/CSI - Kodemondo/Celluloide 03.ogg',
+            './test/data/unexistent_artist/noartist.mp3']:
             info = MediaManager.get_info_from_filename2(path)
             print "info: %s" % info
 

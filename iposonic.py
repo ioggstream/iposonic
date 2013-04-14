@@ -32,33 +32,10 @@ from mediamanager import stringutils
 import logging
 log = logging.getLogger('iposonic')
 
-
-class IposonicException(Exception):
-    """Generic Iposonic Exception"""
-    pass
+from datamanager.utils import jsonize
+from exc import *
 
 
-class EntryNotFoundException(IposonicException, KeyError):
-    """Entry not found."""
-    pass
-
-
-class SubsonicProtocolException(IposonicException):
-    """Request doesn't respect Subsonic API .
-
-        see: http://www.subsonic.org/pages/api.jsp
-    """
-    def __init__(self, request=None):
-        if request:
-            log.info("request: %s" % request.data)
-    pass
-
-
-class SubsonicMissingParameterException(SubsonicProtocolException):
-    """The request doesn't conform due to a missing parameter."""
-    def __init__(self, param, method, request=None):
-        SubsonicProtocolException.__init__(
-            self, "Missing required parameter: %s in %s", param, method)
 
 
 ##
@@ -147,7 +124,7 @@ class UserMediaDAO:
     __fields__ = ['eid', 'uid', 'mid', 'userRating', 'starred']
 
 
-class IposonicDBTables:
+class IposonicDBTables(object):
     """Class defining base & tables.
 
         TODO For sqlalchemy usage I should only override
@@ -200,7 +177,7 @@ class IposonicDBTables:
             self.update(self.get_info(name))
 
 
-class IposonicDB(object, IposonicDBTables):
+class IposonicDB(IposonicDBTables):
     """An abstract in-memory data store based on dictionaries.
 
         Implement your own backend.
@@ -381,7 +358,7 @@ class IposonicDB(object, IposonicDBTables):
             try:
                 ret.append(self.get_songs(eid=k))
             except Exception as e:
-                log.exception("error retrieving %s due %s" % (k, e))
+                log.exception("error retrieving %s " % k )
         return ret
 
     def add_path(self, path, album=False):
@@ -458,7 +435,7 @@ class IposonicDB(object, IposonicDBTables):
 #
 # IpoSonic
 #
-class Iposonic:
+class Iposonic(object):
     """Iposonic is a simple media server allowing to
         browse and stream music, managing playlists and
         cover arts.
@@ -492,21 +469,9 @@ class Iposonic:
 
         self.db = dbhandler(
             music_folders, recreate_db=recreate_db, datadir=tmp_dir)
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(logging.WARN)
 
-    def jsonize(fn):
-        def tmp(self, *args, **kwds):
-            item = fn(self, *args, **kwds)
-            print "running jsonize on %s" % item
 
-            if item:
-                if isinstance(item, list):
-                    return [x.json() for x in item]
-                else:
-                    return item.json()
-            return None
-        tmp.__name__ = fn.__name__
-        return tmp
 
     def __getattr__(self, method):
         """Proxies DB methods."""
@@ -529,7 +494,7 @@ class Iposonic:
 
         #    raise NotImplementedError("Method not found: %s" % method, e)
 
-    @jsonize
+     #@jsonize
     def get_artists(self, *args, **kwds):
         """Render artists in a webapp-able way."""
         return  self.db.get_artists(*args, **kwds)
@@ -544,6 +509,7 @@ class Iposonic:
     def get_entry_by_id(self, eid):
         ret = None
         for f in [self.get_artists, self.get_albums, self.get_songs]:
+            self.log.info("try to retrieve entry with %r" % f)
             try:
                 ret = f(eid)
             except EntryNotFoundException:
@@ -624,7 +590,7 @@ class Iposonic:
 
     def delete_user(self, eid):
         self.log.info("delete user: %s" % eid)
-        entry = self.db.delete_user(eid, new)
+        entry = self.db.delete_user(eid)
         return entry
     #
     # Retrieve
@@ -645,7 +611,7 @@ class Iposonic:
 
         # add album coverArt to each song
         # XXX find a smart way to get coverArt
-        if songs.__class__.__name__ == 'dict':
+        if isinstance(songs, dict):
             songs.update({'coverArt': songs.get('id')})
             return songs
 

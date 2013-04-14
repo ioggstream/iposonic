@@ -14,22 +14,16 @@ from flask import Flask
 from flask import request, abort
 
 import random
-import time
 import os
 
 
 import simplejson
 import logging
 
-
-from iposonic import (Iposonic,
-                      IposonicException,
-                      SubsonicProtocolException,
-                      SubsonicMissingParameterException,
-                      )
+from exc import *
 
 
-from mediamanager import MediaManager, UnsupportedMediaError, stringutils
+from mediamanager import stringutils
 import cgi
 
 #
@@ -38,6 +32,7 @@ import cgi
 try:
     #assert False
     from iposonicdb import MySQLIposonicDB as Dbh
+    #from iposonicdb import SqliteIposonicDB as Dbh
 except:
     from iposonic import IposonicDB as Dbh
 
@@ -167,11 +162,11 @@ def set_content_type(response):
     log.info("response is streamed: %s" % response.is_streamed)
 
     if f in ['jsonp', 'json'] and not response.is_streamed:
-        response.headers['content-type'] = 'application/json'
+        response.headers[b'content-type'] = 'application/json'
 
     # Flask sets it by default
     if request.endpoint in ['get_cover_art_view']:
-        response.headers['content-type'] = 'image/jpeg'
+        response.headers[b'content-type'] = 'image/jpeg'
         #response.headers['content-type'] = 'application/octet-stream'
 
     if not response.is_streamed and not request.endpoint in ['stream_view', 'download_view']:
@@ -227,7 +222,7 @@ def iposonic_generic_error(e):
             'message': "%s" % e
             }]
            }
-    log.exception(e)
+    log.exception(e) #TODO does it work?
     return request.formatter(ret, status='failed'), 404
 #
 # Helpers

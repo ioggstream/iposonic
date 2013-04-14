@@ -3,21 +3,29 @@
 from os.path import join
 from os import getcwd, walk
 import logging
-logging.basicConfig()
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
-
-def harn_setup(klass, test_dir, add_songs=True, dbfile=""):
-    """Setup the Iposonic dbhandler eventually adding songs to the DB."""
+def harn_setup_dbhandler_and_scan_directory(klass, test_dir, add_songs=True, dbfile=""):
+    """Setup the Iposonic dbhandler eventually adding songs to the DB.
+        
+        TODO pass db credential
+    """
+    log.info("setup dbhandler")
     klass.test_dir = getcwd() + test_dir
     klass.db = klass.dbhandler(
         [klass.test_dir], dbfile=dbfile)
+    #klass.db.recreate_db = True
     klass.db.init_db()
-    klass.db.reset()
+    #klass.db.reset() do not reset from here!
     if add_songs:
-        harn_load_fs2(klass)
+        log.info("adding songs")
+        harn_scan_music_directory(klass)
+    log.info("setup dbhandler ok")
 
 
-def harn_load_fs2(klass):
+def harn_scan_music_directory(klass):
+    log.info("scanning path")
     for (root, dirfile, files) in walk(klass.test_dir):
         for d in dirfile:
             path = join("/", root, d)

@@ -20,7 +20,6 @@ quickstart
 To run, just
 * install flask and the other dependencies with
 # pip install flask
-* configure your mp3 directory in webapp.py
 * run with
            # python main.py -c /music/folder
 * help yourself

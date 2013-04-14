@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 from nose import SkipTest
-from harnesses import harn_setup, harn_load_fs2
+from harnesses import harn_setup_dbhandler_and_scan_directory, harn_scan_music_directory
 import os
 from os.path import join
 
@@ -24,8 +24,8 @@ class TestIposonicDB:
     id_albums = []
     dbfile = ""
     def setup(self):
-        harn_setup(self, "/test/data", add_songs=False, dbfile=self.dbfile)
-        harn_load_fs2(self)
+        harn_setup_dbhandler_and_scan_directory(self, "/test/data", add_songs=False, dbfile=self.dbfile)
+        harn_scan_music_directory(self)
         #self.db.add_path("/tmp/")
 
     def _harn_load_fs(self):
@@ -53,9 +53,10 @@ class TestIposonicDB:
 
     def test_update_entry_artist(self):
         ret = self.db.get_artists()
-        assert ret and ret[0]
+        assert ret and ret[0], "Missing artists"
         eid = ret[0].get('id')
-        print "test_update_entry: record: %s" % eid
+        assert eid, "Missing eid in item %r" % ret
+        log.info("eid record: %r" % eid)
         self.db.update_entry(eid, {'userRating': 5})
         ret = self.db.get_artists(eid=eid)
         assert int(ret.get('userRating')) == 5, "Value was: %s" % ret
@@ -65,17 +66,17 @@ class TestIposonicDB:
         assert ret, "No artists in the DB"
         # name is a required field for an artist
         for artist in ret:
-            log.info("artist: %s" % artist)
+            log.info("artist: %r with id %r" % (artist, artist.get('id')))
             assert artist.get('name'), "Bad music_directories: %s" % artist
 
     def test_search_songs_by_artist(self):
-        harn_load_fs2(self)
+        harn_scan_music_directory(self)
         ret = self.db.get_songs(query={'artist': 'mock_artist'})
         assert ret[0]['title'], ret
 
     def test_get_song_by_id(self):
         #self.harn_load_fs()
-        harn_load_fs2(self)
+        harn_scan_music_directory(self)
         assert self.id_songs, "Empty id_songs: %s" % self.id_songs
         for eid in self.id_songs:
             info = self.db.get_songs(eid=eid)
@@ -83,7 +84,7 @@ class TestIposonicDB:
             assert 'created' in info, "missing created in %s" % info
 
     def test_search_songs_by_title(self):
-        harn_load_fs2(self)
+        harn_scan_music_directory(self)
         ret = self.db.get_songs(query={'title': 'mock_title'})
         info = ret[0]
         assert info['title'], ret
@@ -91,7 +92,7 @@ class TestIposonicDB:
         print info
 
     def test_get_indexes(self):
-        print self.db.get_indexes()
+        print self.db.get_indexes()         
 
     def test__search(self):
         artists = {'-1408122649': {'isDir': 'true', 'path': '/opt/music/mock_artist', 'name': 'mock_artist', 'id': '-1408122649'}}

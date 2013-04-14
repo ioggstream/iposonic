@@ -15,13 +15,13 @@ from test_iposonicdb_simple import TestIposonicDB
 class TestSqliteIposonicDB(TestIposonicDB):
     dbhandler = SqliteIposonicDB
 
-    def _setup(self):
+    def _setup(self):        
         self.id_songs = []
         self.id_artists = []
         self.id_albums = []
 
         self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.dbhandler([self.test_dir], dbfile="")
+        self.db = self.dbhandler([self.test_dir], dbfile="", user="root", password="lqsym")
         self.db.init_db()
         self.db.reset()
         self.db.add_path("/tmp/")
@@ -29,7 +29,8 @@ class TestSqliteIposonicDB(TestIposonicDB):
     def teardown(self):
         print "closing server"
         self.db.end_db()
-        pass  # os.unlink("meta.db")
+        # self.db.reset()
+        # os.unlink("meta.db")
 
     def test_get_songs(self):
         path = join(self.test_dir, "mock_artist/mock_album/sample.ogg")

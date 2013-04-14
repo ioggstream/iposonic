@@ -63,7 +63,6 @@ def add_or_log(path, album=False, iposonic=None):
 #
 
 def eventually_rename_child(child, dir_path, rename_non_utf8=True):
-    print ("eventually_rename_child")
     #
     # To manage non-utf8 filenames
     # the easiest thing is to rename
@@ -79,11 +78,12 @@ def eventually_rename_child(child, dir_path, rename_non_utf8=True):
     if not isinstance(child, unicode):
         if not rename_non_utf8:
             log.warn(
-                "skipping non unicode path: %s " % to_unicode(child))
+                "skipping non unicode path: %s " % repr(child))
             raise ValueError("Unsupported non utf-8 encoding")
         # guess the right encoding
         # then preserve the encoded string
         # while changing encoding
+        log.info("renaming child...")
         child_new = to_unicode(child)
         os.rename(
             b'%s/%s' % (dir_path.encode('utf-8'), child),
@@ -104,17 +104,17 @@ def walk_music_folder(iposonic):
             iposonic.log.error(e)
 
     for music_folder in iposonic.get_music_folders():
-        log.info("Walking into: %s" % music_folder)
+        log.info("Walking into: %r" % music_folder)
         # Assume artist names in utf-8
         artists_local = [x for x in os.listdir(
             music_folder) if os.path.isdir(join("/", music_folder, x))]
-        log.info("Local artists: %s" % artists_local)
+        log.info("Local artists: %r" % artists_local)
         #index all artists
         for a in artists_local:
             try:
-                iposonic.log.info(u"scanning artist: %s" % a)
+                iposonic.log.info("scanning artist: %s" % repr(a))
             except:
-                iposonic.log.info(u'cannot read object: %s' % a.__class__)
+                iposonic.log.warn(u'cannot read object: %r' % a)
             if a:
                 a = eventually_rename_child(a, music_folder)
                 path = join("/", music_folder, a)
@@ -123,25 +123,31 @@ def walk_music_folder(iposonic):
                 #
                 # Scan recurrently only if not refresh_always
                 #
+                dirpath, dirnames, filenames = None, None, None
                 try:
                     for dirpath, dirnames, filenames in os.walk(path):
                         for d in dirnames:
                             try:
                                 d = eventually_rename_child(d, dirpath)
-                                d = join("/", path, dirpath, d)
+                                d = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), d.encode('utf-8')).decode('utf-8')
+                                #d = join("/", path, dirpath, d)
                                 add_or_log(d, album=True)
                             except:
-                                iposonic.log.info("error: %s" % stringutils.to_unicode(d))
+                                iposonic.log.exception("error: %s, %s, %s" % repr(path), repr(dirpath), repr(d))
+                                #iposonic.log.info("error: %s, %s, %s" % stringutils.to_unicode(d))
 
                         for f in filenames:
                             try:
                                 p = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), f.encode('utf-8')).decode('utf-8')
-                                iposonic.log.info("p: %s" % stringutils.to_unicode(p))
+                                #p = join("/", path, dirpath, f)
+                                iposonic.log.info("p: %s" % repr(p))
                                 add_or_log(p)
-                            except:
-                                iposonic.log.info("error: %s" % stringutils.to_unicode(f))
+                            except Exception as e:
+                                iposonic.log.exception("error: %r" % f)
                 except:
-                    iposonic.log.exception("error traversing: %s" % path)
+                    iposonic.log.exception("error traversing: %s: %s %s %s" % (repr(path), repr(dirpath), repr(dirnames), repr(filenames)))
+                finally:
+                    iposonic.log.info("finish traversing: %r" % path)
 
     # do something when the app signals something
     while True:
@@ -161,4 +167,4 @@ def watch_music_folder(iposonic):
         try:
             wdd = wm.add_watch(path.encode('utf-8'), mask, rec=True)
         except Exception as e:
-            log.exception("error in watch thread: %s" % path)
+            log.exception("error in watch thread: %r" % path)

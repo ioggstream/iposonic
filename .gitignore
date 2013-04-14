@@ -1,3 +1,11 @@
 *.pyc
 *.py~
-
+*.mp3
+*.ogg
+*.flac
+*.fla
+*.bak
+*.log
+*.out
+*.wma
+.*

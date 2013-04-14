@@ -26,11 +26,13 @@ from mediamanager.stringutils import to_unicode
 # add local path for loading _mysqlembedded
 sys.path.insert(0, './lib')
 try:
+    assert False
     import _mysqlembedded
     sys.modules['_mysql'] = _mysqlembedded
-except:
+except (ImportError, AssertionError):
     #Fall back to mysql server module
-    pass
+    import _mysql
+    
 
 # SqlAlchemy for ORM
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
@@ -38,61 +40,17 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.query import Query
-from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
-from sqlalchemy.exc import ProgrammingError, OperationalError
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import OperationalError
+
+from datamanager.utils import LazyDeveloperMeta, transactional, synchronized
 
 from threading import Lock
-
-
-def synchronized(lock):
-    """ Synchronization decorator. """
-
-    def wrap(f):
-        def newFunction(*args, **kw):
-            lock.acquire()
-            try:
-                return f(*args, **kw)
-            finally:
-                lock.release()
-        return newFunction
-    return wrap
-
-
-class LazyDeveloperMeta(DeclarativeMeta):
-    """This class allows a lazy initialization of DAOs.
-
-       Just add __tablename__ and __fields__ attribute to a subclass
-       to associate a table.
-
-       Should subclass DeclarativeMeta because it should contain Base initialization methods.
-
-       TODO: make customizable columns types, but it's ok for small collections ;)
-       """
-    def __init__(klass, classname, bases, dict_):
-        """ Create a new class type.
-
-            DeclarativeMeta stores class attributes in dict_
-         """
-        # Additionally, set attributes on the new object.
-        is_pk = True
-        for name in dict_.get('__fields__', []):
-            if name in ['id', 'duration']:
-                kol = Integer()
-            elif name in ['path', 'entry']:
-                kol = String(192)
-            else:
-                kol = String(64)
-            setattr(
-                klass, name, Column(name, kol, primary_key=is_pk))
-            is_pk = False
-
-        # Return the new object using super().
-        return DeclarativeMeta.__init__(klass, classname, bases, dict_)
 
 Base = declarative_base(metaclass=LazyDeveloperMeta)
 
 
-class IposonicDBTables:
+class IposonicDBTables(object):
     """DAO classes and Serializing methods.
 
         Table definition and data gathering is moved
@@ -160,7 +118,14 @@ class IposonicDBTables:
                 self.__class__.__name__,
                 self.json().__repr__())
 
-    class Artist(ArtistDAO, Base, SerializerMixin):
+
+    # IMPORTANT! 
+    # The base-class order is meaningful because it impacts on 
+    # the method.resolution.order. The Artist unittest failed because
+    # the order was wrong. Look at the following 
+    # db.Artist.mro() = [ Artist, ArtistDAO, Base, SerializerMixin ]
+    # db.Album.mro() = [ Album, Base, SerializerMixin, object, AlbumDAO] 4
+    class Artist(Base, SerializerMixin,  ArtistDAO):
         __fields__ = ArtistDAO.__fields__
 
         def __init__(self, path_u):
@@ -209,7 +174,7 @@ class IposonicDBTables:
             self.update({'email': email, 'mid': mid})
 
 
-class SqliteIposonicDB(object, IposonicDBTables):
+class SqliteIposonicDB(IposonicDBTables):
     """Store data on Sqlite
 
         To use this class you have to:
@@ -233,71 +198,13 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     """
     log = logging.getLogger('SqliteIposonicDB')
+    log_queries = False
     engine_s = "sqlite"
     sql_lock = Lock()
 
-    @synchronized(sql_lock)
-    def connectable(fn):
-        """add connectable semantics to a method.
-
-        """
-        def connect(self, *args, **kwds):
-            session = self.Session()
-            kwds['session'] = session
-            try:
-                ret = fn(self, *args, **kwds)
-                return ret
-            except (ProgrammingError, OperationalError) as e:
-                self.log.exception(
-                    "Corrupted database: removing and recreating", e)
-                self.reset()
-            except orm.exc.NoResultFound as e:
-                # detailed logging for NoResultFound isn't needed.
-                # just propagate the exception
-                raise EntryNotFoundException(e)
-            except Exception as e:
-                if len(args):
-                    ret = to_unicode(args[0])
-                else:
-                    ret = ""
-                self.log.exception(
-                    u"error: string: %s, ex: %s" % (ret.__class__, e))
-                raise
-        connect.__name__ = fn.__name__
-        return connect
-
-    @synchronized(sql_lock)
-    def transactional(fn):
-        """add transactional semantics to a method.
-
-        """
-        def transact(self, *args, **kwds):
-            session = self.Session()
-            kwds['session'] = session
-            try:
-                ret = fn(self, *args, **kwds)
-                session.commit()
-                return ret
-            except (ProgrammingError, OperationalError) as e:
-                session.rollback()
-                self.log.exception(
-                    "Corrupted database: removing and recreating")
-                self.reset()
-            except Exception as e:
-                session.rollback()
-                if len(args):
-                    ret = to_unicode(args[0])
-                else:
-                    ret = ""
-                self.log.exception(
-                    u"error: string: %s, ex: %s" % (ret.__class__, e))
-                raise
-        transact.__name__ = fn.__name__
-        return transact
-
     def __init__(self, music_folders, dbfile="iposonic1",
                  refresh_interval=60, user="iposonic", passwd="iposonic",
-                 host="localhost", recreate_db=False, datadir="/tmp/iposonic"):
+                 host="localhost", recreate_db=False, datadir="/tmp/iposonic", loglevel=logging.INFO):
         self.music_folders = music_folders
 
         # database credentials
@@ -308,18 +215,18 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
         # sql alchemy db connector
         self.engine = create_engine(
-            self.create_uri(), echo=False, convert_unicode=True, encoding='utf8')
+            self.create_uri(), echo=self.log_queries, convert_unicode=True, encoding='utf8')
 
-        #self.engine.raw_connection().connection.text_factory = str
+        #self.engine.raw_connection().connectiosession.n.text_factory = str
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.initialized = 0
         self.refresh_interval = refresh_interval
         self.indexes = dict()
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(loglevel)
         self.initialized = False
         self.recreate_db = recreate_db
         self.datadir = datadir
-        assert self.log.isEnabledFor(logging.INFO)
+        assert self.log.isEnabledFor(logging.WARN)
 
     def create_uri(self):
         if self.engine_s == 'sqlite':
@@ -335,6 +242,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def init_db(self):
         """On sqlite does nothing."""
         if self.recreate_db:
+            self.log.info("recreate_db: True, recreating db")
             self.reset()
 
     def end_db(self):
@@ -342,9 +250,17 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     def reset(self):
         """Drop and recreate database. Reinstantiate session."""
+        self.log.warn("reset db:  and recreating tables")
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
 
+        c=    """
+            with self.engine.connect() as conn:
+                t = conn.begin()
+                Base.metadata.drop_all(bind=conn)
+                Base.metadata.create_all(bind=conn)
+                t.commit()
+        """
     def _query_and_format(self, table_o, query, eid=None, order=None, session=None):
         """Query and return json entries  .
 
@@ -363,10 +279,13 @@ class SqliteIposonicDB(object, IposonicDBTables):
     # Query a-la-sqlalchemy supporting ordering and filtering
     #
     def _query(self, table_o, query, eid=None, order=None, session=None):
-        """Query db and return database objects.
+        """Return database objects.
+            
+            They could be lazily loaded from DB
 
         """
         assert table_o, "Table must not be null"
+        self.log.info("_query: table_o: %r, query: %r" % (table_o, query))
         order_f = None
         qmodel = session.query(table_o)
         if eid:
@@ -428,7 +347,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     #
     # User management
     #
-    @connectable
+    @transactional
     def get_users(self, eid=None, query=None, session=None):
         assert session
         self.log.info("get_users: eid: %s, query: %s" % (eid, query))
@@ -459,7 +378,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
     # Media management
     #
 
-    @connectable
+    @transactional
     def get_song_list(self, eids=[], session=None):
         """return iterable"""
         ret = []
@@ -476,31 +395,31 @@ class SqliteIposonicDB(object, IposonicDBTables):
     def get_highest(self, session=None):
         return self._query_top(self.Media, self.Media.userRating, session=session)
 
-    @connectable
+    @transactional
     def get_songs(self, eid=None, query=None, session=None):
         assert session
         self.log.info("get_songs: eid: %s, query: %s" % (eid, query))
         return self._query_and_format(self.Media, query, eid=eid, session=session)
 
-    @connectable
+    @transactional
     def get_albums(self, eid=None, query=None, order=None, session=None):
         self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
         return self._query_and_format(self.Album, query, eid=eid, order=order, session=session)
 
-    @connectable
+    @transactional
     def get_playlists(self, eid=None, query=None, session=None):
         self.log.info("get_playlists: eid: %s, query: %s" % (eid, query))
         return self._query_and_format(self.Playlist, query, eid=eid, session=session)
 
-    @connectable
+    @transactional
     def get_artists(self, eid=None, query=None, order=None, session=None):
         """This method should trigger a filesystem initialization.
 
             returns a dict-array [{'id': .., 'name': .., 'path': .. }]
 
         """
-        self.log.info("get_artists: %s" % eid)
-        return self._query(self.Artist, query, eid=eid, order=order, session=session)
+        self.log.info("get_artists: eid: %s, query: %s" % (eid, query))
+        return self._query_and_format(self.Artist, query, eid=eid, order=order, session=session)
 
     def get_indexes(self):
         """Create a subsonic index getting artists from the database."""
@@ -508,9 +427,9 @@ class SqliteIposonicDB(object, IposonicDBTables):
         # indexes = { 'A' : {'artist': {'id': .., 'name': ...}}}
         #
         indexes = dict()
-        for artist_j in self.get_artists(order=('name', 1)):
+        for artist_j in self.get_artists(order=('name', 0)):
             a = artist_j.get('name')
-            artist_j = artist_j.json()
+            #artist_j = artist_j.json()
             if not a:
                 continue
             first = a[0:1].upper()
@@ -544,11 +463,17 @@ class SqliteIposonicDB(object, IposonicDBTables):
 
     @transactional
     def add_path(self, path, album=False, session=None):
-        self.log.info("add_path: %s, album=%s" % (path, album))
+        self.log.info("add_path: %r, album=%r" % (path, album))
         assert session
         eid = None
         record = None
         record_a = None
+
+        #
+        # find a way to manage this
+        # in a better way. paths should still
+        # be unicode!
+        # 
         if not isinstance(path, unicode):
             path_u = to_unicode(path)
         else:
@@ -560,7 +485,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                 record = self.Album(path)
             else:
                 record = self.Artist(path)
-            self.log.info("adding directory: %s, %s " % (eid, path_u))
+            self.log.info("adding directory: %r, %r " % (eid, path_u))
         elif MediaManager.is_allowed_extension(path_u):
             try:
                 record = self.Media(path)
@@ -572,7 +497,7 @@ class SqliteIposonicDB(object, IposonicDBTables):
                     record_a = self.Album(vpath)
                     record.albumId = MediaManager.uuid(vpath)
                 eid = record.id
-                self.log.info("adding file: %s, %s " % (
+                self.log.info("adding file: %r, %r " % (
                     eid, path_u))
             except UnsupportedMediaError, e:
                 raise IposonicException(e)
@@ -580,13 +505,13 @@ class SqliteIposonicDB(object, IposonicDBTables):
         if record and eid:
             record.update({'created': int(os.stat(path).st_ctime)})
 
-            self.log.info("Adding entry: %s " % record)
+            self.log.info("Adding entry: %r " % record)
             session.merge(record)
             if record_a:
                 session.merge(record_a)
             return eid
 
-        raise IposonicException("Path not found or bad extension: %s " % path)
+        raise IposonicException("Path not found or bad extension: %r " % (path))
 
     @transactional
     def walk_music_directory_depecated(self, session=None):
@@ -641,13 +566,14 @@ class MySQLIposonicDB(SqliteIposonicDB):
         you need to play with embedded.
     """
     # mysql embedded
-    import _mysqlembedded as _mysql
+    #import _mysqlembedded as _mysql
+    import _mysql
 
     log = logging.getLogger('MySQLIposonicDB')
     engine_s = "mysql+mysqldb"
     driver = _mysql
 
-    @synchronized(SqliteIposonicDB.sql_lock)
+    #@synchronized(SqliteIposonicDB.sql_lock)
     def end_db(self):
         """MySQL requires teardown of connections and memory structures."""
         if self.initialized and self.driver:
@@ -655,34 +581,52 @@ class MySQLIposonicDB(SqliteIposonicDB):
 
     @synchronized(SqliteIposonicDB.sql_lock)
     def init_db(self):
+        """This method don't use @transactional, but instantiates its own connection."""
         if self.initialized:
+            self.log.info("already initialized: %r" % self.datadir)
             return
-        self.log.info("initializing database in %s" % self.datadir)
+        self.log.info("initializing database in %r" % self.datadir)
         if not os.path.isdir(self.datadir):
             os.mkdir(self.datadir)
+            self.log.info("datadir created: %r" % self.datadir)
         self.driver.server_init(
-            ['ipython', "--no-defaults", "-h", self.datadir, '--bootstrap', '--character-set-server', 'utf8'], ['ipython_CLIENT', 'ipython_SERVER', 'embedded'])
+            ['ipython', "--no-defaults", "-h", self.datadir, '--bootstrap', '--character-set-server', 'utf8'], 
+            ['ipython_CLIENT', 'ipython_SERVER', 'embedded']
+            )
 
+        self.log.info("creating connection")
         conn = self.driver.connection(user=self.user, passwd=self.passwd)
         try:
+            self.log.debug("set autocommit == True")
             conn.autocommit(True)
-
+            
+            if self.recreate_db:
+                self.log.info("drop database")
+                #conn.query("drop database %s;" % self.dbfile)
+                conn.query("drop database if exists %s ;" % self.dbfile)
+                conn.store_result()
+    
+            self.log.info("eventually create database %r" % self.dbfile)
             conn.query("create database if not exists %s ;" % self.dbfile)
             conn.store_result()
 
             conn.query("use %s;" % self.dbfile)
             conn.store_result()
 
+            self.log.info("eventually create table iposonic")
             conn.query("create table if not exists iposonic(version text);")
             conn.store_result()
+            
             conn.query("insert into iposonic(version) values('0.0.1');")
             conn.store_result()
             assert not conn.error()
-        except:
-            raise
+        except OperationalError:
+            self.log.exception("Error in connection")
         finally:
+            self.log.info("Closing connection")
             conn.close()
         if self.recreate_db:
-            self.reset()
+            self.log.info("%s.__init__ recreates db" % self.__class__)
+            Base.metadata.create_all(self.engine)
         self.initialized = True
         #_mysql.server_end()

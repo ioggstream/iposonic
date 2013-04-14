@@ -13,7 +13,8 @@ from webapp import app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager, UnsupportedMediaError
 from mediamanager.cover_art import CoverSource
-from urllib import urlopen
+from urllib import urlopen, urlencode
+import simplejson
 import urllib2
 from mediamanager.lyrics import ChartLyrics
 #
@@ -25,6 +26,32 @@ log = logging.getLogger('view_media')
 
 @app.route("/rest/stream.view", methods=['GET', 'POST'])
 def stream_view():
+    """@params
+        - id=1409097050
+        - maxBitRate=0 TODO
+
+        Function to be run in another app to increase asyncronicity
+        
+        Calls:
+            - db.view               to get file info
+            - setnowplaying.view    to set now playing
+    """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+
+    (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
+
+    log.info("request.headers: %s" % request.headers)
+    if not eid:
+        raise SubsonicProtocolException(
+            "Missing required parameter: 'id' in stream.view")
+            
+    r_map = urlencode({'u':u, 'p': p, 'id': eid, 'f': 'json'})
+    info = simplejson.load(urlopen('http://127.0.0.1:5000/rest/db.view?'+ r_map))
+    print info
+    return send_file(info['subsonic-response']['path'])
+    
+def stream_view_old():
     """@params
         - id=1409097050
         - maxBitRate=0 TODO
@@ -102,6 +129,7 @@ def _transcode_mp3(srcfile, maxBitRate):
             break
         yield data
 
+    
 
 @app.route("/rest/download.view", methods=['GET', 'POST'])
 def download_view():
@@ -143,9 +171,14 @@ def scrobble_view():
         request.args.get, ['id', 'time', 'submission'])
     assert eid, "Missing song id"
 
+    if not u:
+        log.info("Cannot scrobble due to bad user value: %s" % repr(u))
+        assert u
+
     log.info("Retrieving scrobbling credentials")
     lastfm_user = app.iposonic.get_users(MediaManager.uuid(u))
     log.info("Scobbling credentials: %s" % lastfm_user)
+
     # get song info and append timestamp
     info = app.iposonic.get_entry_by_id(eid)
     info.update({'timestamp': int(time.time())})

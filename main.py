@@ -14,7 +14,7 @@
 #
 from __future__ import unicode_literals
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 
 import sys
 import os

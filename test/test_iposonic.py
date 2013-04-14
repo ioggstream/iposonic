@@ -37,7 +37,7 @@ class TestIposonic:
 
 
     def test_search_artists_by_name(self):
-        ret = self.iposonic.db.get_artists(query={'name': 'mock_artist'})
+        ret = self.db.get_artists(query={'name': 'mock_artist'})
         assert ret[0].get('name'), "ret: %s" % ret
 
     def test_search2_and_get_artist_and_title(self):
