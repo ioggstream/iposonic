@@ -15,7 +15,6 @@ from mediamanager import MediaManager, UnsupportedMediaError
 from mediamanager.cover_art import CoverSource
 from urllib import urlopen, urlencode
 import simplejson
-import urllib2
 from mediamanager.lyrics import ChartLyrics
 #
 # download and stream
@@ -45,11 +44,17 @@ def stream_view():
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
-            
+    
+    try:        
+        r_map = urlencode({'u':u, 'p': p, 'id': eid, 'f': 'json', 'id': eid})
+        simplejson.load(urlopen('http://127.0.0.1:5000/rest/setNowPlaying.view?'+ r_map))
+    except IOError:
+        log.exception("error while setNowPlaying")
+        
     r_map = urlencode({'u':u, 'p': p, 'id': eid, 'f': 'json'})
     info = simplejson.load(urlopen('http://127.0.0.1:5000/rest/db.view?'+ r_map))
-    print info
-    return send_file(info['subsonic-response']['path'])
+    info = info['subsonic-response']
+    return send_file(info['path'])
     
 def stream_view_old():
     """@params
@@ -81,7 +86,7 @@ def stream_view_old():
 
     log.info("actual - bitRate: %s" % info.get('bitRate'))
     # XXX encode may be redundant here
-    assert os.path.isfile(path.encode('utf-8')), "Missing file: %s" % path.encode('utf-8','xmlcharrefreplace')
+    assert os.path.isfile(path.encode('utf-8')), "Missing file: %r" % path.encode('utf-8','xmlcharrefreplace')
 
     # update now playing
     try:
@@ -90,7 +95,7 @@ def stream_view_old():
         user = app.iposonic.update_user(
             MediaManager.uuid(u), {'nowPlaying': eid})
     except:
-        log.exception("Can't update nowPlaying for user: %s" % u)
+        log.exception("Can't update nowPlaying for user: %r" % u)
 
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)
@@ -133,7 +138,9 @@ def _transcode_mp3(srcfile, maxBitRate):
 
 @app.route("/rest/download.view", methods=['GET', 'POST'])
 def download_view():
-    """@params
+    """Download the file with a given id. The id-path mapping is retieved via db.view.
+    
+        @params
         id=1409097050
         maxBitRate=0
 
@@ -141,10 +148,19 @@ def download_view():
     if not 'id' in request.args:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
-    info = app.iposonic.get_entry_by_id(request.args['id'])
-    assert 'path' in info, "missing path in song: %s" % info
+        
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
+
+    r_map = urlencode({'u':u, 'p': p, 'id': eid, 'f': 'json'})
+    info = simplejson.load(urlopen('http://127.0.0.1:5000/rest/db.view?'+ r_map))
+    info = info['subsonic-response']
     try:
         return send_file(info['path'])
+    except KeyError:
+        log.exception("missing path in song: %r" % info)
+        abort(404)
     except:
         abort(404)
     raise IposonicException("why here?")

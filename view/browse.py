@@ -13,9 +13,10 @@ import os
 from os.path import join
 os.path.supports_unicode_filenames = True
 
+from exc import *
+
 from flask import request
 from webapp import app, fs_cache
-from iposonic import IposonicException, SubsonicProtocolException
 from mediamanager import MediaManager
 from mediamanager.stringutils import isdir, to_unicode
 

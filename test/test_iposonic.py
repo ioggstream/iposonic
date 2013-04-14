@@ -3,7 +3,7 @@ from nose import *
 import os
 from os.path import join
 
-from harnesses import harn_setup, harn_load_fs2
+from harnesses import harn_setup_dbhandler_and_scan_directory as harn_setup,    harn_scan_music_directory as harn_load_fs2
 
 from iposonic import Iposonic
 

@@ -2,15 +2,11 @@
 # Views for querying database
 #
 #
-import os
-import sys
-import time
-import subprocess
 import logging
-from os.path import join
 from flask import request, send_file, Response, abort
 from webapp import app
-from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
+
+from exc import *
 from mediamanager import MediaManager, UnsupportedMediaError
 from mediamanager.cover_art import CoverSource
 from urllib import urlopen

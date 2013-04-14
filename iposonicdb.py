@@ -444,6 +444,7 @@ class SqliteIposonicDB(IposonicDBTables):
 
     @transactional
     def create_entry(self, entry, session=None):
+        """Create or Update an entry."""
         assert entry, "Entry is null"
         session.merge(entry)
         return entry.get('id')

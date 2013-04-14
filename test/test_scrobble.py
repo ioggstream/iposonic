@@ -95,7 +95,7 @@ def test_scrobble_many():
     }
     lastfm_user = {'username': 'ioggstream', 'password': 'secret'}
 
-    scrobble_mant([info, info], lastfm_user)
+    scrobble_many([info, info], lastfm_user)
 
 
 def test_get_album_1():

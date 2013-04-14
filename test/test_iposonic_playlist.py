@@ -1,14 +1,16 @@
 from __future__ import unicode_literals
-
-from iposonicdb import SqliteIposonicDB
-from harnesses import harn_setup, harn_load_fs2
+from nose import with_setup
+from iposonicdb import SqliteIposonicDB, MySQLIposonicDB
+from harnesses import harn_setup_dbhandler_and_scan_directory,    harn_scan_music_directory
 from test_iposonic import tmp_dir
 from mediamanager import MediaManager
 from iposonic import EntryNotFoundException
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 class TestPlaylistIposonicDB:
-    dbhandler = SqliteIposonicDB
+    dbhandler = MySQLIposonicDB
     # Harness
     id_songs = []
     id_artists = []
@@ -19,16 +21,20 @@ class TestPlaylistIposonicDB:
         songs = ",".join([str(x.get('id')) for x in self.db.get_songs()])
         item.update({'entry': songs})
 
+        # use session directly to avoid testing our methods with other methods
         session = self.db.Session()
-        session.add(item)
+        session.merge(item)
         session.commit()
         session.close()
 
     def setup(self):
-        harn_setup(self, "/test/data")
-        harn_load_fs2(self)
+        harn_setup_dbhandler_and_scan_directory(self, "/test/data")
+        harn_scan_music_directory(self)
 
         self.setup_playlist()
+        
+    def teardown(self):
+        self.db.end_db()
 
     def test_get_playlists(self):
         items = self.db.get_playlists()
@@ -43,7 +49,7 @@ class TestPlaylistIposonicDB:
 
 
 class TestUserIposonicDB:
-    dbhandler = SqliteIposonicDB
+    dbhandler = MySQLIposonicDB
     # Harness
     id_songs = []
     id_artists = []
@@ -61,20 +67,26 @@ class TestUserIposonicDB:
             })
             print ("setting up user...%s", item)
 
-            session.add(item)
+            session.merge(item)
         session.commit()
         session.close()
 
     def setup(self):
-        harn_setup(self, tmp_dir, add_songs=False)
+        harn_setup_dbhandler_and_scan_directory(self, tmp_dir, add_songs=False)
         self.setup_user()
 
+    def teardown(self):
+        self.db.end_db()
+    #
+    # Tests
+    #
     def test_get_users(self):
         items = self.db.get_users()
         print  items
         item = items[0]
         assert item.get('username') == 'mock_user', "No users: %s" % item
 
+    #@with_setup([setup, setup_user])
     def test_add_remove_user(self):
         u = {
             'username': 'mock_user',
@@ -96,7 +108,6 @@ class TestUserIposonicDB:
             pass
 
     def test_get_user(self):
-        from mediamanager import MediaManager
         eid = MediaManager.uuid('mock_user')
         ret = self.db.get_users(eid)
         assert ret, "Can't find user %s" % eid

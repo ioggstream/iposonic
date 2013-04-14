@@ -476,6 +476,7 @@ class Iposonic(object):
     def __getattr__(self, method):
         """Proxies DB methods."""
         if method in [
+            'music_folders',
             #'get_artists',
             'get_albums',
             'get_song_list',
@@ -490,7 +491,7 @@ class Iposonic(object):
             dbmethod = IposonicDB.__getattribute__(self.db, method)
             return dbmethod
 
-        return object.__getattr__(self, method)
+        return object.__getattribute__(self, method)
 
         #    raise NotImplementedError("Method not found: %s" % method, e)
 
