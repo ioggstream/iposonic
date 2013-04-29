@@ -20,13 +20,22 @@ quickstart
 To run, just
 * install flask and the other dependencies with
 # pip install flask
-* run with
-           # python main.py -c /music/folder
-* help yourself
-           # python main.py --help
+* run from the current directory with
+           # python . -c /music/folder --noauth
+* help yourself (enable authentication, ..)
+           # python . --help
 
 
 You can test methods adding some audio files in test / data / and messing with nose
+
+
+test
+====
+Test with nose
+# nosetest test/
+
+Pick a single test with
+# runtest.py test_mediamanager.TestMediaManager.get_info_test_mp3_noartist_nodir
 
 
 prerequisites
