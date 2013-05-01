@@ -5,7 +5,7 @@ from iposonicdb import MySQLIposonicDB
 import os
 from scanner import walk_music_folder, watch_music_folder
 
-
+@SkipTest
 def test_scanner_mysql():
     music_folders = [os.path.join("/", u"/opt/music/")]
     iposonic = Iposonic(music_folders,
@@ -22,7 +22,7 @@ def test_scanner_mysql():
 
     iposonic.db.end_db()
 
-
+@SkipTest
 def test_inotify_mysql():
     music_folders = [os.path.join("/", u"/opt/music/")]
     iposonic = Iposonic(music_folders,

@@ -31,10 +31,10 @@ import cgi
 #
 try:
     #assert False
-    from iposonicdb import MySQLIposonicDB as Dbh
+    from datamanager.mysql import MySQLIposonicDB as Dbh
     #from iposonicdb import SqliteIposonicDB as Dbh
 except:
-    from iposonic import IposonicDB as Dbh
+    from datamanager.inmemory import MemoryIposonicDB as Dbh
 
 log = logging.getLogger('iposonic-webapp')
 

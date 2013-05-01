@@ -11,8 +11,7 @@ from os.path import join
 from flask import request, send_file, Response, abort
 from webapp import app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
-from mediamanager import MediaManager, UnsupportedMediaError
-from mediamanager.cover_art import CoverSource
+from mediamanager import MediaManager
 from urllib import urlopen, urlencode
 import simplejson
 from mediamanager.lyrics import ChartLyrics

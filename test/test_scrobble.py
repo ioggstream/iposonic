@@ -69,7 +69,7 @@ def scrobble_many(info_l, lastfm_user):
         - lastfm_user from request.username
         """
     for x in ['artist', 'title']:
-        assert info.get(x), "Missing required field: %s" % x
+        assert info_l.get(x), "Missing required field: %s" % x
 
     network = pylast.LastFMNetwork(api_key=API_KEY, api_secret=
                                    API_SECRET, username=lastfm_user.get('username'), password_hash=pylast.md5(lastfm_user.get('password')))
@@ -99,8 +99,13 @@ def test_scrobble_many():
 
 
 def test_get_album_1():
-    network = pylast.LastFMNetwork(api_key=API_KEY, api_secret=
-                                   API_SECRET, username=lastfm_user.get('username'), password_hash=pylast.md5(lastfm_user.get('password')))
+    lastfm_user = {'username': 'ioggstream', 'password': 'secret'}
+    network = pylast.LastFMNetwork(** {
+            'api_key':API_KEY, 
+            'api_secret': API_SECRET, 
+            'username':lastfm_user.get('username'), 
+            'password_hash':pylast.md5(lastfm_user.get('password')) 
+            })
 
     top_albums = [(x.item.title, x.item.artist.name)
                   for x in u.get_top_albums()]

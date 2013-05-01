@@ -10,7 +10,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 class TestPlaylistIposonicDB:
-    dbhandler = MySQLIposonicDB
+    DBHandler = MySQLIposonicDB
     # Harness
     id_songs = []
     id_artists = []
@@ -49,7 +49,7 @@ class TestPlaylistIposonicDB:
 
 
 class TestUserIposonicDB:
-    dbhandler = MySQLIposonicDB
+    DBHandler = MySQLIposonicDB
     # Harness
     id_songs = []
     id_artists = []

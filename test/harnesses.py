@@ -11,16 +11,16 @@ def harn_setup_dbhandler_and_scan_directory(klass, test_dir, add_songs=True, dbf
         
         TODO pass db credential
     """
-    log.info("setup dbhandler")
+    log.info("setup DBHandler")
     klass.test_dir = getcwd() + test_dir
-    klass.db = klass.dbhandler(
+    klass.db = klass.DBHandler(
         [klass.test_dir], dbfile=dbfile)
     #klass.db.recreate_db = True
     klass.db.init_db()
     #klass.db.reset() do not reset from here!
     if add_songs:
         harn_scan_music_directory(klass)
-    log.info("setup dbhandler ok")
+    log.info("setup DBHandler ok")
 
 
 def harn_scan_music_directory(klass):

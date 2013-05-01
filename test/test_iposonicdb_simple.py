@@ -4,9 +4,7 @@ from harnesses import harn_setup_dbhandler_and_scan_directory, harn_scan_music_d
 import os
 from os.path import join
 
-from iposonic import IposonicDB
-from iposonicdb import SqliteIposonicDB
-from mediamanager import MediaManager
+from iposonic import MemoryIposonicDB 
 
 from logging import getLogger
 log = getLogger(__name__)
@@ -16,8 +14,8 @@ log = getLogger(__name__)
 tmp_dir = "/tmp/iposonic/"
 
 
-class TestIposonicDB:
-    dbhandler = IposonicDB
+class TestMemoryIposonicDB:
+    DBHandler = MemoryIposonicDB
     # Run the harnesses
     id_songs = []
     id_artists = []
@@ -96,7 +94,7 @@ class TestIposonicDB:
 
     def test__search(self):
         artists = {'-1408122649': {'isDir': 'true', 'path': '/opt/music/mock_artist', 'name': 'mock_artist', 'id': '-1408122649'}}
-        ret = IposonicDB._search(artists, {'name': 'mock_artist'})
+        ret = MemoryIposonicDB._search(artists, {'name': 'mock_artist'})
         assert '-1408122649' in ret[0].get(
             'id'), "Expected %s got %s" % ('-1408122649', ret)
 

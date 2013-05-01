@@ -4,7 +4,7 @@ from nose import *
 from mediamanager import *
 import os
 
-from iposonic import IposonicDB, UnsupportedMediaError
+from iposonic import MemoryIposonicDB as IposonicDB
 from mediamanager.cover_art import q, cover_art_worker
 
 

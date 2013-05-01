@@ -68,10 +68,7 @@ def run(argc, argv):
     parser.add_argument('-t', dest='tmp_dir', metavar=None, type=str,
                         nargs=None, default=os.path.expanduser('~/.iposonic'),
                         help='Temporary directory, defaults to ~/.iposonic')
-    parser.add_argument('--profile', metavar=None, type=bool,
-                        nargs='?', const=True, default=False,
-                        help='profile with yappi')
-
+    
     parser.add_argument(
         '--access-file', dest='access_file', action=None, type=str,
         default=os.path.expanduser('~/.iposonic_auth'),
@@ -93,6 +90,20 @@ def run(argc, argv):
         const=True, default=False, nargs='?',
         help='Rename non utf8 files to utf8 guessing encoding. When false, iposonic support only utf8 filenames.')
 
+    # host, port and execution options
+    parser.add_argument('-s', dest='server', metavar=None, type=str,
+                        nargs=None, required=False, default='0.0.0.0',
+                        help='server host (default 0.0.0.0)')
+    parser.add_argument('-p', dest='port', metavar=None, type=int,
+                        nargs=None, required=False, default=5000,
+                        help='server port (default 5000)')
+    
+    parser.add_argument('--profile', metavar=None, type=bool,
+                        nargs='?', const=True, default=False,
+                        help='profile with yappi')
+    parser.add_argument('--wsgi', metavar=None, type=bool,
+                        nargs='?', const=True, default=False,
+                        help='run with CherryPy containter')
     args = parser.parse_args()
     print(args)
 
@@ -144,17 +155,17 @@ def run(argc, argv):
         t.daemon = True
         t.start()
 
-    #app.run(host='0.0.0.0', port=5000, debug=False)
-
-    from cherrypy import wsgiserver
-    d = wsgiserver.WSGIPathInfoDispatcher({'/': app})
-    server = wsgiserver.CherryPyWSGIServer(('0.0.0.0', 5000), d)
-
-    try:
-        server.start()
-    except KeyboardInterrupt:
-        server.stop()
-
+    if args.wsgi:
+        from cherrypy import wsgiserver
+        d = wsgiserver.WSGIPathInfoDispatcher({'/': app})
+        server = wsgiserver.CherryPyWSGIServer((args.server, args.port), d)
+    
+        try:
+            server.start()
+        except KeyboardInterrupt:
+            server.stop()
+    else:
+        app.run(host=args.server, port=args.port, debug=False)
 
 if __name__ == "__main__":
     argc, argv = len(sys.argv), sys.argv
