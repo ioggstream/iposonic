@@ -12,17 +12,11 @@ from __future__ import unicode_literals
 
 from flask import Flask
 from flask import request, abort
-
 import random
 import os
-
-
 import simplejson
 import logging
-
 from exc import *
-
-
 from mediamanager import stringutils
 import cgi
 

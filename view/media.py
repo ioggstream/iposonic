@@ -12,7 +12,8 @@ from flask import request, send_file, Response, abort
 from webapp import app
 from iposonic import IposonicException, SubsonicProtocolException, SubsonicMissingParameterException
 from mediamanager import MediaManager
-from urllib import urlopen, urlencode
+from urllib import  urlencode
+from urllib2 import urlopen
 import simplejson
 from mediamanager.lyrics import ChartLyrics
 #
@@ -21,9 +22,7 @@ from mediamanager.lyrics import ChartLyrics
 log = logging.getLogger('view_media')
 
 
-
-@app.route("/rest/stream.view", methods=['GET', 'POST'])
-def stream_view():
+def stream_view_new():
     """@params
         - id=1409097050
         - maxBitRate=0 TODO
@@ -34,6 +33,8 @@ def stream_view():
             - db.view               to get file info
             - setnowplaying.view    to set now playing
     """
+    import socket
+    socket.setdefaulttimeout(2)
     (u, p, v, c, f, callback) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
@@ -45,16 +46,19 @@ def stream_view():
             "Missing required parameter: 'id' in stream.view")
     
     try:        
+        log.info("contact setNowPlaying.view")
         r_map = urlencode({'u':u, 'p': p, 'id': eid, 'f': 'json', 'id': eid})
-        simplejson.load(urlopen('http://127.0.0.1:5000/rest/setNowPlaying.view?'+ r_map))
+      #  simplejson.load(urlopen('http://localhost:5000/rest/setNowPlaying.view?'+ r_map, timeout=2))
     except IOError:
         log.exception("error while setNowPlaying")
-        
+    
+    log.info("contact db.view")
     r_map = urlencode({'u':u, 'p': p, 'id': eid, 'f': 'json'})
-    info = simplejson.load(urlopen('http://127.0.0.1:5000/rest/db.view?'+ r_map))
+    info = simplejson.load(urlopen('http://localhost:5000/rest/db.view?'+ r_map, timeout=2))
     info = info['subsonic-response']
     return send_file(info['path'])
-    
+  
+@app.route("/rest/stream.view", methods=['GET', 'POST'])    
 def stream_view_old():
     """@params
         - id=1409097050

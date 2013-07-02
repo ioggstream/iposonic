@@ -110,15 +110,15 @@ def get_album_list_view():
         albums = app.iposonic.get_albums()
         albums = randomize2_list(albums, size)
     elif type_a == 'highest':
-        log.info("getting ", type_a)
+        log.info("getting %r"% type_a)
         albums = app.iposonic.get_albums(
             query={'userRating': 'notNull'}, order=('userRating', 1))
     elif type_a == 'newest':
-        log.info("getting ", type_a)
+        log.info("getting %r" % type_a)
         albums = app.iposonic.get_albums(
             query={'created': 'notNull'}, order=('created', 1))
     elif type_a == 'starred':
-        log.info("getting ", type_a)
+        log.info("getting %r" % type_a)
         albums = app.iposonic.get_albums(query={'starred': 'notNull'})
     else:
         # get all albums...hey, they may be a lot!

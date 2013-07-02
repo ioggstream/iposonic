@@ -30,11 +30,11 @@ def get_cover_art_from_file(path):
     if f and 'APIC:' in f:
         assert False, "Trovata!"
         artwork = f.tags['APIC:'].data
-        with open('/tmp/iposonic/_cache/test_%s' % img_file, 'wb') as img:
+        with open(join('/tmp/iposonic/_cache/', 'test_%s' % img_file), 'wb') as img:
             img.write(artwork)
 
 
-class MediaManager:
+class MediaManager(object):
     """Class to manage media object."""
     ALLOWED_FILE_EXTENSIONS = ["mp3", "ogg", "wma"]
 
@@ -88,11 +88,12 @@ class MediaManager:
     def lyrics_uuid(info):
         """Create an UUID for song lyric. 
 
-           Raise UnsupportedMediaError if artist is missing
+           @raise UnsupportedMediaError if artist is missing
         """
-        return MediaManager.uuid("%s/%s" % (
+        return MediaManager.uuid(
+                                 os.path.join(
                                  MediaManager.normalize_artist(
-                                 info, stopwords=True),
+                                                               info, stopwords=True),
                                  info['title'].lower())
                                  )
 
@@ -102,7 +103,7 @@ class MediaManager:
 
                Raise UnsupportedMediaError if artist/album is missing
             """
-            return MediaManager.uuid("%s/%s" % (
+            return MediaManager.uuid(os.path.join(
                                      MediaManager.normalize_artist(info),
                                      MediaManager.normalize_album(info))
                                      )
@@ -198,11 +199,9 @@ class MediaManager:
         filename = basename(path_u)
 
         # strip extension
-        try: # TODO os.path.splitext
-            filename, extension = filename.rsplit(".", 1)
-        except:
-            extension = ""  # if no extension found
-
+        filename, extension = os.path.splitext(filename)
+        extension = extension[1:]
+        
         ret = {}
         # strip notes enclosed by () - eg. (cdno), (year) from filename
         m_notes = MediaManager.re_notes.search(filename)
@@ -212,10 +211,10 @@ class MediaManager:
 
                 filename = filename.replace(m_notes.group(), "").strip()
                 ret['year'] = int(notes)
-                MediaManager.log.debug("year: %s " % notes)
+                MediaManager.log.debug("year: %r " % notes)
 
             except:
-                MediaManager.log.debug("notes: %s" % notes)
+                MediaManager.log.debug("notes: %r" % notes)
 
         info_l = [x.strip(" -") for x in filename.split("-")]
         title, album, artist, track = (None, None, None, None)
@@ -338,7 +337,7 @@ class MediaManager:
                 # the interpreter and cache the lyrics
                 try:
                     ret['scrobbleId'] = MediaManager.lyrics_uuid(ret)
-                except:
+                except UnsupportedMediaError:
                     ret['scrobbleId'] = None
                     # raise # TESTME what happens if I don't raise?
 

@@ -21,6 +21,9 @@ ScrobbleNetwork = pylast.LastFMNetwork
 
 
 def scrobble_many(info_l, lastfm_user):
+    import socket
+    socket.setdefaulttimeout(timeout=3)
+
     """Scrobble a song to a given user.
 
         `info_l` songs: a  list  of info dict as represented in Media
@@ -34,8 +37,11 @@ def scrobble_many(info_l, lastfm_user):
         for x in ['artist', 'title']:
             assert info.get(x), "Missing required field: %s" % x
 
-    network = ScrobbleNetwork(api_key=API_KEY, api_secret=
-                              API_SECRET, username=lastfm_user.get('username'), password_hash=pylast.md5(lastfm_user.get('password')))
+    network = ScrobbleNetwork(api_key=API_KEY, 
+                              api_secret=API_SECRET, 
+                              username=lastfm_user.get('username'), 
+                              password_hash=pylast.md5(lastfm_user.get('password'))
+                            )
 
     ret = network.scrobble_many(info_l)
     return ret

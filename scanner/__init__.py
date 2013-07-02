@@ -78,7 +78,7 @@ def eventually_rename_child(child, dir_path, rename_non_utf8=True):
     if not isinstance(child, unicode):
         if not rename_non_utf8:
             log.warn(
-                "skipping non unicode path: %s " % repr(child))
+                "skipping non unicode path: %r " % child)
             raise ValueError("Unsupported non utf-8 encoding")
         # guess the right encoding
         # then preserve the encoded string
@@ -94,16 +94,16 @@ def eventually_rename_child(child, dir_path, rename_non_utf8=True):
     return child
 
 
-def walk_music_folder(iposonic):
+def walk_music_folder(iposonic_app, forever=True):
     log.info("Start walker thread")
 
     def add_or_log(path, album=False):
         try:
-            iposonic.add_path(path, album)
+            iposonic_app.add_path(path, album)
         except Exception as e:
-            iposonic.log.error(e)
+            iposonic_app.log.error(e)
 
-    for music_folder in iposonic.get_music_folders():
+    for music_folder in iposonic_app.get_music_folders():
         log.info("Walking into: %r" % music_folder)
         # Assume artist names in utf-8
         artists_local = [x for x in os.listdir(
@@ -112,9 +112,9 @@ def walk_music_folder(iposonic):
         #index all artists
         for a in artists_local:
             try:
-                iposonic.log.info("scanning artist: %s" % repr(a))
+                iposonic_app.log.info("scanning artist: %s" % repr(a))
             except:
-                iposonic.log.warn(u'cannot read object: %r' % a)
+                iposonic_app.log.warn(u'cannot read object: %s' % repr(a))
             if a:
                 a = eventually_rename_child(a, music_folder)
                 path = join("/", music_folder, a)
@@ -133,26 +133,26 @@ def walk_music_folder(iposonic):
                                 #d = join("/", path, dirpath, d)
                                 add_or_log(d, album=True)
                             except:
-                                iposonic.log.exception("error: %s, %s, %s" % repr(path), repr(dirpath), repr(d))
-                                #iposonic.log.info("error: %s, %s, %s" % stringutils.to_unicode(d))
+                                iposonic_app.log.exception("error: %s, %s, %s" % repr(path), repr(dirpath), repr(d))
+                                #iposonic_app.log.info("error: %s, %s, %s" % stringutils.to_unicode(d))
 
                         for f in filenames:
                             try:
                                 p = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), f.encode('utf-8')).decode('utf-8')
                                 #p = join("/", path, dirpath, f)
-                                iposonic.log.info("p: %s" % repr(p))
+                                iposonic_app.log.info("p: %s" % repr(p))
                                 add_or_log(p)
                             except Exception as e:
-                                iposonic.log.exception("error: %r" % f)
+                                iposonic_app.log.exception("error: %r" % f)
                 except:
-                    iposonic.log.exception("error traversing: %s: %s %s %s" % (repr(path), repr(dirpath), repr(dirnames), repr(filenames)))
+                    iposonic_app.log.exception("error traversing: %s: %s %s %s" % (repr(path), repr(dirpath), repr(dirnames), repr(filenames)))
                 finally:
-                    iposonic.log.info("finish traversing: %r" % path)
+                    iposonic_app.log.info("finish traversing: %r" % path)
 
     # do something when the app signals something
-    while True:
+    while forever:
         item = q.get()
-        log.exception("Do something with that messages: %s" % item)
+        log.exception("Do something with that messages: %r" % item)
         q.task_done()
 
 

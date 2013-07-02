@@ -463,7 +463,7 @@ class SqliteIposonicDB(IposonicDBTables):
         record_a = None
 
         #
-        # find a way to manage this
+        # should  manage this
         # in a better way. paths should still
         # be unicode!
         # 

@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 from nose import *
-from mediamanager import *
+from mediamanager import MediaManager
 import os
 
 from iposonic import MemoryIposonicDB as IposonicDB

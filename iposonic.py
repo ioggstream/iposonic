@@ -73,10 +73,8 @@ class Iposonic(object):
 
         # eventually create missing directories
         #   or die
-        if not os.path.isdir(tmp_dir):
-            os.mkdir(tmp_dir)
         if not os.path.isdir(self.cache_dir):
-            os.mkdir(self.cache_dir)
+            os.makedirs(self.cache_dir)
 
         self.db = dbhandler(
             music_folders, recreate_db=recreate_db, datadir=tmp_dir)
@@ -88,6 +86,7 @@ class Iposonic(object):
         """Proxies DB methods."""
         if method in [
             'music_folders',
+            'add_path',
             #'get_artists',
             'get_albums',
             'get_song_list',
@@ -172,7 +171,7 @@ class Iposonic(object):
     #   Create Update Delete
     #
 
-    def add_path(self, path, album=False):
+    def add_path_(self, path, album=False):
         """Add imageart related stuff here."""
         return self.db.add_path(path, album)
 

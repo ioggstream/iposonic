@@ -24,8 +24,6 @@ from threading import Thread
 
 from iposonic import Iposonic
 
-from webapp import Dbh
-
 from webapp import app, log
 from authorizer import Authorizer
 
@@ -61,7 +59,7 @@ def run(argc, argv):
 
     parser = argparse.ArgumentParser(
         description='Iposonic is a SubSonic compatible streaming server.'
-        + 'Run with #python ./main.py -c /opt/music')
+        + 'Run with #python ./__main__.py -c /opt/music')
     parser.add_argument('-c', dest='collection', metavar=None, type=str,
                         nargs="+", required=True,
                         help='Music collection path')
@@ -104,6 +102,9 @@ def run(argc, argv):
     parser.add_argument('--wsgi', metavar=None, type=bool,
                         nargs='?', const=True, default=False,
                         help='run with CherryPy containter')
+    parser.add_argument('--db', dest='dbstring', metavar=None, type=str,
+                    nargs=None, required=False, default='mysql',
+                    help='server host (default 0.0.0.0)')
     args = parser.parse_args()
     print(args)
 
@@ -115,8 +116,20 @@ def run(argc, argv):
     for x in args.collection:
         assert(os.path.isdir(x)), "Missing music folder: %s" % x
 
-    app.iposonic = Iposonic(args.collection, dbhandler=Dbh,
-                            recreate_db=args.resetdb, tmp_dir=args.tmp_dir)
+    try:
+        if args.dbstring == 'mysql':
+            from datamanager.mysql import MySQLIposonicDB as Dbh
+        elif args.dbstring == 'sqlite':
+            from datamanager.sqlite import SqliteIposonicDB as Dbh
+        else:
+            raise ImportError('Pick a supported db')
+    except ImportError:
+            from datamanager.inmemory import MemoryIposonicDB as Dbh
+
+    app.iposonic = Iposonic(args.collection, 
+                            dbhandler=Dbh,
+                            recreate_db=args.resetdb, 
+                            tmp_dir=args.tmp_dir)
     app.iposonic.db.init_db()
 
     # While developing don't enforce authentication
@@ -165,7 +178,7 @@ def run(argc, argv):
         except KeyboardInterrupt:
             server.stop()
     else:
-        app.run(host=args.server, port=args.port, debug=False)
+        app.run(host=args.server, port=args.port, debug=True)
 
 if __name__ == "__main__":
     argc, argv = len(sys.argv), sys.argv

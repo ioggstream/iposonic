@@ -27,7 +27,7 @@ class TestSqliteIposonicDB(TestMemoryIposonicDB):
         self.id_albums = []
 
         self.test_dir = os.getcwd() + "/test/data/"
-        self.db = self.DBHandler([self.test_dir], dbfile="", user="root", password="lqsym")
+        self.db = self.DBHandler([self.test_dir], dbfile="", user="root", password="secret")
         self.db.init_db()
         self.db.reset()
         self.db.add_path("/tmp/")

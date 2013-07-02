@@ -6,7 +6,7 @@ from hashlib import md5
 log = logging.getLogger('iposonic-authorizer')
 
 
-class Authorizer:
+class Authorizer(object):
     """A simple authorizer."""
     users = dict()
 
