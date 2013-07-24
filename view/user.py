@@ -75,14 +75,14 @@ def update_user_view():
     (u, p, v, c, f, callback, eid) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback','id'])
     
-    new_user = { k: request.args.get(k) for k in [
+    new_user = dict([ (k, request.args.get(k)) for k in [
                                                           'password',
                                                           'email',
                                                           'scrobbleUser',
                                                           'scrobblePassword',
                                                           'nowPlaying'
                                                           ] if request.args.get(k)
-                }
+                ])
     log.info("updating with the following fields: %r" % new_user)
     new_user = app.iposonic.db.update_user(eid=eid, new=new_user)
     log.warn("updated user: %s " % new_user)
