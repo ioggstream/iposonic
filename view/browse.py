@@ -4,9 +4,9 @@
 #
 #
 from __future__ import unicode_literals
-
+import config
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=config.loglevel)
 log = logging.getLogger("iposonic-browse")
 
 import os

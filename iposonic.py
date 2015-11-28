@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 import os
 import re
 from os.path import join, basename, dirname
-
+from operator import itemgetter
 #
 # manage media files
 #
@@ -164,7 +164,7 @@ class Iposonic(object):
         items = []
         for (name, artists) in self.db.get_indexes().iteritems():
             items.append(
-                {'name': name, 'artist': [v['artist'] for v in artists]})
+                {'name': name, 'artist': [v['artist'] for v in sorted(artists, key=itemgetter('artist'))]})
         return {'index': items}
 
     #

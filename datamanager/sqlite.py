@@ -3,7 +3,8 @@
 #  for storing songs, albums and artists
 #  Those entities require and id
 # -*- coding: utf-8 -*-
-#from __future__ import unicode_literals
+from __future__ import unicode_literals
+import config
 
 import os
 import sys
@@ -12,8 +13,7 @@ from os.path import join, basename
 
 # logging
 import logging
-from sqlalchemy import orm
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=config.loglevel)
 
 from iposonic import (
     IposonicException, EntryNotFoundException)
@@ -27,6 +27,7 @@ from mediamanager.stringutils import to_unicode
 
 
 # SqlAlchemy for ORM
+from sqlalchemy import orm
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
@@ -196,7 +197,7 @@ class SqliteIposonicDB(IposonicDBTables):
 
     def __init__(self, music_folders, dbfile="iposonic1",
                  refresh_interval=60, user="iposonic", passwd="iposonic",
-                 host="localhost", recreate_db=False, datadir="/tmp/iposonic", loglevel=logging.INFO):
+                 host="localhost", recreate_db=False, datadir="/tmp/iposonic", loglevel=logging.WARN):
         self.music_folders = music_folders
 
         # database credentials

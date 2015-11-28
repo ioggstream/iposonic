@@ -10,11 +10,11 @@
 # TODO manage argv for:
 #   * music_folders
 #   * authentication backend
-#   * reset db
 #
 from __future__ import unicode_literals
+import config
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=config.loglevel)
 
 import sys
 import os
@@ -90,7 +90,7 @@ def run(argc, argv):
 
     # host, port and execution options
     parser.add_argument('-s', dest='server', metavar=None, type=str,
-                        nargs=None, required=False, default='0.0.0.0',
+                        nargs=None, required=False, default='127.0.0.1',
                         help='server host (default 0.0.0.0)')
     parser.add_argument('-p', dest='port', metavar=None, type=int,
                         nargs=None, required=False, default=5000,

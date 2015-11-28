@@ -1,4 +1,5 @@
 """Data manager decorators and paradigms."""
+from __future__ import unicode_literals
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from sqlalchemy import Column, Integer, String

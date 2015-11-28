@@ -25,14 +25,14 @@ def encode_safe(f):
     def t(path):
         for e in encodings:
             try:
-                return f(path.encode(e))
+                return f(path.decode('utf-8').encode(e))
             except UnicodeEncodeError, UnicodeDecodeError:
                 pass
         return UnicodeEncodeError("Cannot find encoding for type: %s" % type(path))
     return t
 
 
-@encode_safe
+#@encode_safe
 def isdir(path):
     return os.path.isdir(path)
 

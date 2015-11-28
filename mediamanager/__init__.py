@@ -5,6 +5,8 @@ from mutagen import File
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
+from mutagen.mp4 import MP4
+from mutagen.flac import FLAC
 import mutagen.oggvorbis
 import mutagen.asf
 import re
@@ -36,7 +38,7 @@ def get_cover_art_from_file(path):
 
 class MediaManager(object):
     """Class to manage media object."""
-    ALLOWED_FILE_EXTENSIONS = ["mp3", "ogg", "wma"]
+    ALLOWED_FILE_EXTENSIONS = ["mp3", "ogg", "wma", "flac", "m4a", "mp4"]
 
     log = logging.getLogger('MediaManager')
     re_track_1 = re.compile("([0-9]+)?[ -_]+(.*)")
@@ -138,6 +140,10 @@ class MediaManager(object):
             return MediaManager.mp3_tag_manager
         if path.endswith("ogg"):
             return mutagen.oggvorbis.Open
+        if path.endswith("flac"):
+            return mutagen.flac.FLAC
+        if path.endswith(("mp4","m4a")):
+            return mutagen.mp4.MP4
         if path.endswith("wma"):
             return mutagen.asf.Open
         raise UnsupportedMediaError(
@@ -158,10 +164,10 @@ class MediaManager(object):
             ret = mutagen.id3.Open(path)
             return {
                     'title' : ret.get('TIT2').text,
-                    'track': ret.get('TRCK').text,
-                    'artist': ret.get('TPE1').text,
-                    'album': ret.get('TALB').text,
-                    'genre': ret.get('TCON').text
+                    'track': getattr(ret.get('TRCK'), 'text', 0),
+                    'artist': getattr(ret.get('TPE1'), 'text', 'WuMing'),
+                    'album': getattr(ret.get('TALB'), 'text', 'WuMingAlbum'),
+                    'genre': getattr(ret.get('TCON'), 'text', 'WuMingGenre')
                     }
                 
         raise HeaderNotFoundError()
@@ -306,10 +312,11 @@ class MediaManager(object):
             try:
                 path_u = to_unicode(path)
                 # get basic info
-                ret = MediaManager.get_info_from_filename2(path)
+                ret = MediaManager.get_info_from_filename2(path_u)
 
-                manager = MediaManager.get_tag_manager(path)
-                audio = manager(path.encode('utf-8'))
+                manager = MediaManager.get_tag_manager(path_u)
+                audio = manager(path)
+                #audio = manager(path.encode('utf-8'))
                 MediaManager.log.debug("Original id3: %s" % audio)
                 
                 # Add only non-null fields

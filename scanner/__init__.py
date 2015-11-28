@@ -10,11 +10,11 @@ from os.path import join, basename
 #from pyinotify import ProcessEvent, WatchManager, IN_DELETE, IN_CREATE, ThreadedNotifier
 from mediamanager.stringutils import to_unicode
 from Queue import Queue
-from mediamanager import stringutils
+from mediamanager import stringutils, MediaManager
 
 q = Queue()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def add_or_log(path, album=False, iposonic=None):
     try:
         iposonic.add_path(path, album)
     except Exception as e:
-        iposonic.log.error(e)
+        iposonic.log.exception("Errore generico in add_or_log")
 
 
 
@@ -83,25 +83,34 @@ def eventually_rename_child(child, dir_path, rename_non_utf8=True):
         # guess the right encoding
         # then preserve the encoded string
         # while changing encoding
-        log.info("renaming child...")
+        log.info("renaming child...%r", child)
         child_new = to_unicode(child)
-        os.rename(
-            b'%s/%s' % (dir_path.encode('utf-8'), child),
-            b'%s/%s' % (
-                dir_path.encode('utf-8'), child_new.encode('utf-8'))
-        )
+#        os.rename(
+#            b'%s/%s' % (dir_path.encode('utf-8'), child),
+#            b'%s/%s' % (
+#                dir_path.encode('utf-8'), child_new.encode('utf-8'))
+#        )
+        try:
+            src = b'%s/%s' % (dir_path.encode('utf-8'), bytes(child))
+            dst = b'%s/%s' % (dir_path.encode('utf-8'), child_new.encode('utf-8'))
+            os.rename(src, dst)
+        except:
+            log.exception("Unicode Error with %r %r %r" % (dir_path, type(dir_path), dir_path.encode('utf-8')))
+            raise UnicodeDecodeError
         child = child_new
     return child
 
 
 def walk_music_folder(iposonic_app, forever=True):
+    # Filesystem wolking should be moved to bytes instead
+    #   of unicode
     log.info("Start walker thread")
 
     def add_or_log(path, album=False):
         try:
             iposonic_app.add_path(path, album)
         except Exception as e:
-            iposonic_app.log.error(e)
+            iposonic_app.log.exception("Generic error")
 
     for music_folder in iposonic_app.get_music_folders():
         log.info("Walking into: %r" % music_folder)
@@ -116,7 +125,11 @@ def walk_music_folder(iposonic_app, forever=True):
             except:
                 iposonic_app.log.warn(u'cannot read object: %s' % repr(a))
             if a:
-                a = eventually_rename_child(a, music_folder)
+                try:
+                    a = eventually_rename_child(a, music_folder)
+                except:
+                    log.exception("error adding %r" % a)
+                    continue
                 path = join("/", music_folder, a)
                 add_or_log(path)
 
@@ -125,23 +138,29 @@ def walk_music_folder(iposonic_app, forever=True):
                 #
                 dirpath, dirnames, filenames = None, None, None
                 try:
-                    for dirpath, dirnames, filenames in os.walk(path):
+                    for dirpath, dirnames, filenames in os.walk(path.encode('utf-8')):
+                        # note: as path is encoded, dirpath, dirnames and filenames are bytes
+                        #       and not unicode
                         for d in dirnames:
                             try:
-                                d = eventually_rename_child(d, dirpath)
-                                d = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), d.encode('utf-8')).decode('utf-8')
-                                #d = join("/", path, dirpath, d)
+                                # d = eventually_rename_child(d, dirpath)
+                                d = join(b"/", path.encode('utf-8'), dirpath, d).decode('utf-8')
                                 add_or_log(d, album=True)
                             except:
-                                iposonic_app.log.exception("error: %s, %s, %s" % repr(path), repr(dirpath), repr(d))
+                                iposonic_app.log.exception("error: %s, %s, %s" % (repr(path), repr(dirpath), repr(d)))
                                 #iposonic_app.log.info("error: %s, %s, %s" % stringutils.to_unicode(d))
 
                         for f in filenames:
                             try:
-                                p = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), f.encode('utf-8')).decode('utf-8')
-                                #p = join("/", path, dirpath, f)
+                                #if not any([ x for x in MediaManager.ALLOWED_FILE_EXTENSIONS if f[:-4].lower().endswith(x) ]):
+                                if not f[:-4].decode('utf-8','ignore').lower().endswith(tuple(MediaManager.ALLOWED_FILE_EXTENSIONS)):
+                                    continue
+                                #p = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), f.encode('utf-8')).decode('utf-8')
+                                p = join("/", path, dirpath, f)
                                 iposonic_app.log.info("p: %s" % repr(p))
                                 add_or_log(p)
+                            except UnicodeDecodeError as e:
+                                iposonic_app.log.warn("bad file name: %r" % f)
                             except Exception as e:
                                 iposonic_app.log.exception("error: %r" % f)
                 except:
@@ -156,15 +175,15 @@ def walk_music_folder(iposonic_app, forever=True):
         q.task_done()
 
 
-def watch_music_folder(iposonic):
+def watch_music_folder(iposonic_app):
     #Pyionotify
     wm = WatchManager()
     mask = IN_DELETE | IN_CREATE
-    notifier = ThreadedNotifier(wm, ProcessDir(iposonic))
+    notifier = ThreadedNotifier(wm, ProcessDir(iposonic_app))
     notifier.start()
-    for path in iposonic.get_music_folders():
-        log.info("watching path: %s" % path)
+    for path in iposonic_app.get_music_folders():
+        iposonic_app.log.info("watching path: %s" % path)
         try:
             wdd = wm.add_watch(path.encode('utf-8'), mask, rec=True)
         except Exception as e:
-            log.exception("error in watch thread: %r" % path)
+            iposonic_app.log.exception("error in watch thread: %r" % path)
