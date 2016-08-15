@@ -239,7 +239,7 @@ class MemoryIposonicDB(IposonicDBTables):
             try:
                 ret.append(self.get_songs(eid=k))
             except Exception as e:
-                self.log.exception("error retrieving %s " % k )
+                self.log.exception("error retrieving %r " % k )
         return ret
 
     def add_path(self, path, album=False):
@@ -252,7 +252,7 @@ class MemoryIposonicDB(IposonicDBTables):
                 self.albums[eid] = MemoryIposonicDB.Album(path)
             else:
                 self.artists[eid] = MemoryIposonicDB.Artist(path)
-            self.log.info(u"adding directory: %s, %s " % (eid, stringutils.to_unicode(path)))
+            self.log.info(u"adding directory: %r, %r " % (eid, stringutils.to_unicode(path)))
             return eid
         elif MediaManager.is_allowed_extension(path):
             try:
@@ -261,7 +261,7 @@ class MemoryIposonicDB(IposonicDBTables):
                     'coverArt': MediaManager.cover_art_uuid(info)
                 })
                 self.songs[info['id']] = info
-                self.log.info("adding file: %s, %s " % (info['id'], path))
+                self.log.info("adding file: %r, %r " % (info['id'], path))
                 return info['id']
             except UnsupportedMediaError as e:
                 raise IposonicException(e)
@@ -304,7 +304,7 @@ class MemoryIposonicDB(IposonicDBTables):
                             "Adding to index converted entry: %s" % artist_j)
                     except IposonicException as e:
                         self.log.error(e)
-                self.log.info("artists: %s" % self.artists)
+                self.log.info("artists: %r" % self.artists)
 
         return self.get_indexes()
 

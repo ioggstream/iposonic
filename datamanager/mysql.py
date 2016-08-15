@@ -82,7 +82,7 @@ class MySQLIposonicDB(SqliteIposonicDB):
             self.log.info("Closing connection")
             conn.close()
         if self.recreate_db:
-            self.log.info("%s.__init__ recreates db" % self.__class__)
+            self.log.info("%r.__init__ recreates db" % self.__class__)
             Base.metadata.create_all(self.engine)
         self.initialized = True
         #_mysql.server_end()

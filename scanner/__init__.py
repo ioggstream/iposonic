@@ -43,22 +43,22 @@ def add_or_log(path, album=False, iposonic=None):
 #    def unbreakable(fn):
 #        def f(self, *args, **kwds):
 #            try:
-#                log.info("executing unbreakable %s" % f.__name__)
+#                log.info("executing unbreakable %r" % f.__name__)
 #                fn(self, *args, **kwds)
 #            except Exception:
-#                log.exception("error managing %s" % f.__name__)
+#                log.exception("error managing %r" % f.__name__)
 #        return f
 #
 #    @unbreakable
 #    def process_IN_CREATE(self, event):
 #        log.info("Creating File and File Record:", event.pathname)
-#        log.info("event object: %s" % {'path': event.path, 'name': event.name})
+#        log.info("event object: %r" % {'path': event.path, 'name': event.name})
 #        #self.iposonic.add_path(event.pathname)
 #
 #    @unbreakable
 #    def process_IN_DELETE(self, event):
 #        log.info("Deleting File and File Record:", event.pathname)
-#        log.debug("event object: %s" % event)
+#        log.debug("event object: %r" % event)
 #        self.iposonic.delete_entry(event.pathname)
 #
 
@@ -83,7 +83,7 @@ def eventually_rename_child(child, dir_path, rename_non_utf8=True):
         # guess the right encoding
         # then preserve the encoded string
         # while changing encoding
-        log.info("renaming child...%r", child)
+
         child_new = to_unicode(child)
 #        os.rename(
 #            b'%s/%s' % (dir_path.encode('utf-8'), child),
@@ -93,9 +93,11 @@ def eventually_rename_child(child, dir_path, rename_non_utf8=True):
         try:
             src = b'%s/%s' % (dir_path.encode('utf-8'), bytes(child))
             dst = b'%s/%s' % (dir_path.encode('utf-8'), child_new.encode('utf-8'))
-            os.rename(src, dst)
+            if src != dst:
+                log.info("renaming child... %r from %r", child, type(child))
+                os.rename(src, dst)
         except:
-            log.exception("Unicode Error with %r %r %r" % (dir_path, type(dir_path), dir_path.encode('utf-8')))
+            log.exception("Unicode Error with %r %r %r", dir_path, type(dir_path), dir_path.encode('utf-8'))
             raise UnicodeDecodeError
         child = child_new
     return child
@@ -121,9 +123,9 @@ def walk_music_folder(iposonic_app, forever=True):
         #index all artists
         for a in artists_local:
             try:
-                iposonic_app.log.info("scanning artist: %s" % repr(a))
+                iposonic_app.log.info("scanning artist: %r" % repr(a))
             except:
-                iposonic_app.log.warn(u'cannot read object: %s' % repr(a))
+                iposonic_app.log.warn(u'cannot read object: %r' % repr(a))
             if a:
                 try:
                     a = eventually_rename_child(a, music_folder)
@@ -147,8 +149,8 @@ def walk_music_folder(iposonic_app, forever=True):
                                 d = join(b"/", path.encode('utf-8'), dirpath, d).decode('utf-8')
                                 add_or_log(d, album=True)
                             except:
-                                iposonic_app.log.exception("error: %s, %s, %s" % (repr(path), repr(dirpath), repr(d)))
-                                #iposonic_app.log.info("error: %s, %s, %s" % stringutils.to_unicode(d))
+                                iposonic_app.log.exception("error: %r, %r, %r" % (repr(path), repr(dirpath), repr(d)))
+                                #iposonic_app.log.info("error: %r, %r, %r" % stringutils.to_unicode(d))
 
                         for f in filenames:
                             try:
@@ -157,14 +159,14 @@ def walk_music_folder(iposonic_app, forever=True):
                                     continue
                                 #p = join("/", path.encode('utf-8'), dirpath.encode('utf-8'), f.encode('utf-8')).decode('utf-8')
                                 p = join("/", path, dirpath, f)
-                                iposonic_app.log.info("p: %s" % repr(p))
+                                iposonic_app.log.info("p: %r" % repr(p))
                                 add_or_log(p)
                             except UnicodeDecodeError as e:
                                 iposonic_app.log.warn("bad file name: %r" % f)
                             except Exception as e:
                                 iposonic_app.log.exception("error: %r" % f)
                 except:
-                    iposonic_app.log.exception("error traversing: %s: %s %s %s" % (repr(path), repr(dirpath), repr(dirnames), repr(filenames)))
+                    iposonic_app.log.exception("error traversing: %r: %r %r %r" % (repr(path), repr(dirpath), repr(dirnames), repr(filenames)))
                 finally:
                     iposonic_app.log.info("finish traversing: %r" % path)
 
@@ -182,7 +184,7 @@ def watch_music_folder(iposonic_app):
     notifier = ThreadedNotifier(wm, ProcessDir(iposonic_app))
     notifier.start()
     for path in iposonic_app.get_music_folders():
-        iposonic_app.log.info("watching path: %s" % path)
+        iposonic_app.log.info("watching path: %r" % path)
         try:
             wdd = wm.add_watch(path.encode('utf-8'), mask, rec=True)
         except Exception as e:

@@ -108,7 +108,7 @@ def get_playlist_view():
         j_playlist = playlist
     # format output
     assert entries, "Missing entries: %s" % entries
-    print("Entries retrieved: %s" % entries)
+    log.info("Entries retrieved: %r", entries)
     j_playlist.update({
         'entry': entries,
         'songCount': len(entries),
@@ -133,9 +133,9 @@ def create_playlist_view():
 
     (name, playlistId) = map(request.values.get, ['name', 'playlistId'])
     songId_l = request.values.getlist('songId')
-    print("songId: %s" % songId_l)
+    log.info("songId: %s", songId_l)
     if not (name or playlistId):
-        print("request: %s" % request.data)
+        log.info("request: %s", request.data)
         raise SubsonicMissingParameterException(
             'id or playlistId', 'create_playlist_view')
 

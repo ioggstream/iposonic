@@ -40,7 +40,7 @@ def stream_view_new():
 
     (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
 
-    log.info("request.headers: %s" % request.headers)
+    log.info("request.headers: %r" % request.headers)
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
@@ -70,7 +70,7 @@ def stream_view_old():
 
     (eid, maxBitRate) = map(request.args.get, ['id', 'maxBitRate'])
 
-    log.info("request.headers: %s" % request.headers)
+    log.info("request.headers: %r" % request.headers)
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
@@ -87,13 +87,13 @@ def stream_view_old():
             log.info("sending unchanged")
             return False
 
-    log.info("actual - bitRate: %s" % info.get('bitRate'))
+    log.info("actual - bitRate: %r" % info.get('bitRate'))
     # XXX encode may be redundant here
     assert os.path.isfile(path.encode('utf-8')), "Missing file: %r" % path.encode('utf-8','xmlcharrefreplace')
 
     # update now playing
     try:
-        log.info("Update nowPlaying: %s for user: %s -> %s" % (eid,
+        log.info("Update nowPlaying: %r for user: %r -> %r" % (eid,
                  u, MediaManager.uuid(u)))
         user = app.iposonic.update_user(
             MediaManager.uuid(u), {'nowPlaying': eid})
@@ -102,7 +102,7 @@ def stream_view_old():
 
     if is_transcode(maxBitRate, info):
         return Response(_transcode(path, maxBitRate), direct_passthrough=True)
-    log.info("sending static file: %s" % path)
+    log.info("sending static file: %r" % path)
     return send_file(path)
 
 
@@ -191,12 +191,12 @@ def scrobble_view():
     assert eid, "Missing song id"
 
     if not u:
-        log.info("Cannot scrobble due to bad user value: %s" % repr(u))
+        log.info("Cannot scrobble due to bad user value: %r" % repr(u))
         assert u
 
     log.info("Retrieving scrobbling credentials")
     lastfm_user = app.iposonic.get_users(MediaManager.uuid(u))
-    log.info("Scobbling credentials: %s" % lastfm_user)
+    log.info("Scobbling credentials: %r" % lastfm_user)
 
     # get song info and append timestamp
     info = app.iposonic.get_entry_by_id(eid)
@@ -331,7 +331,7 @@ def get_cover_art_file(eid, nocache=False):
     # otherwise we need to guess from item info,
     # and hit the database
     info = app.iposonic.get_entry_by_id(eid)
-    log.info("search cover_art requires media info from db: %s" % info)
+    log.info("search cover_art requires media info from db: %r" % info)
 
     # search cover_art using id3 tag
     if not info.get('artist') or not info.get('album'):
@@ -341,11 +341,11 @@ def get_cover_art_file(eid, nocache=False):
     #   TODO add other patterns to "cd" eg. "disk", "volume"
     if info.get('isDir') and info.get('album').lower().startswith("cd"):
         info = app.iposonic.get_entry_by_id(info.get('parent'))
-        log.info("album is a cd, getting parent info: %s" % info)
+        log.info("album is a cd, getting parent info: %r" % info)
 
     cover_art_path = os.path.join(
         "/", app.iposonic.cache_dir, MediaManager.cover_art_uuid(info))
-    log.info("checking cover_art_uuid: %s" % cover_art_path)
+    log.info("checking cover_art_uuid: %r" % cover_art_path)
     if os.path.exists(cover_art_path):
         return cover_art_path
 

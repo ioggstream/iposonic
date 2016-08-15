@@ -19,7 +19,7 @@ class ChartLyrics():
         lyric_id, lyric_check_sum = [quote(info.get(x)) for x in [
                                      'artist', 'title']]
         uri = self.api_endpoint_search % (lyric_id, lyric_check_sum)
-        log.info("downloading lyrics from: %s" % uri)
+        log.info("downloading lyrics from: %r" % uri)
         xml_response = parse(urlopen(uri))
 
         for lyrics in xml_response.findall(self.tag_lyric):
@@ -36,7 +36,7 @@ class ChartLyrics():
         artist, song = [quote(info.get(x).lower()) for x in [
                         'artist', 'title']]
         uri = self.api_endpoint_search % (artist, song)
-        log.info("downloading lyrics from: %s" % uri)
+        log.info("downloading lyrics from: %r" % uri)
         xml_response = urlopen(uri)
         xml_response = parse(xml_response)
         for item in xml_response.getiterator(self.tag_lyric):

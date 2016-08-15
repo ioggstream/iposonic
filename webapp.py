@@ -64,12 +64,12 @@ def ping_view():
     """
     (u, p, v, c) = map(request.values.get, ['u', 'p', 'v', 'c'])
     iposonic = app.iposonic
-    log.warn("config: %s" % app.config)
-    log.warn("songs: %s" % len(iposonic.db.get_songs()))
-    log.warn("albums: %s" % len(iposonic.db.get_albums()))
-    log.warn("artists: %s" % len(iposonic.db.get_artists()))
-    #log.warn("indexes: %s" % iposonic.db.get_indexes())
-    #log.warn("playlists: %s" % iposonic.db.get_playlists())
+    log.warn("config: %r" % app.config)
+    log.warn("songs: %r" % len(iposonic.db.get_songs()))
+    log.warn("albums: %r" % len(iposonic.db.get_albums()))
+    log.warn("artists: %r" % len(iposonic.db.get_artists()))
+    #log.warn("indexes: %r" % iposonic.db.get_indexes())
+    #log.warn("playlists: %r" % iposonic.db.get_playlists())
 
     return request.formatter({})
 
@@ -112,7 +112,7 @@ def set_formatter():
             #   it's not a problem because the getCoverArt should
             #   return a byte stream
             if request.endpoint not in ['get_cover_art_view', 'stream_view', 'download_view']:
-                log.info("request: %s" % request.data)
+                log.info("request: %r" % request.data)
                 raise SubsonicProtocolException(
                     "Missing callback with jsonp in: %s" % request.endpoint)
         request.formatter = lambda x, status='ok': ResponseHelper.responsize_jsonp(
@@ -153,7 +153,7 @@ def set_content_type(response):
     """Set json response content-type."""
     (u, p, v, c, f, callback) = map(
         request.values.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
-    log.info("response is streamed: %s" % response.is_streamed)
+    log.info("response is streamed: %r" % response.is_streamed)
 
     if f in ['jsonp', 'json'] and not response.is_streamed:
         response.headers[b'content-type'] = 'application/json'
@@ -166,7 +166,7 @@ def set_content_type(response):
     if not response.is_streamed and not request.endpoint in ['stream_view', 'download_view']:
         # response.data is byte, so before printing we need to
         #   decode it as a unicode string
-        log.info("response: %s" % response.data.decode('utf-8'))
+        log.info("response: %r", response.data)
 
     return response
 
@@ -198,7 +198,7 @@ def iposonic_error(e):
 
 @app.errorhandler(AssertionError)
 def iposonic_error_in_flow(e):
-    log.exception("Error: %s" % e)
+    log.exception("Error: %r" % e)
     ret = {'error':
            [{
             'code': 0,
@@ -236,7 +236,7 @@ def hex_decode(s):
             ret += chr(l)
     else:
         ret = s
-    log.info("decoded password: %s" % ret)
+    log.info("decoded password: %r" % ret)
     return ret
 
 
@@ -257,7 +257,7 @@ def randomize(dictionary, limit=20):
             ret.append(dictionary[k_rnd])
         return ret
     except:
-        log.info("a_all:%s" % a_all)
+        log.info("a_all:%r" % a_all)
         raise
 
 
@@ -428,7 +428,7 @@ class ResponseHelper:
                     ret += "<%s%s/>" % (tag, attributes)
 
         # Log the source and destination of the response
-        ResponseHelper.log.debug("ret object is  %s" % ret.__class__)
+        ResponseHelper.log.debug("ret object is  %r" % ret.__class__)
         if dump_response:
             ResponseHelper.log.debug(
                 "\n\njsonp2xml: %s\n--->\n%s \n\n" % (json, ret))

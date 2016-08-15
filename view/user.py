@@ -61,7 +61,7 @@ def create_user_view():
         'scrobbleUser': scrobbleUser,
         'scrobblePassword': scrobblePassword
     }
-    log.warn("adding user: %s " % new_user)
+    log.warn("adding user: %r " % new_user)
     app.iposonic.add_user(new_user)
     return request.formatter({})
 
@@ -85,7 +85,7 @@ def update_user_view():
                 ])
     log.info("updating with the following fields: %r" % new_user)
     new_user = app.iposonic.db.update_user(eid=eid, new=new_user)
-    log.warn("updated user: %s " % new_user)
+    log.warn("updated user: %r " % new_user)
     return request.formatter({})
 
 
@@ -151,7 +151,7 @@ def set_now_playing_view():
     (u, p, v, c, f, callback, eid) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'id'])
 
-    log.info("Update nowPlaying: %s for user: %s -> %s" % (eid,
+    log.info("Update nowPlaying: %r for user: %r -> %r" % (eid,
              u, MediaManager.uuid(u)))
     app.iposonic.db.update_user(eid=MediaManager.uuid(u), new={
                                                                   'nowPlaying' : eid

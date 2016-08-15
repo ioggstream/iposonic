@@ -64,7 +64,7 @@ class Iposonic(object):
     log = logging.getLogger('Iposonic')
 
     def __init__(self, music_folders, dbhandler=MemoryIposonicDB, recreate_db=False, tmp_dir="/tmp/iposonic"):
-        self.log.info("Creating Iposonic with music folders: %s, dbhandler: %s" %
+        self.log.info("Creating Iposonic with music folders: %r, dbhandler: %r" %
                       (music_folders, dbhandler))
 
         # set directory
@@ -189,18 +189,18 @@ class Iposonic(object):
     # User stuff
     #
     def add_user(self, user):
-        self.log.info("creating user: %s" % user)
+        self.log.info("creating user: %r" % user)
         entry = self.db.User(user.get('username'))
         entry.update(user)
         return self.create_entry(entry)
 
     def update_user(self, eid, new):
-        self.log.info("updating user: %s" % eid)
+        self.log.info("updating user: %r" % eid)
         entry = self.db.update_user(eid, new)
         return entry
 
     def delete_user(self, eid):
-        self.log.info("delete user: %s" % eid)
+        self.log.info("delete user: %r" % eid)
         entry = self.db.delete_user(eid)
         return entry
     #

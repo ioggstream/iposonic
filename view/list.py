@@ -52,7 +52,7 @@ def get_starred_view():
     (artistCount, albumCount, songCount) = map(
         request.args.get, ["artistCount", "albumCount", "songCount"])
 
-    ret = app.iposonic.get_starred(query, artistCount, albumCount, songCount)
+    ret = app.iposonic.get_starred(artistCount, albumCount, songCount)
     print("ret: %s" % ret)
     return request.formatter(
         {
@@ -125,7 +125,7 @@ def get_album_list_view():
         albums = [a for a in app.iposonic.get_albums()]
 
     last = min(offset + size, len(albums) - 1)
-    log.info("paging albums: %s,%s/%s" % (offset, last, len(albums)))
+    log.info("paging albums: %r,%r/%r" % (offset, last, len(albums)))
     return request.formatter({'albumList': {'album': albums[offset:last]}})
 
 

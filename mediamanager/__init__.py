@@ -83,7 +83,7 @@ class MediaManager(object):
         album = album.replace('&', ' and ')
         album = MediaManager.re_notes.sub("", album)
         album = MediaManager.re_notes_2.sub("", album)
-        MediaManager.log.debug("normalize_artist(%s): %s" % (x, album))
+        MediaManager.log.debug("normalize_artist(%r): %r" % (x, album))
         return album.strip()
 
     @staticmethod
@@ -278,7 +278,7 @@ class MediaManager(object):
         #    raise UnsupportedMediaError("Path is not an Album: %s" % path_u)
         return MediaManager.get_info_from_filename2(path_u).get('title')
 
-        MediaManager.log.info("parsing album path: %s" % path_u)
+        MediaManager.log.info("parsing album path: %r" % path_u)
         title = basename(path_u)
         for separator in ['-', '(']:
             if title.find(separator) > 0:
@@ -317,7 +317,7 @@ class MediaManager(object):
                 manager = MediaManager.get_tag_manager(path_u)
                 audio = manager(path)
                 #audio = manager(path.encode('utf-8'))
-                MediaManager.log.debug("Original id3: %s" % audio)
+                MediaManager.log.debug("Original id3: %r" % audio)
                 
                 # Add only non-null fields
                 for (k, v) in audio.iteritems():
@@ -351,13 +351,13 @@ class MediaManager(object):
                 # Set default values for missing params
                 ret.setdefault('artist', 'WuMing')  
 
-                MediaManager.log.debug("Parsed id3: %s" % ret)
+                MediaManager.log.debug("Parsed id3: %r" % ret)
                 return ret
             except HeaderNotFoundError as e:
                 raise UnsupportedMediaError(
                     "Header not found in file: %s" % path, e)
             except ID3NoHeaderError as e:
-                MediaManager.log.warn("Media has no id3 header: %s" % path)
+                MediaManager.log.warn("Media has no id3 header: %r" % path)
             return None
 
         if not os.path.exists(path):

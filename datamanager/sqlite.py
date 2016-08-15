@@ -289,7 +289,7 @@ class SqliteIposonicDB(IposonicDBTables):
         if order:
             (order_f, is_desc) = order
             order_f = table_o.__getattribute__(table_o, order_f)
-            self.log.debug("order: %s" % [order])
+            self.log.debug("order: %r" % [order])
             if is_desc:
                 order_f = order_f.desc()
 
@@ -343,23 +343,23 @@ class SqliteIposonicDB(IposonicDBTables):
     @transactional
     def get_users(self, eid=None, query=None, session=None):
         assert session
-        self.log.info("get_users: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_users: eid: %r, query: %r" % (eid, query))
         return self._query_and_format(self.User, query, eid=eid, session=session)
 
     #@transactional
     def add_user(self, user):
         entry = self.User(user.get('username'))
         entry.update(user)
-        self.log.info("add_users: eid: %s, new: %s" % (entry, user))
+        self.log.info("add_users: eid: %r, new: %r" % (entry, user))
         return self.create_entry(entry)
 
     @transactional
     def update_user(self, eid, new, session=None):
         assert session
-        self.log.info("get_users: eid: %s, new: %s" % (eid, new))
+        self.log.info("get_users: eid: %r, new: %r" % (eid, new))
         old = self._query_id(
             eid, table=self.User, session=session).update(new)
-        self.log.info("user found, updating: %s" % old)
+        self.log.info("user found, updating: %r" % old)
 
     @transactional
     def delete_user(self, eid, session=None):
@@ -381,7 +381,7 @@ class SqliteIposonicDB(IposonicDBTables):
             try:
                 ret.append(self.get_songs(eid=k))
             except Exception as e:
-                self.log.warn("error retrieving %s due %s" % (k, e))
+                self.log.warn("error retrieving %r due %r" % (k, e))
         return ret
 
     @transactional
@@ -391,17 +391,17 @@ class SqliteIposonicDB(IposonicDBTables):
     @transactional
     def get_songs(self, eid=None, query=None, session=None):
         assert session
-        self.log.info("get_songs: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_songs: eid: %r, query: %r" % (eid, query))
         return self._query_and_format(self.Media, query, eid=eid, session=session)
 
     @transactional
     def get_albums(self, eid=None, query=None, order=None, session=None):
-        self.log.info("get_albums: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_albums: eid: %r, query: %r" % (eid, query))
         return self._query_and_format(self.Album, query, eid=eid, order=order, session=session)
 
     @transactional
     def get_playlists(self, eid=None, query=None, session=None):
-        self.log.info("get_playlists: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_playlists: eid: %r, query: %r" % (eid, query))
         return self._query_and_format(self.Playlist, query, eid=eid, session=session)
 
     @transactional
@@ -411,7 +411,7 @@ class SqliteIposonicDB(IposonicDBTables):
             returns a dict-array [{'id': .., 'name': .., 'path': .. }]
 
         """
-        self.log.info("get_artists: eid: %s, query: %s" % (eid, query))
+        self.log.info("get_artists: eid: %r, query: %r" % (eid, query))
         return self._query_and_format(self.Artist, query, eid=eid, order=order, session=session)
 
     def get_indexes(self):
@@ -513,7 +513,7 @@ class SqliteIposonicDB(IposonicDBTables):
 
           TODO: use ctime|mtime or inotify to avoid unuseful I/O.
         """
-        self.log.info("walking: %s" % self.get_music_folders())
+        self.log.info("walking: %r" % self.get_music_folders())
 
         if time.time() - self.initialized < self.refresh_interval:
             return
@@ -524,7 +524,7 @@ class SqliteIposonicDB(IposonicDBTables):
             try:
                 self.add_path(path, session=session)
             except IposonicException as e:
-                self.log.error(e)
+                pass  # self.log.error(e)
         # find all artists
         for music_folder in self.get_music_folders():
             artists_local = [x for x in os.listdir(
@@ -533,9 +533,9 @@ class SqliteIposonicDB(IposonicDBTables):
             #index all artists
             for a in artists_local:
                 try:
-                    self.log.info(u"scanning artist: %s" % a)
+                    self.log.info(u"scanning artist: %r" % a)
                 except:
-                    self.log.info(u'cannot read object: %s' % a.__class__)
+                    self.log.info(u'cannot read object: %r' % a.__class__)
                 if a:
                     path = join("/", music_folder, a)
                     add_or_log(self, path)

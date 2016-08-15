@@ -47,7 +47,7 @@ def setnowplaying():
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
 
 
-    log.info("request.headers: %s" % request.headers)
+    log.info("request.headers: %r" % request.headers)
     if not eid:
         raise SubsonicProtocolException(
             "Missing required parameter: 'id' in stream.view")
@@ -57,11 +57,11 @@ def setnowplaying():
 
     # update now playing
     try:
-        log.info("Update nowPlaying: %s for user: %s -> %s" % (eid,
+        log.info("Update nowPlaying: %r for user: %r -> %r" % (eid,
                  u, MediaManager.uuid(u)))
         user = app.iposonic.update_user(
             MediaManager.uuid(u), {'nowPlaying': eid})
     except:
-        log.exception("Can't update nowPlaying for user: %s" % u)
+        log.exception("Can't update nowPlaying for user: %r" % u)
 
     return request.formatter({})

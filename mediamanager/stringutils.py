@@ -61,7 +61,7 @@ def to_unicode(s, getencoding=False):
         If s is not a string, return the unchanged object.
     """
     if not isinstance(s, str):
-        log.debug("returning unchanged object: %s" % s.__class__)
+        log.debug("returning unchanged object: %r" % s.__class__)
         return s
     for e in encodings:
         try:

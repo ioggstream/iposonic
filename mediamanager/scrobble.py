@@ -75,6 +75,6 @@ def scrobble_worker():
         try:
             scrobble_many([info], lastfm_user)
         except:
-            log.exception("error while scrobbling entry: %s" % info)
+            log.exception("error while scrobbling entry: %r" % info)
         q.task_done()
     log.info("exiting scrobble worker")

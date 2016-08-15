@@ -28,10 +28,10 @@ class Authorizer(object):
                         continue
                     user, passwd = line.split("=")
                     if user and passwd:
-                        log.info("Adding user: %s" % user)
+                        log.info("Adding user: %r" % user)
                         self.add_user(user, passwd, cleartext=False)
                 except:
-                    log.info("Malformed line: [%s]" % line)
+                    log.info("Malformed line: [%r]" % line)
 
     def authorize(self, user, passwd):
         """Validate a password using the stored value."""
@@ -42,7 +42,7 @@ class Authorizer(object):
         passwd_hash = self.users.get(user)
         if md5(passwd).hexdigest() == passwd_hash:
             return True
-        log.info("Error authenticating user: %s" % user)
+        log.info("Error authenticating user: %r" % user)
         return False
 
     def add_user(self, user, passwd, cleartext=True):

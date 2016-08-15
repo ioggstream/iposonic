@@ -11,4 +11,4 @@ def test_get_lyrics():
 
     lyrics = c.search(info)
     assert lyrics
-    log.info("lyrics: %s" % lyrics)
+    log.info("lyrics: %r" % lyrics)

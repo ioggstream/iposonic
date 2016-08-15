@@ -93,7 +93,7 @@ def cover_search(album, nocache=False):
     """
     ret = None
     if album:
-        log.info("Searching the web for album: %s" % album)
+        log.info("Searching the web for album: %r",  album)
 
         c = CoverSource()
         # search lowercase to increase
@@ -108,11 +108,11 @@ def cover_search(album, nocache=False):
 
 def cover_art_mock(cache_dir, cover_searc=cover_search):
     while True:
-        log.info("cover_art_mock: %s" % q.get())
+        log.info("cover_art_mock: %r", q.get())
 
 
 def cover_art_worker(cache_dir, cover_search=cover_search):
-    log.info("starting downloader thread with tmp_dir: %s" % cache_dir)
+    log.info("starting downloader thread with tmp_dir: %r" , cache_dir)
     info = True
     while info:
         info = q.get()
@@ -121,15 +121,14 @@ def cover_art_worker(cache_dir, cover_search=cover_search):
                                           cache_dir,
                                           MediaManager.cover_art_uuid(info)
                                           )
-            log.info("coverart %s: searching album: %s " % (
-                info.get('id'), info.get('album')))
+            log.info("coverart %r: searching album: %r ", info.get('id'), info.get('album'))
             covers = cover_search(info.get('album'))
             for cover in covers:
                 # TODO consider multiple authors in info
                 #  ex. Actually "U2 & Frank Sinatra" != "U2"
                 #      leads to a false negative
                 # TODO con
-                print "confronting info: %s with: %s" % (info, cover)
+                log.info("confronting info: %r with: %r" , info, cover)
                 normalize_info, normalize_cover = map(
                     MediaManager.normalize_artist, [info, cover])
                 full_match = len(set([normalize_info, normalize_cover])) == 1
@@ -139,19 +138,17 @@ def cover_art_worker(cache_dir, cover_search=cover_search):
                 partial_match = len(
                     [x for x in normalize_info if x not in normalize_cover]) == 0
                 if full_match or stopwords_match or partial_match:
-                    log.warn("Saving image %s -> %s" % (
-                        cover.get('cover_small'), cover_art_path)
-                    )
+                    log.warn("Saving image %r -> %r" , cover.get('cover_small'), cover_art_path)
                     fd = open(cover_art_path, "w")
                     fd.write(urlopen(cover.get('cover_small')).read())
                     fd.close()
 
                 else:
-                    log.info("Artist mismatch: %s, %s" % tuple(
-                        [x.get('artist', x.get('name')) for x in [info, cover]])
+                    log.info("Artist mismatch: %r" % 
+                        [x.get('artist', x.get('name')) for x in (info, cover)]
                     )
         except Exception as e:
-            log.error("Error while downloading albumart.", e)
+            log.exception("Error while downloading albumart.", e)
 
         q.task_done()
     log.warn("finish download thread")

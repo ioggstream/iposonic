@@ -209,7 +209,7 @@ def get_music_directory_view():
     (path, dir_path) = app.iposonic.get_directory_path_by_id(dir_id)
     mf = app.iposonic.db.music_folders[0]
     dir_path = os.path.join("/", mf, dir_path)
-    log.info("Getting entries in path: %s" % dir_path)
+    log.info("Getting entries in path: %r" % dir_path)
     children = []
     artist = app.iposonic.db.Artist(dir_path)
     #
@@ -328,7 +328,7 @@ def search2_view():
     """
     (u, p, v, c, f, callback, query) = map(
         request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback', 'query'])
-    log.info("query:%s\n\n" % query)
+    log.info("query:%r\n\n" % query)
     if not query:
         raise SubsonicProtocolException(
             "Missing required parameter: 'query' in search2.view")
@@ -342,7 +342,7 @@ def search2_view():
     #songs = [{'song': s} for s in ret['title']]
     #songs.extend([{'album': a} for a in ret['album']])
     #songs.extend([{'artist': a} for a in ret['artist']])
-    log.info("ret: %s" % ret)
+    log.info("ret: %r" % ret)
     return request.formatter(
         {
             'searchResult2': {
