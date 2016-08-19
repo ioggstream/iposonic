@@ -1,0 +1,8 @@
+flask
+mutagen
+simplejson
+argparse
+sqlalchemy       # [optional if you want a permanent store]
+MySQL - python     # [optional if you want MySQL support]
+pylast             # [optional if you want to scrobble to last.fm]
+nose             # [to test and develop]

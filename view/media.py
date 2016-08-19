@@ -16,6 +16,7 @@ from urllib import  urlencode
 from urllib2 import urlopen
 import simplejson
 from mediamanager.lyrics import ChartLyrics
+from mediamanager import scrobble
 #
 # download and stream
 #
@@ -428,3 +429,33 @@ def get_lyrics_view():
     return request.formatter(ret)
 
     raise NotImplementedError("WriteMe")
+
+
+@app.route("/rest/getArtistInfo.view", methods=['POST'])  
+def get_artist_info():
+    """ INFO:werkzeug:127.0.0.1 - - [16/Aug/2016 01:03:52] "POST /rest/getArtistInfo.view?u=ioggstream&p=enc:3371727431706333317035&v=1.2.0&c=DSub&id=-1778893842&includeNotPresent=true HTTP/1.0" 404 -
+
+<artistInfo>
+<biography>
+Black Sabbath is an English <a target='_blank' href="http://www.last.fm/tag/heavy%20metal" class="bbcode_tag" rel="tag">heavy metal</a> band that formed in 1968 in Birmingham, West Midlands, England, United Kingdom, originally comprising <a target='_blank' href="http://www.last.fm/music/Ozzy+Osbourne" class="bbcode_artist">Ozzy Osbourne</a> (vocals), <a target='_blank' href="http://www.last.fm/music/Tony+Iommi" class="bbcode_artist">Tony Iommi</a> (guitar), <a target='_blank' href="http://www.last.fm/music/Geezer+Butler" class="bbcode_artist">Geezer Butler</a> (bass), and <a target='_blank' href="http://www.last.fm/music/Bill+Ward" class="bbcode_artist">Bill Ward</a> (drums). In the early <a target='_blank' href="http://www.last.fm/tag/70s" class="bbcode_tag" rel="tag">70s</a>, they were the first to pair heavily distorted, sonically dissonant <a target='_blank' href="http://www.last.fm/tag/blues%20rock" class="bbcode_tag" rel="tag">blues rock</a> at slow speeds with lyrics about drugs, mental pain and abominations of war, thus giving birth to generations of metal bands that followed in their wake. <a target='_blank' href="http://www.last.fm/music/Black+Sabbath">Read more about Black Sabbath on Last.fm</a>.
+</biography>
+<musicBrainzId>5182c1d9-c7d2-4dad-afa0-ccfeada921a8</musicBrainzId>
+<lastFmUrl>http://www.last.fm/music/Black+Sabbath</lastFmUrl>
+<smallImageUrl>http://userserve-ak.last.fm/serve/64/27904353.jpg</smallImageUrl>
+<mediumImageUrl>http://userserve-ak.last.fm/serve/126/27904353.jpg</mediumImageUrl>
+<largeImageUrl>
+http://userserve-ak.last.fm/serve/_/27904353/Black+Sabbath+sabbath+1970.jpg
+</largeImageUrl>
+<similarArtist id="22" name="Accept"/>
+<similarArtist id="101" name="Bruce Dickinson"/>
+<similarArtist id="26" name="Aerosmith"/>
+</artistInfo>
+   """
+    (u, p, v, c, f, callback) = map(
+        request.args.get, ['u', 'p', 'v', 'c', 'f', 'callback'])
+    (artist, ) = map(request.args.get, ['id'])
+    assert artist
+    artist = app.iposonic.get_artists(eid=artist)
+    ret = scrobble.get_artist_info(artist['name'])
+    log.warn("%r: %r", artist, ret)
+    return request.formatter(ret)

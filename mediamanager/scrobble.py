@@ -47,6 +47,22 @@ def scrobble_many(info_l, lastfm_user):
     return ret
 
 
+def get_artist_info(name):
+
+    network = ScrobbleNetwork(api_key=API_KEY, 
+                              api_secret=API_SECRET
+                            )
+    artist = network.get_artist(name)
+    return {'artistInfo': {
+        'biography': { '':  [artist.get_bio_content()]},
+        'musicBrainzId': { '':  [artist.get_mbid()]},
+        'smallImageUrl': { '':  [artist.get_cover_image(0)]},
+        'mediumImageUrl': { '':  [artist.get_cover_image(1)]},
+        'largeImageUrl': { '':  [artist.get_cover_image(2)]},
+       }
+    }
+
+
 def get_similar(info, lastfm_user):
     """Get a playlist of song similar to the given one.
 
