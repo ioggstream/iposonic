@@ -29,7 +29,7 @@ from mediamanager.stringutils import to_unicode
 # SqlAlchemy for ORM
 from sqlalchemy import orm
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
-from sqlalchemy import create_engine, desc
+from sqlalchemy import create_engine, desc, func
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.query import Query
@@ -413,6 +413,18 @@ class SqliteIposonicDB(IposonicDBTables):
         """
         self.log.info("get_artists: eid: %r, query: %r" % (eid, query))
         return self._query_and_format(self.Artist, query, eid=eid, order=order, session=session)
+
+
+    @transactional
+    def get_genres(self, session):
+        """Return a list of genres, in json"""
+        qmodel = session.query(func.count(self.Media.id)).group_by(self.Media.genre)
+        rs = qmodel.all()
+        if not rs:
+            return []
+        self.log.warn("ret: %r", rs)
+        return [r for r in rs]
+
 
     def get_indexes(self):
         """Create a subsonic index getting artists from the database."""

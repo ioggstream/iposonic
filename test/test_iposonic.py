@@ -88,6 +88,13 @@ class TestIposonic:
         for x in ret:
             assert x['genre'] == "mock_genre"
 
+    def test_genres(self):
+        ret = self.iposonic.get_genres()
+        raise NotImplementedError
+        assert ret
+        for x in ret:
+            assert x['genre'] == "mock_genre"
+
     def test_directory_get(self):
         dirs = self.iposonic.db.get_artists()
         assert dirs, "empty artists %s" % dirs

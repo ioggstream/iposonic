@@ -232,6 +232,9 @@ class Iposonic(object):
         songs = []
         return self.db.get_songs(query={'genre': query})
 
+    def get_genres(self):
+        return self.db.get_genres()
+
     def search2(self, query, artistCount=10, albumCount=10, songCount=10):
         """Return items matching the query in their principal name.
 

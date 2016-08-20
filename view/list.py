@@ -180,3 +180,43 @@ def get_random_songs_view():
     # add cover art
     songs = [x.update({'coverArt': x.get('id')}) or x for x in songs]
     return request.formatter({'randomSongs': {'song': songs}})
+
+
+@app.route("/rest/getGenres.view", methods=['GET', 'POST'])
+def get_genres_view():
+    """
+
+    request:
+      size    No  10  The maximum number of songs to return. Max 500.
+      genre   No      Only returns songs belonging to this genre.
+      fromYear    No      Only return songs published after or in this year.
+      toYear  No      Only return songs published before or in this year.
+      musicFolderId   No      Only return songs in the music folder with the given ID. See getMusicFolders.
+
+    response 
+<genres>
+<genre songCount="28" albumCount="6">Electronic</genre>
+<genre songCount="6" albumCount="2">Hard Rock</genre>
+<genre songCount="8" albumCount="2">R&B</genre>
+<genre songCount="22" albumCount="2">Blues</genre>
+<genre songCount="2" albumCount="2">Podcast</genre>
+<genre songCount="11" albumCount="1">Brit Pop</genre>
+<genre songCount="14" albumCount="1">Live</genre>
+</genres>
+
+
+    response json:
+        {'randomSongs':
+            { 'song' : [
+                {   'id' : ..,
+                    'coverArt': ..,
+                    'contentType': ..,
+                    'transcodedContentType': ..,
+                    'transcodedSuffix': ..
+                }, ..
+            }
+        }
+    """
+    all_genres = app.iposonic.get_genres()
+
+    return request.formatter({'genres': {'genre': all_genres}})
